@@ -1,0 +1,865 @@
+/* 配色模板 - 通过 html[data-theme] 切换 */
+
+/* 切换模版下拉样式 */
+.theme-switcher {
+    position: relative;
+    display: inline-block;
+}
+.theme-switcher-btn {
+    padding: 6px 14px !important;
+    font-size: 14px !important;
+}
+.theme-switcher-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0; /* 面板宽度与按钮宽度一致 */
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 100;
+    padding: 4px 0;
+    max-height: 240px; /* UI 规范：面板最大高度 */
+    overflow: auto; /* 超出显示滚动条 */
+}
+.theme-switcher-dropdown.hidden {
+    display: none !important;
+}
+.theme-switcher-option {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #374151;
+}
+.theme-switcher-option:hover {
+    background: #f3f4f6;
+}
+.theme-switcher-option.active {
+    background: #eff6ff;
+    color: #2563eb;
+}
+html[data-theme="dark"] .theme-switcher-dropdown {
+    background: #1E2228;
+    border-color: #2A3038;
+}
+html[data-theme="dark"] .theme-switcher-option {
+    color: rgba(255, 255, 255, 0.87);
+}
+html[data-theme="dark"] .theme-switcher-option:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+html[data-theme="dark"] .theme-switcher-option.active {
+    background: rgba(74, 158, 255, 0.16);
+    color: #4A9EFF;
+}
+
+/* UI 规范：自定义下拉（Select / Combobox）深色主题适配 */
+html[data-theme="dark"] .select-trigger {
+    background: #1E2228;
+    color: rgba(255, 255, 255, 0.87);
+    border-color: #2A3038;
+}
+html[data-theme="dark"] .select-trigger-text {
+    color: rgba(255, 255, 255, 0.87);
+}
+html[data-theme="dark"] .select-caret {
+    border-top-color: rgba(255, 255, 255, 0.60);
+}
+html[data-theme="dark"] .select-panel {
+    background: #1E2228;
+    border-color: #2A3038;
+}
+html[data-theme="dark"] .select-option {
+    color: rgba(255, 255, 255, 0.87);
+}
+html[data-theme="dark"] .select-option:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+html[data-theme="dark"] .select-option.active {
+    background: rgba(74, 158, 255, 0.16);
+    color: #4A9EFF;
+}
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+/* 打卡页 header 按钮与其他页面一致 */
+.app .header-actions .btn,
+.app .header-actions .theme-switcher-btn {
+    padding: 6px 14px !important;
+    font-size: 14px !important;
+    background-color: #e5e7eb !important;
+    color: #111827 !important;
+    border: none !important;
+    border-radius: 4px !important;
+}
+.app .header-actions .btn:hover:not(:disabled),
+.app .header-actions .theme-switcher-btn:hover {
+    background-color: #d1d5db !important;
+}
+
+
+/* 默认/浅色模板 */
+html[data-theme="light"] body,
+html:not([data-theme]) body {
+    background-color: #f5f7fb !important;
+    color: #222 !important;
+}
+html[data-theme="light"] body.home-page,
+html:not([data-theme]) body.home-page {
+    background-color: #e8f5e9 !important;
+}
+html[data-theme="light"] .control-panel,
+html[data-theme="light"] .table-section,
+html:not([data-theme]) .control-panel,
+html:not([data-theme]) .table-section {
+    background-color: #fff !important;
+}
+html[data-theme="light"] .home-card,
+html:not([data-theme]) .home-card {
+    background-color: #ffffff !important;
+}
+html[data-theme="light"] .notes-detail,
+html[data-theme="light"] .notes-sidebar,
+html[data-theme="light"] .bookmarks-sidebar,
+html[data-theme="light"] .sync-notes-sidebar,
+html[data-theme="light"] .sync-notes-editor,
+html[data-theme="light"] .sync-notes-right,
+html:not([data-theme]) .notes-detail,
+html:not([data-theme]) .notes-sidebar,
+html:not([data-theme]) .bookmarks-sidebar,
+html:not([data-theme]) .sync-notes-sidebar,
+html:not([data-theme]) .sync-notes-editor,
+html:not([data-theme]) .sync-notes-right {
+    background-color: #fff !important;
+}
+html[data-theme="light"] .bookmarks-main,
+html:not([data-theme]) .bookmarks-main {
+    background-color: #f5f6f7 !important;
+}
+html[data-theme="light"] .app .calendar-day.other-month,
+html:not([data-theme]) .app .calendar-day.other-month {
+    color: #9ca3af !important;
+}
+
+/* 打卡模板 - 紫粉青渐变 */
+html[data-theme="checkin"] body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%) !important;
+    background-attachment: fixed !important;
+    color: #111827 !important;
+}
+html[data-theme="checkin"] body.home-page {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%) !important;
+    background-attachment: fixed !important;
+}
+html[data-theme="checkin"] .control-panel,
+html[data-theme="checkin"] .table-section,
+html[data-theme="checkin"] .home-card {
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+html[data-theme="checkin"] .notes-sidebar,
+html[data-theme="checkin"] .notes-detail,
+html[data-theme="checkin"] .bookmarks-sidebar,
+html[data-theme="checkin"] .sync-notes-sidebar,
+html[data-theme="checkin"] .sync-notes-editor,
+html[data-theme="checkin"] .sync-notes-right {
+    background: rgba(255, 255, 255, 0.4) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+html[data-theme="checkin"] .bookmarks-main {
+    background: rgba(255, 255, 255, 0.45) !important;
+}
+html[data-theme="checkin"] .file-table thead th,
+html[data-theme="checkin"] .file-table thead {
+    background-color: rgba(255, 255, 255, 0.5) !important;
+}
+html[data-theme="checkin"] .file-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+html[data-theme="checkin"] .file-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.35) !important;
+}
+html[data-theme="checkin"] .app .calendar-day.other-month {
+    color: rgba(255, 255, 255, 0.45) !important;
+}
+html[data-theme="checkin"] .app .nav-tab {
+    color: #1a1a2e !important;
+}
+html[data-theme="checkin"] .app .nav-tab:hover {
+    color: #667eea !important;
+}
+html[data-theme="checkin"] .app .nav-tab.active {
+    color: #667eea !important;
+    border-bottom-color: rgba(102, 126, 234, 0.9) !important;
+}
+html[data-theme="checkin"] .app .calendar-day.selected {
+    box-shadow: 0 0 0 2px #667eea !important;
+}
+html[data-theme="checkin"] .app .detail-event-item.checked,
+html[data-theme="checkin"] .app .event-item.checked {
+    background: rgba(102, 126, 234, 0.18) !important;
+    border-color: rgba(102, 126, 234, 0.45) !important;
+}
+html[data-theme="checkin"] .app .detail-complete-icon {
+    color: #667eea !important;
+}
+html[data-theme="checkin"] .app .detail-label-tag {
+    background: transparent !important;
+    border-color: rgba(102, 126, 234, 0.5);
+    color: #1a1a2e !important;
+}
+html[data-theme="checkin"] .home-intro {
+    color: #d1d5db !important;
+}
+
+/* 夜晚模板 */
+html[data-theme="dark"] body {
+    background-color: #0D0F12 !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] body.home-page {
+    background-color: #0D0F12 !important;
+}
+html[data-theme="dark"] .subtitle {
+    color: rgba(255, 255, 255, 0.60) !important;
+}
+html[data-theme="dark"] .control-panel,
+html[data-theme="dark"] .table-section,
+html[data-theme="dark"] .home-card {
+    background-color: #1E2228 !important;
+    border: 1px solid #2A3038;
+}
+html[data-theme="dark"] .home-card:hover {
+    background-color: #242A31 !important;
+}
+html[data-theme="dark"] .home-card-title {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .home-card-desc {
+    color: rgba(255, 255, 255, 0.60) !important;
+}
+html[data-theme="dark"] .notes-sidebar,
+html[data-theme="dark"] .notes-detail,
+html[data-theme="dark"] .bookmarks-sidebar,
+html[data-theme="dark"] .sync-notes-sidebar,
+html[data-theme="dark"] .sync-notes-editor,
+html[data-theme="dark"] .sync-notes-right {
+    background-color: #1E2228 !important;
+    border-color: #2A3038;
+}
+html[data-theme="dark"] .bookmarks-main {
+    background-color: #14171B !important;
+}
+html[data-theme="dark"] .file-table thead th,
+html[data-theme="dark"] .file-table thead {
+    background-color: #242A31 !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .file-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+}
+html[data-theme="dark"] .file-table tbody tr:hover {
+    background-color: rgba(74, 158, 255, 0.10) !important;
+}
+html[data-theme="dark"] .file-table th,
+html[data-theme="dark"] .file-table td {
+    border-color: #2A3038 !important;
+    color: rgba(255, 255, 255, 0.60) !important;
+}
+html[data-theme="dark"] .field-label,
+html[data-theme="dark"] .field-control,
+html[data-theme="dark"] .control-row label {
+    color: rgba(255, 255, 255, 0.60) !important;
+}
+html[data-theme="dark"] .field-control,
+html[data-theme="dark"] .control-row input,
+html[data-theme="dark"] .control-row select {
+    background-color: #14171B !important;
+    border-color: #2A3038 !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .btn {
+    background-color: #1E2228 !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .btn:hover:not(:disabled) {
+    background-color: #242A31 !important;
+}
+html[data-theme="dark"] .btn.primary {
+    background-color: #4A9EFF !important;
+}
+html[data-theme="dark"] .btn.primary:hover:not(:disabled) {
+    background-color: #2D86F0 !important;
+}
+html[data-theme="dark"] .notes-list-item.active,
+html[data-theme="dark"] .bookmarks-category-item.active,
+html[data-theme="dark"] .sync-notes-list-item.active {
+    background-color: rgba(74, 158, 255, 0.10) !important;
+    border-left-color: #03DAC6;
+}
+html[data-theme="dark"] .notes-list-item:hover,
+html[data-theme="dark"] .bookmarks-category-item:hover,
+html[data-theme="dark"] .sync-notes-list-item:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+html[data-theme="dark"] .notes-form-label,
+html[data-theme="dark"] .notes-list-title,
+html[data-theme="dark"] .bookmarks-category-item .category-name,
+html[data-theme="dark"] .sync-notes-right-title {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app-footer,
+html[data-theme="dark"] .placeholder {
+    color: #6B6F76 !important;
+}
+/* 打卡页 header 夜晚模式与其他页面一致 */
+html[data-theme="dark"] .app .header-actions .btn,
+html[data-theme="dark"] .app .header-actions .theme-switcher-btn {
+    background-color: #1E2228 !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .header-actions .btn:hover:not(:disabled),
+html[data-theme="dark"] .app .header-actions .theme-switcher-btn:hover {
+    background-color: #242A31 !important;
+}
+/* 打卡页夜晚 */
+html[data-theme="dark"] .app .card {
+    background: rgba(30, 34, 40, 0.92) !important;
+    border-color: rgba(42, 48, 56, 0.9);
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .nav-tab {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .nav-tab.active {
+    color: #4A9EFF !important;
+    border-bottom-color: #4A9EFF !important;
+}
+html[data-theme="dark"] .app .btn-ghost {
+    background: rgba(20, 23, 27, 0.65) !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+    border-color: #2A3038 !important;
+}
+html[data-theme="dark"] .app .btn-edit-event {
+    background-color: transparent !important;
+    color: #CF6679 !important;
+    border: 1px solid rgba(207, 102, 121, 0.85) !important;
+}
+html[data-theme="dark"] .app .btn-edit-event:hover {
+    background-color: rgba(207, 102, 121, 0.16) !important;
+}
+html[data-theme="dark"] .app #btn-add-event,
+html[data-theme="dark"] .app #btn-edit-event-save {
+    background-color: #4A9EFF !important;
+    color: #fff !important;
+}
+html[data-theme="dark"] .app #btn-add-event:hover,
+html[data-theme="dark"] .app #btn-edit-event-save:hover:not(:disabled) {
+    background-color: #2D86F0 !important;
+}
+html[data-theme="dark"] .app .calendar-day {
+    background: rgba(30, 34, 40, 0.75) !important;
+    border-color: rgba(42, 48, 56, 0.9);
+    color: rgba(255, 255, 255, 0.60) !important;
+}
+html[data-theme="dark"] .app .calendar-day.other-month {
+    color: #6B6F76 !important;
+}
+html[data-theme="dark"] .app .calendar-day.past {
+    background: rgba(20, 23, 27, 0.75) !important;
+}
+html[data-theme="dark"] .app .modal {
+    background: #1E2228 !important;
+    border-color: #2A3038;
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .modal-event-item,
+html[data-theme="dark"] .app .detail-event-item,
+html[data-theme="dark"] .app .event-item {
+    background: rgba(20, 23, 27, 0.55) !important;
+    border-color: #2A3038;
+}
+html[data-theme="dark"] .app .modal-event-item:hover,
+html[data-theme="dark"] .app .detail-event-item:hover,
+html[data-theme="dark"] .app .event-item:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+html[data-theme="dark"] .app .modal-event-item.checked,
+html[data-theme="dark"] .app .detail-event-item.checked {
+    background: rgba(3, 218, 198, 0.14) !important;
+    border-color: rgba(3, 218, 198, 0.28);
+}
+html[data-theme="dark"] .app .detail-complete-icon {
+    color: #03DAC6 !important;
+}
+html[data-theme="dark"] .app .stats-card,
+html[data-theme="dark"] .app .calendar-card {
+    background: rgba(30, 34, 40, 0.92) !important;
+    border-color: rgba(42, 48, 56, 0.9);
+}
+html[data-theme="dark"] .app .stats-circle-inner {
+    background: rgba(20, 23, 27, 0.85) !important;
+    color: #03DAC6 !important;
+}
+html[data-theme="dark"] .app .stats-card-label,
+html[data-theme="dark"] .app .stats-task-pct,
+html[data-theme="dark"] .app .add-event-hint,
+html[data-theme="dark"] .app .empty-state {
+    color: rgba(255, 255, 255, 0.60) !important;
+}
+html[data-theme="dark"] .app .stats-task-item {
+    border-bottom-color: rgba(42, 48, 56, 0.9) !important;
+}
+html[data-theme="dark"] .app .stats-task-bar-wrap {
+    background: rgba(20, 23, 27, 0.55) !important;
+}
+html[data-theme="dark"] .app .calendar-weekday {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .card-title,
+html[data-theme="dark"] .app .calendar-title,
+html[data-theme="dark"] .app .calendar-detail-title {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .detail-label-tag {
+    background: transparent !important;
+    border-color: #2A3038;
+    color: rgba(255, 255, 255, 0.60) !important;
+}
+html[data-theme="dark"] .app .detail-section-title {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .modal-overlay {
+    background: rgba(0, 0, 0, 0.55) !important;
+}
+html[data-theme="dark"] .app .add-event-form input,
+html[data-theme="dark"] .app .add-event-form input[type="text"],
+html[data-theme="dark"] .app .add-event-form input[type="date"],
+html[data-theme="dark"] .app .add-event-form input[type="color"],
+html[data-theme="dark"] .app select.event-form-select,
+html[data-theme="dark"] .app .modal select.event-form-select {
+    background-color: #14171B !important;
+    border-color: #2A3038 !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .app .add-event-form .form-row span {
+    color: #6B6F76 !important;
+}
+html[data-theme="dark"] .app .calendar-day.today .day-num {
+    background: #CF6679 !important;
+    color: #fff !important;
+}
+html[data-theme="dark"] .app .calendar-day .day-reminder-icon-completed {
+    color: #03DAC6 !important;
+}
+html[data-theme="dark"] .app .calendar-day.selected {
+    box-shadow: 0 0 0 2px #4A9EFF !important;
+}
+html[data-theme="dark"] .app .modal-title,
+html[data-theme="dark"] .app .delete-event-msg {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+
+/* 黄绿色系模板 */
+html[data-theme="yellow-green"] body {
+    background: linear-gradient(135deg, #fef9c3 0%, #dcfce7 50%, #bbf7d0 100%) !important;
+    background-attachment: fixed !important;
+    color: #166534 !important;
+}
+html[data-theme="yellow-green"] body.home-page {
+    background: linear-gradient(135deg, #fef9c3 0%, #dcfce7 50%, #bbf7d0 100%) !important;
+    background-attachment: fixed !important;
+}
+html[data-theme="yellow-green"] .subtitle {
+    color: #15803d !important;
+}
+html[data-theme="yellow-green"] .control-panel,
+html[data-theme="yellow-green"] .table-section {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+html[data-theme="yellow-green"] .home-card {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+html[data-theme="yellow-green"] .home-card:hover {
+    background: rgba(254, 249, 195, 0.6) !important;
+}
+html[data-theme="yellow-green"] .home-card-title {
+    color: #166534 !important;
+}
+html[data-theme="yellow-green"] .home-card-desc {
+    color: #15803d !important;
+}
+html[data-theme="yellow-green"] .notes-sidebar,
+html[data-theme="yellow-green"] .notes-detail,
+html[data-theme="yellow-green"] .bookmarks-sidebar,
+html[data-theme="yellow-green"] .sync-notes-sidebar,
+html[data-theme="yellow-green"] .sync-notes-editor,
+html[data-theme="yellow-green"] .sync-notes-right {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: rgba(34, 197, 94, 0.3);
+}
+html[data-theme="yellow-green"] .bookmarks-main {
+    background: rgba(254, 249, 195, 0.3) !important;
+}
+html[data-theme="yellow-green"] .notes-list-item.active,
+html[data-theme="yellow-green"] .bookmarks-category-item.active,
+html[data-theme="yellow-green"] .sync-notes-list-item.active {
+    background-color: #dcfce7 !important;
+    border-left-color: #22c55e;
+}
+html[data-theme="yellow-green"] .btn.primary {
+    background-color: #22c55e !important;
+}
+html[data-theme="yellow-green"] .btn.primary:hover:not(:disabled) {
+    background-color: #16a34a !important;
+}
+/* 打卡页黄绿 */
+html[data-theme="yellow-green"] .app .card {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #166534 !important;
+}
+html[data-theme="yellow-green"] .app .nav-tab {
+    color: #166534 !important;
+}
+html[data-theme="yellow-green"] .app .nav-tab.active {
+    color: #15803d !important;
+    border-bottom-color: #22c55e !important;
+}
+html[data-theme="yellow-green"] .app .btn-ghost {
+    background: rgba(255, 255, 255, 0.6) !important;
+    color: #166534 !important;
+    border-color: rgba(34, 197, 94, 0.4) !important;
+}
+html[data-theme="yellow-green"] .app .calendar-day {
+    background: rgba(255, 255, 255, 0.5) !important;
+    border-color: rgba(34, 197, 94, 0.35);
+    color: #166534 !important;
+}
+html[data-theme="yellow-green"] .app .calendar-day.other-month {
+    color: #9ca3af !important;
+}
+html[data-theme="yellow-green"] .app .calendar-day.past {
+    background: #f2f2f2 !important;
+}
+html[data-theme="yellow-green"] .app .calendar-day.today .day-num {
+    background: #dc2626 !important;
+    color: #fff !important;
+}
+html[data-theme="yellow-green"] .app .calendar-day.selected {
+    box-shadow: 0 0 0 2px #22c55e !important;
+}
+html[data-theme="yellow-green"] .app .calendar-weekday {
+    color: #166534 !important;
+}
+html[data-theme="yellow-green"] .app .detail-label-tag {
+    background: transparent !important;
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #166534 !important;
+}
+html[data-theme="yellow-green"] .app .detail-event-item.checked,
+html[data-theme="yellow-green"] .app .event-item.checked {
+    background: rgba(34, 197, 94, 0.18) !important;
+    border-color: rgba(34, 197, 94, 0.45) !important;
+}
+html[data-theme="yellow-green"] .app .detail-complete-icon {
+    color: #16a34a !important;
+}
+
+/* 橙意满满模板 */
+html[data-theme="orange"] body {
+    /* 略带暖感的浅橙背景，避免纯白偏冷 */
+    background-color: #FFF6F0 !important;
+    color: #5A5E66 !important;
+}
+html[data-theme="orange"] body.home-page {
+    /* 首页更亮一点但仍保留暖橙调 */
+    background-color: #FFF2E6 !important;
+}
+html[data-theme="orange"] .subtitle {
+    color: #8C8F99 !important;
+}
+html[data-theme="orange"] .control-panel,
+html[data-theme="orange"] .table-section,
+html[data-theme="orange"] .home-card {
+    background-color: #FFFFFF !important;
+    border: 1px solid rgba(217, 91, 26, 0.25);
+}
+html[data-theme="orange"] .home-card:hover {
+    background-color: rgba(255, 179, 71, 0.20) !important;
+    border-color: rgba(217, 91, 26, 0.35);
+}
+html[data-theme="orange"] .home-card-title {
+    color: #1E1E1E !important;
+}
+html[data-theme="orange"] .home-card-desc {
+    color: #5A5E66 !important;
+}
+html[data-theme="orange"] .notes-sidebar,
+html[data-theme="orange"] .notes-detail,
+html[data-theme="orange"] .bookmarks-sidebar,
+html[data-theme="orange"] .sync-notes-sidebar,
+html[data-theme="orange"] .sync-notes-editor,
+html[data-theme="orange"] .sync-notes-right {
+    background-color: #FFFFFF !important;
+    border-color: rgba(217, 91, 26, 0.20);
+}
+html[data-theme="orange"] .bookmarks-main {
+    background-color: #F8F9FA !important;
+}
+html[data-theme="orange"] .file-table thead th,
+html[data-theme="orange"] .file-table thead {
+    background-color: rgba(255, 179, 71, 0.22) !important;
+    color: #1E1E1E !important;
+}
+html[data-theme="orange"] .file-table tbody tr:nth-child(even) {
+    background-color: rgba(245, 166, 35, 0.06) !important;
+}
+html[data-theme="orange"] .file-table tbody tr:hover {
+    background-color: rgba(255, 179, 71, 0.28) !important;
+}
+html[data-theme="orange"] .file-table th,
+html[data-theme="orange"] .file-table td {
+    border-color: rgba(217, 91, 26, 0.18) !important;
+    color: #5A5E66 !important;
+}
+html[data-theme="orange"] .field-label,
+html[data-theme="orange"] .field-control,
+html[data-theme="orange"] .control-row label {
+    color: #5A5E66 !important;
+}
+html[data-theme="orange"] .field-control,
+html[data-theme="orange"] .control-row input,
+html[data-theme="orange"] .control-row select {
+    background-color: #FFFFFF !important;
+    border-color: rgba(217, 91, 26, 0.25) !important;
+    color: #1E1E1E !important;
+}
+html[data-theme="orange"] .btn {
+    background-color: #FFFFFF !important;
+    color: #1E1E1E !important;
+    border: 1px solid rgba(217, 91, 26, 0.28) !important;
+}
+html[data-theme="orange"] .btn:hover:not(:disabled) {
+    background-color: rgba(255, 179, 71, 0.20) !important;
+    border-color: rgba(217, 91, 26, 0.40) !important;
+}
+html[data-theme="orange"] .btn.primary {
+    background-color: #F5A623 !important;
+    color: #FFFFFF !important;
+    border-color: #D95B1A !important;
+}
+html[data-theme="orange"] .btn.primary:hover:not(:disabled) {
+    background-color: #FFB347 !important;
+    color: #FFFFFF !important;
+    border-color: #D95B1A !important;
+}
+html[data-theme="orange"] .notes-list-item.active,
+html[data-theme="orange"] .bookmarks-category-item.active,
+html[data-theme="orange"] .sync-notes-list-item.active {
+    background-color: rgba(245, 166, 35, 0.16) !important;
+    border-left-color: #2C9A7F;
+}
+html[data-theme="orange"] .notes-list-item:hover,
+html[data-theme="orange"] .bookmarks-category-item:hover,
+html[data-theme="orange"] .sync-notes-list-item:hover {
+    background-color: rgba(255, 179, 71, 0.20) !important;
+}
+html[data-theme="orange"] .notes-form-label,
+html[data-theme="orange"] .notes-list-title,
+html[data-theme="orange"] .bookmarks-category-item .category-name,
+html[data-theme="orange"] .sync-notes-right-title {
+    color: #1E1E1E !important;
+}
+html[data-theme="orange"] .app-footer,
+html[data-theme="orange"] .placeholder {
+    color: #8C8F99 !important;
+}
+
+/* 主题切换下拉：橙意满满 */
+html[data-theme="orange"] .theme-switcher-dropdown {
+    background: #FFFFFF;
+    border-color: rgba(217, 91, 26, 0.25);
+}
+html[data-theme="orange"] .theme-switcher-option {
+    color: #1E1E1E;
+}
+html[data-theme="orange"] .theme-switcher-option:hover {
+    background: rgba(255, 179, 71, 0.22);
+}
+html[data-theme="orange"] .theme-switcher-option.active {
+    background: rgba(245, 166, 35, 0.20);
+    color: #D95B1A;
+}
+
+html[data-theme="orange"] .app .nav-tab {
+    color: #D95B1A !important;
+}
+html[data-theme="orange"] .app .nav-tab.active {
+    color: #D95B1A !important;
+    border-bottom-color: #D95B1A !important;
+}
+html[data-theme="orange"] .app .calendar-day.selected {
+    box-shadow: 0 0 0 2px #D95B1A !important;
+}
+
+html[data-theme="orange"] .app .detail-event-item.checked,
+html[data-theme="orange"] .app .event-item.checked {
+    background: rgba(245, 166, 35, 0.18) !important;
+    border-color: rgba(217, 91, 26, 0.40) !important;
+}
+html[data-theme="orange"] .app .detail-complete-icon {
+    color: #D95B1A !important;
+}
+
+/* 轻奢紫模板 */
+html[data-theme="lavender"] body {
+    background-color: #F4F2FA !important;
+    color: #5A5773 !important;
+}
+html[data-theme="lavender"] body.home-page {
+    background-color: #F9F8FF !important;
+}
+html[data-theme="lavender"] .subtitle {
+    color: #8C8F99 !important;
+}
+html[data-theme="lavender"] .control-panel,
+html[data-theme="lavender"] .table-section,
+html[data-theme="lavender"] .home-card {
+    background-color: #FFFFFF !important;
+    border: 1px solid rgba(155, 141, 242, 0.15);
+}
+html[data-theme="lavender"] .home-card:hover {
+    background-color: rgba(229, 165, 209, 0.18) !important;
+    border-color: rgba(155, 141, 242, 0.25);
+}
+html[data-theme="lavender"] .home-card-title {
+    color: #2C2A3D !important;
+}
+html[data-theme="lavender"] .home-card-desc {
+    color: #5A5773 !important;
+}
+html[data-theme="lavender"] .notes-sidebar,
+html[data-theme="lavender"] .notes-detail,
+html[data-theme="lavender"] .bookmarks-sidebar,
+html[data-theme="lavender"] .sync-notes-sidebar,
+html[data-theme="lavender"] .sync-notes-editor,
+html[data-theme="lavender"] .sync-notes-right {
+    background-color: #FFFFFF !important;
+    border-color: rgba(155, 141, 242, 0.15);
+}
+html[data-theme="lavender"] .bookmarks-main {
+    background-color: #F4F2FA !important;
+}
+html[data-theme="lavender"] .file-table thead th,
+html[data-theme="lavender"] .file-table thead {
+    background-color: rgba(155, 141, 242, 0.12) !important;
+    color: #2C2A3D !important;
+}
+html[data-theme="lavender"] .file-table tbody tr:nth-child(even) {
+    background-color: rgba(155, 141, 242, 0.04) !important;
+}
+html[data-theme="lavender"] .file-table tbody tr:hover {
+    background-color: rgba(229, 165, 209, 0.18) !important;
+}
+html[data-theme="lavender"] .file-table th,
+html[data-theme="lavender"] .file-table td {
+    border-color: rgba(155, 141, 242, 0.15) !important;
+    color: #5A5773 !important;
+}
+html[data-theme="lavender"] .field-label,
+html[data-theme="lavender"] .field-control,
+html[data-theme="lavender"] .control-row label {
+    color: #5A5773 !important;
+}
+html[data-theme="lavender"] .field-control,
+html[data-theme="lavender"] .control-row input,
+html[data-theme="lavender"] .control-row select {
+    background-color: #FFFFFF !important;
+    border-color: rgba(155, 141, 242, 0.22) !important;
+    color: #2C2A3D !important;
+}
+html[data-theme="lavender"] .btn {
+    background-color: #FFFFFF !important;
+    color: #2C2A3D !important;
+    border: 1px solid rgba(155, 141, 242, 0.22) !important;
+}
+html[data-theme="lavender"] .btn:hover:not(:disabled) {
+    background-color: rgba(229, 165, 209, 0.18) !important;
+    border-color: rgba(124, 108, 214, 0.50) !important;
+}
+html[data-theme="lavender"] .btn.primary {
+    background-color: #9B8DF2 !important;
+    color: #FFFFFF !important;
+    border-color: #7C6CD6 !important;
+}
+html[data-theme="lavender"] .btn.primary:hover:not(:disabled) {
+    background-color: #7C6CD6 !important;
+    border-color: #7C6CD6 !important;
+}
+html[data-theme="lavender"] .notes-list-item.active,
+html[data-theme="lavender"] .bookmarks-category-item.active,
+html[data-theme="lavender"] .sync-notes-list-item.active {
+    background-color: rgba(155, 141, 242, 0.14) !important;
+    border-left-color: #E5A5D1;
+}
+html[data-theme="lavender"] .notes-list-item:hover,
+html[data-theme="lavender"] .bookmarks-category-item:hover,
+html[data-theme="lavender"] .sync-notes-list-item:hover {
+    background-color: rgba(229, 165, 209, 0.18) !important;
+}
+html[data-theme="lavender"] .notes-form-label,
+html[data-theme="lavender"] .notes-list-title,
+html[data-theme="lavender"] .bookmarks-category-item .category-name,
+html[data-theme="lavender"] .sync-notes-right-title {
+    color: #2C2A3D !important;
+}
+html[data-theme="lavender"] .app-footer,
+html[data-theme="lavender"] .placeholder {
+    color: #8C8F99 !important;
+}
+
+/* 主题切换下拉：轻奢紫 */
+html[data-theme="lavender"] .theme-switcher-dropdown {
+    background: #FFFFFF;
+    border-color: rgba(155, 141, 242, 0.20);
+}
+html[data-theme="lavender"] .theme-switcher-option {
+    color: #2C2A3D;
+}
+html[data-theme="lavender"] .theme-switcher-option:hover {
+    background: rgba(155, 141, 242, 0.12);
+}
+html[data-theme="lavender"] .theme-switcher-option.active {
+    background: rgba(155, 141, 242, 0.18);
+    color: #7C6CD6;
+}
+
+html[data-theme="lavender"] .app .nav-tab {
+    color: #5A5773 !important;
+}
+html[data-theme="lavender"] .app .nav-tab.active {
+    color: #7C6CD6 !important;
+    border-bottom-color: #7C6CD6 !important;
+}
+html[data-theme="lavender"] .app .calendar-day.selected {
+    box-shadow: 0 0 0 2px #7C6CD6 !important;
+}
+
+html[data-theme="lavender"] .app .detail-event-item.checked,
+html[data-theme="lavender"] .app .event-item.checked {
+    background: rgba(155, 141, 242, 0.18) !important;
+    border-color: rgba(155, 141, 242, 0.40) !important;
+}
+html[data-theme="lavender"] .app .detail-complete-icon {
+    color: #7C6CD6 !important;
+}

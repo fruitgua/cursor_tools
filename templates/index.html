@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>本地文件管理工具</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+<div class="app-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+            <h1>本地文件管理工具</h1>
+            <p class="subtitle">扫描本地文件夹，按类型分类展示与管理</p>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+
+    <section class="control-panel">
+        <div class="control-row control-row-top">
+            <div class="field-group path-group">
+                <span class="field-label required-label">文件夹路径</span>
+                <input id="selected-dir" class="selected-dir field-control" value="/Users/a53828/Documents" />
+                <button id="btn-scan" class="btn primary">扫描文件</button>
+                <div id="status-message" class="status-message"></div>
+            </div>
+        </div>
+        <div class="control-row control-row-filters">
+            <div class="field-group">
+                <span class="field-label">文件类型</span>
+                <select id="filter-type" class="field-control" data-ui-select="single">
+                    <option value="">全部</option>
+                    <option value="word">Word</option>
+                    <option value="excel">Excel</option>
+                    <option value="ppt">PPT</option>
+                    <option value="pdf">PDF</option>
+                    <option value="prototype">原型</option>
+                    <option value="prototype_component">原型元件</option>
+                    <option value="hidden">隐藏文件</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <span class="field-label">文件名称</span>
+                <input type="text" id="search-keyword" class="field-control" placeholder="请输入关键字" />
+            </div>
+        </div>
+    </section>
+
+    <section class="table-section">
+        <table class="file-table">
+            <thead>
+            <tr>
+                <th data-sort="name">文件名称<span class="sort-indicator"></span></th>
+                <th data-sort="size">文件大小<span class="sort-indicator"></span></th>
+                <th data-sort="extension">扩展名<span class="sort-indicator"></span></th>
+                <th>备注 (输入后回车即可保存)</th>
+                <th data-sort="created_at">创建时间<span class="sort-indicator"></span></th>
+                <th data-sort="modified_at">最后修改时间<span class="sort-indicator"></span></th>
+                <th>文件夹地址</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="file-table-body">
+            <tr>
+                <td colspan="8" class="placeholder">请先选择目录并点击"扫描文件"。</td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="pagination-section">
+        <div id="pagination-info" class="pagination-info"></div>
+        <div class="pagination-controls">
+            <button id="btn-prev-page" class="btn" disabled>上一页</button>
+            <span id="pagination-page-detail"></span>
+            <button id="btn-next-page" class="btn" disabled>下一页</button>
+        </div>
+    </section>
+
+    <footer class="app-footer">
+        <p>提示：本工具在本机浏览器中运行，扫描本地磁盘。选择目录时请使用绝对路径，例如：
+            <code>/Users/你的用户名/Documents</code></p>
+    </footer>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/ui-select.js"></script>
+<script src="/static/main.js"></script>
+</body>
+</html>

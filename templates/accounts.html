@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>常用账号 - 工作小助手</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+<div class="app-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+            <h1>常用账号</h1>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+
+    <section class="control-panel accounts-add-panel">
+        <div class="control-row accounts-add-row-1">
+            <div class="field-group">
+                <input type="text" id="add-system" class="field-control" placeholder="如：GitHub" />
+            </div>
+            <div class="field-group">
+                <input type="text" id="add-url" class="field-control" placeholder="如：https://github.com" />
+            </div>
+            <div class="field-group">
+                <input type="text" id="add-account-info" class="field-control" placeholder="如：用户名/密码" />
+            </div>
+            <button id="btn-add" class="btn primary">添加</button>
+        </div>
+        <div class="control-row accounts-add-row-2">
+            <div class="field-group field-group-full">
+                <textarea id="add-description" class="field-control desc-textarea" placeholder="请输入说明，支持回车换行"></textarea>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-section accounts-table-section">
+        <table class="file-table accounts-table">
+            <thead>
+            <tr>
+                <th>系统</th>
+                <th>网址</th>
+                <th>账号信息</th>
+                <th>说明</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="accounts-tbody">
+            <tr>
+                <td colspan="5" class="placeholder">暂无数据，请点击上方"添加"录入。</td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/accounts.js"></script>
+</body>
+</html>

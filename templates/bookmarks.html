@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>常用书签 - 工作小助手</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+<div class="app-container bookmarks-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+            <h1>常用书签</h1>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+
+    <div class="bookmarks-layout">
+        <aside class="bookmarks-sidebar">
+            <div class="bookmarks-add-panel">
+                <div class="bookmarks-add-row">
+                    <input type="text" id="add-title" class="field-control" placeholder="标题" />
+                    <input type="text" id="add-url" class="field-control" placeholder="网址" />
+                    <div class="bookmarks-category-combo">
+                        <input type="text" id="add-category" class="field-control" placeholder="分类，可输入或选择" list="add-category-list" autocomplete="off" />
+                        <datalist id="add-category-list"></datalist>
+                    </div>
+                    <div class="bookmarks-add-btns">
+                        <button id="btn-add" class="btn primary">添加</button>
+                        <button id="btn-export" class="btn primary">导出</button>
+                    </div>
+                </div>
+            </div>
+            <ul id="bookmarks-category-list" class="bookmarks-category-list">
+                <li class="bookmarks-category-item active" data-category="">
+                    <span class="category-name">未分类</span>
+                    <span class="category-count">0</span>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="bookmarks-main">
+            <section class="table-section bookmarks-table-section">
+                <table class="file-table bookmarks-table">
+                    <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>网址</th>
+                        <th>分类</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody id="bookmarks-tbody">
+                    <tr>
+                        <td colspan="4" class="placeholder">请从左侧选择分类，或点击"添加"录入书签。</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/bookmarks.js"></script>
+</body>
+</html>

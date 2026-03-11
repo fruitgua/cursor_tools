@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#409EFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="每日打卡">
+    <title>每日打卡 - 工作小助手</title>
+    <link rel="manifest" href="/static/checkin-manifest.json">
+    <link rel="apple-touch-icon" href="/static/checkin-icon.svg">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+    <link rel="stylesheet" href="/static/checkin.css">
+</head>
+<body>
+<div id="app" class="app">
+    <div class="nav-row">
+        <div class="nav-tabs">
+            <button type="button" class="nav-tab active" data-page="calendar">月历</button>
+            <button type="button" class="nav-tab" data-page="stats">统计</button>
+            <button type="button" class="nav-tab" data-page="events">事件管理</button>
+        </div>
+        <div class="header-actions">
+            <button type="button" class="btn" id="btn-export-checkin">导出数据</button>
+            <div id="theme-switcher-container"></div>
+            <button type="button" class="btn btn-go-home" id="btn-go-home">返回首页</button>
+        </div>
+    </div>
+
+    <!-- Page: Calendar -->
+    <div id="page-calendar" class="page active">
+        <div class="calendar-layout">
+            <div class="calendar-left">
+                <div class="card calendar-card">
+                    <div class="calendar-header">
+                        <div class="calendar-header-title-wrap">
+                            <h3 class="calendar-title" id="calendar-title">2025年3月</h3>
+                            <a href="javascript:void(0)" class="calendar-goto-today" id="btn-goto-today">查看当月</a>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-ghost" id="btn-prev-month">‹</button>
+                            <button type="button" class="btn btn-ghost" id="btn-next-month">›</button>
+                        </div>
+                    </div>
+                    <div class="calendar-weekday">
+                        <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
+                    </div>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+            </div>
+            <div class="calendar-right">
+                <div class="card calendar-detail-card">
+                    <h3 class="calendar-detail-title" id="detail-title">选择日期</h3>
+                    <div id="detail-panel">
+                        <p class="add-event-hint">请点击左侧日历选择日期</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page: Stats -->
+    <div id="page-stats" class="page">
+        <div class="stats-grid">
+            <div class="stats-card">
+                <div class="stats-circle">
+                    <span class="stats-circle-inner" id="stats-monthly-rate">0</span>
+                </div>
+                <div class="stats-card-label">本月完成率 %</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-circle">
+                    <span class="stats-circle-inner" id="stats-streak">0</span>
+                </div>
+                <div class="stats-card-label">连续打卡天数</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3 class="card-title">各任务完成率</h3>
+            <div class="stats-task-list" id="stats-task-list">
+                <p class="empty-state">暂无任务，请先在事件管理中添加</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page: Events -->
+    <div id="page-events" class="page">
+        <div class="event-type-tabs-wrap">
+            <div class="event-type-tabs">
+                <button type="button" class="event-type-tab active" data-type="checkin">打卡</button>
+                <button type="button" class="event-type-tab" data-type="reminder">提醒</button>
+                <button type="button" class="event-type-tab" data-type="labels">日期标签</button>
+            </div>
+            <div class="event-type-tabs-actions">
+                <button type="button" class="btn btn-ghost" id="btn-import-checkin">导入数据</button>
+                <input type="file" id="input-import-checkin" accept="application/json" style="display:none">
+            </div>
+        </div>
+
+        <div id="event-form-checkin" class="event-form-checkin card">
+            <h3 class="card-title">新增打卡</h3>
+            <div class="event-form-checkin-row">
+                <div class="event-form-field">
+                    <input type="text" id="checkin-name" placeholder="事件名称">
+                </div>
+                <div class="event-form-field event-form-field-color">
+                    <div class="event-form-color-inputs">
+                        <div class="color-swatch-preview" id="checkin-color-preview" style="--swatch-color: #4CAF50" title="颜色预览"></div>
+                        <input type="text" id="checkin-color-hex" placeholder="#ffffff" value="#4CAF50">
+                    </div>
+                </div>
+                <div class="event-form-field">
+                    <input type="date" id="checkin-date-start" required>
+                </div>
+                <div class="event-form-field">
+                    <input type="date" id="checkin-date-end" required>
+                </div>
+                <button type="button" class="btn primary" id="btn-add-checkin">添加</button>
+            </div>
+        </div>
+
+        <div id="event-form-reminder" class="event-form-reminder card" style="display:none">
+            <h3 class="card-title">新增提醒</h3>
+            <div class="event-form-checkin-row event-form-reminder-row">
+                <div class="event-form-field event-form-field-type">
+                    <div class="event-form-type-with-icon">
+                        <span id="reminder-type-icon" class="reminder-type-icon" aria-hidden="true">🔔</span>
+                        <select id="reminder-type" class="event-form-select" data-ui-select="single">
+                            <option value="payment">生活缴费</option>
+                            <option value="bill">银行账单</option>
+                            <option value="activity">活动/演出</option>
+                            <option value="sale">开售抢购</option>
+                            <option value="party">聚会</option>
+                            <option value="work">工作</option>
+                            <option value="normal" selected>普通</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="event-form-field">
+                    <input type="text" id="reminder-name" placeholder="事件名称">
+                </div>
+                <div class="event-form-field">
+                    <select id="reminder-date-type" class="event-form-select" data-ui-select="single">
+                        <option value="specific" selected>指定日期</option>
+                        <option value="monthly">每月</option>
+                    </select>
+                </div>
+                <div id="reminder-specific-fields" class="event-form-field-group">
+                    <div class="event-form-field">
+                        <input type="date" id="reminder-specific-date">
+                    </div>
+                    <div class="event-form-field event-form-field-time">
+                        <div class="event-form-time-inputs">
+                            <input type="number" id="reminder-hour" min="0" max="23" placeholder="时">
+                            <span>:</span>
+                            <input type="number" id="reminder-minute" min="0" max="59" placeholder="分">
+                        </div>
+                    </div>
+                </div>
+                <div id="reminder-monthly-fields" class="event-form-field-group" style="display:none">
+                    <div class="event-form-field event-form-field-day-unit">
+                        <input type="number" id="reminder-day-of-month" min="1" max="31" placeholder="几号">
+                        <span class="field-unit">号</span>
+                    </div>
+                    <div class="event-form-field">
+                        <input type="date" id="reminder-monthly-start" placeholder="生效开始日期">
+                    </div>
+                    <div class="event-form-field">
+                        <input type="date" id="reminder-monthly-end" placeholder="生效结束日期">
+                    </div>
+                </div>
+                <button type="button" class="btn primary" id="btn-add-reminder">添加</button>
+            </div>
+        </div>
+
+        <div id="event-form-labels" class="event-form-labels card" style="display:none">
+            <h3 class="card-title">新增日期标签</h3>
+            <div class="event-form-checkin-row event-form-labels-row">
+                <div class="event-form-field">
+                    <select id="label-type" class="event-form-select" data-ui-select="single">
+                        <option value="annual" selected>每年固定日期</option>
+                        <option value="specific">指定日期</option>
+                    </select>
+                </div>
+                <div id="label-specific-fields" class="event-form-field-group" style="display:none">
+                    <div class="event-form-field">
+                        <input type="date" id="label-date">
+                    </div>
+                </div>
+                <div id="label-annual-fields" class="event-form-field-group">
+                    <div class="event-form-field">
+                        <div class="custom-select-wrap">
+                            <div class="custom-select-trigger" id="label-month-trigger" data-target="label-month" tabindex="0">月</div>
+                            <div class="custom-select-dropdown" id="label-month-dropdown">
+                                <div class="custom-select-option" data-value="">月</div>
+                                <div class="custom-select-option" data-value="1">1</div>
+                                <div class="custom-select-option" data-value="2">2</div>
+                                <div class="custom-select-option" data-value="3">3</div>
+                                <div class="custom-select-option" data-value="4">4</div>
+                                <div class="custom-select-option" data-value="5">5</div>
+                                <div class="custom-select-option" data-value="6">6</div>
+                                <div class="custom-select-option" data-value="7">7</div>
+                                <div class="custom-select-option" data-value="8">8</div>
+                                <div class="custom-select-option" data-value="9">9</div>
+                                <div class="custom-select-option" data-value="10">10</div>
+                                <div class="custom-select-option" data-value="11">11</div>
+                                <div class="custom-select-option" data-value="12">12</div>
+                            </div>
+                            <select id="label-month" class="event-form-select custom-select-hidden" aria-hidden="true">
+                                <option value="">月</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="event-form-field">
+                        <div class="custom-select-wrap">
+                            <div class="custom-select-trigger" id="label-day-trigger" data-target="label-day" tabindex="0">日</div>
+                            <div class="custom-select-dropdown" id="label-day-dropdown">
+                                <div class="custom-select-option" data-value="">日</div>
+                                <div class="custom-select-option" data-value="1">1</div>
+                                <div class="custom-select-option" data-value="2">2</div>
+                                <div class="custom-select-option" data-value="3">3</div>
+                                <div class="custom-select-option" data-value="4">4</div>
+                                <div class="custom-select-option" data-value="5">5</div>
+                                <div class="custom-select-option" data-value="6">6</div>
+                                <div class="custom-select-option" data-value="7">7</div>
+                                <div class="custom-select-option" data-value="8">8</div>
+                                <div class="custom-select-option" data-value="9">9</div>
+                                <div class="custom-select-option" data-value="10">10</div>
+                                <div class="custom-select-option" data-value="11">11</div>
+                                <div class="custom-select-option" data-value="12">12</div>
+                                <div class="custom-select-option" data-value="13">13</div>
+                                <div class="custom-select-option" data-value="14">14</div>
+                                <div class="custom-select-option" data-value="15">15</div>
+                                <div class="custom-select-option" data-value="16">16</div>
+                                <div class="custom-select-option" data-value="17">17</div>
+                                <div class="custom-select-option" data-value="18">18</div>
+                                <div class="custom-select-option" data-value="19">19</div>
+                                <div class="custom-select-option" data-value="20">20</div>
+                                <div class="custom-select-option" data-value="21">21</div>
+                                <div class="custom-select-option" data-value="22">22</div>
+                                <div class="custom-select-option" data-value="23">23</div>
+                                <div class="custom-select-option" data-value="24">24</div>
+                                <div class="custom-select-option" data-value="25">25</div>
+                                <div class="custom-select-option" data-value="26">26</div>
+                                <div class="custom-select-option" data-value="27">27</div>
+                                <div class="custom-select-option" data-value="28">28</div>
+                                <div class="custom-select-option" data-value="29">29</div>
+                                <div class="custom-select-option" data-value="30">30</div>
+                                <div class="custom-select-option" data-value="31">31</div>
+                            </div>
+                            <select id="label-day" class="event-form-select custom-select-hidden" aria-hidden="true">
+                                <option value="">日</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                                <option value="13">13</option>
+                                <option value="14">14</option>
+                                <option value="15">15</option>
+                                <option value="16">16</option>
+                                <option value="17">17</option>
+                                <option value="18">18</option>
+                                <option value="19">19</option>
+                                <option value="20">20</option>
+                                <option value="21">21</option>
+                                <option value="22">22</option>
+                                <option value="23">23</option>
+                                <option value="24">24</option>
+                                <option value="25">25</option>
+                                <option value="26">26</option>
+                                <option value="27">27</option>
+                                <option value="28">28</option>
+                                <option value="29">29</option>
+                                <option value="30">30</option>
+                                <option value="31">31</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="event-form-field">
+                    <input type="text" id="label-name" placeholder="如：国庆节">
+                </div>
+                <div id="label-annual-range-fields" class="event-form-field-group" style="display:none">
+                    <div class="event-form-field">
+                        <input type="date" id="label-annual-start" placeholder="生效开始日期">
+                    </div>
+                    <div class="event-form-field">
+                        <input type="date" id="label-annual-end" placeholder="生效结束日期">
+                    </div>
+                </div>
+                <div class="event-form-field event-form-field-actions">
+                    <div class="event-form-field-actions-btns">
+                        <button type="button" class="btn primary" id="btn-add-label">添加</button>
+                        <button type="button" class="btn btn-ghost" id="btn-fetch-holidays">获取中国节假日</button>
+                        <span id="holiday-fetch-status" class="holiday-status"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card event-list-card">
+            <div class="event-list-header">
+                <h3 class="card-title" id="event-list-title">打卡列表</h3>
+                <div class="event-list-filters inline-fields-gap">
+                    <select id="reminder-type-filter" class="event-form-select reminder-type-filter" style="display:none" title="按类型筛选" data-ui-select="single">
+                        <option value="">全部</option>
+                        <option value="payment">生活缴费</option>
+                        <option value="bill">银行账单</option>
+                        <option value="activity">活动/演出</option>
+                        <option value="sale">开售抢购</option>
+                        <option value="party">聚会</option>
+                        <option value="work">工作</option>
+                        <option value="normal">普通</option>
+                    </select>
+                    <select id="reminder-validity-filter" class="event-form-select reminder-validity-filter" style="display:none" title="有效/过期" data-ui-select="single">
+                        <option value="valid" selected>有效</option>
+                        <option value="expired">过期</option>
+                    </select>
+                    <select id="date-label-filter" class="event-form-select date-label-filter" style="display:none" title="同步/自定义" data-ui-select="single">
+                        <option value="custom" selected>自定义</option>
+                        <option value="sync">同步</option>
+                    </select>
+                </div>
+            </div>
+            <div class="event-list" id="event-list">
+                <p class="empty-state">暂无打卡事件，请先添加</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Event (checkin) -->
+<div id="edit-event-modal" class="modal-overlay hidden">
+    <div class="modal">
+        <h3 class="modal-title">编辑打卡</h3>
+        <div class="form-row">
+            <label>事件名称</label>
+            <input type="text" id="edit-checkin-name">
+        </div>
+        <div class="form-row">
+            <label>颜色</label>
+            <div class="event-form-color-inputs">
+                <div class="color-swatch-preview" id="edit-checkin-color-preview" style="--swatch-color: #4CAF50" title="颜色预览"></div>
+                <input type="text" id="edit-checkin-color-hex" placeholder="#ffffff" style="width:100px">
+            </div>
+        </div>
+        <div class="form-row">
+            <label>开始日期</label>
+            <input type="date" id="edit-checkin-date-start">
+        </div>
+        <div class="form-row">
+            <label>结束日期</label>
+            <input type="date" id="edit-checkin-date-end">
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-edit-event-cancel">取消</button>
+            <button type="button" class="btn primary" id="btn-edit-event-save">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Reminder -->
+<div id="edit-reminder-modal" class="modal-overlay hidden">
+    <div class="modal">
+        <h3 class="modal-title">编辑提醒</h3>
+        <div class="form-row">
+            <label>类型</label>
+            <div class="event-form-type-with-icon">
+                <span id="edit-reminder-type-icon" class="reminder-type-icon" aria-hidden="true">🔔</span>
+                <select id="edit-reminder-type" class="event-form-select" data-ui-select="single">
+                    <option value="payment">生活缴费</option>
+                    <option value="bill">银行账单</option>
+                    <option value="activity">活动/演出</option>
+                    <option value="sale">开售抢购</option>
+                    <option value="party">聚会</option>
+                    <option value="work">工作</option>
+                    <option value="normal">普通</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <label>事件名称</label>
+            <input type="text" id="edit-reminder-name">
+        </div>
+        <div class="form-row">
+            <label>日期类型</label>
+            <select id="edit-reminder-date-type" class="event-form-select" data-ui-select="single">
+                <option value="specific">指定日期</option>
+                <option value="monthly">每月固定日期</option>
+            </select>
+        </div>
+        <div id="edit-reminder-specific-fields">
+            <div class="form-row">
+                <label>日期</label>
+                <input type="date" id="edit-reminder-specific-date">
+            </div>
+            <div class="form-row">
+                <label>时间</label>
+                <input type="number" id="edit-reminder-hour" min="0" max="23" style="width:60px">
+                <span>:</span>
+                <input type="number" id="edit-reminder-minute" min="0" max="59" style="width:60px">
+            </div>
+        </div>
+        <div id="edit-reminder-monthly-fields" style="display:none">
+            <div class="form-row">
+                <label>每月几号</label>
+                <div class="field-with-unit">
+                    <input type="number" id="edit-reminder-day-of-month" min="1" max="31">
+                    <span class="field-unit">号</span>
+                </div>
+            </div>
+            <div class="form-row">
+                <label>生效开始日期</label>
+                <input type="date" id="edit-reminder-monthly-start">
+            </div>
+            <div class="form-row">
+                <label>生效结束日期</label>
+                <input type="date" id="edit-reminder-monthly-end">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-edit-reminder-cancel">取消</button>
+            <button type="button" class="btn primary" id="btn-edit-reminder-save">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Delete Event -->
+<div id="delete-event-modal" class="modal-overlay hidden">
+    <div class="modal">
+        <h3 class="modal-title">确认删除</h3>
+        <p class="delete-event-msg" id="delete-event-msg"></p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-delete-cancel">取消</button>
+            <button type="button" class="btn btn-edit-event" id="btn-delete-confirm">确认删除</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast-info"></div>
+
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/ui-select.js"></script>
+<script src="/static/checkin.js"></script>
+</body>
+</html>

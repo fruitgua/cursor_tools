@@ -1,0 +1,1308 @@
+/* Base (light) styles for checkin page - theme.css overrides for dark/yellow-green */
+
+.app {
+    min-height: 100%;
+    height: 100vh;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Nav tabs */
+.nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.nav-tabs {
+    display: flex;
+    gap: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.nav-tab {
+    padding: 8px 4px;
+    border: none;
+    background: transparent;
+    color: #374151;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+    text-align: left;
+    transition: color 0.15s, border-bottom-color 0.15s;
+}
+
+.nav-tab:hover {
+    color: #2563eb;
+}
+
+.nav-tab.active {
+    color: #2563eb;
+    font-weight: 500;
+    border-bottom-color: #2563eb;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Cards */
+.card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.card-title,
+.calendar-title,
+.calendar-detail-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 12px;
+}
+
+/* Calendar layout */
+.calendar-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 700px) {
+    .calendar-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.calendar-left {
+    min-width: 280px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.calendar-right {
+    min-width: 280px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.calendar-card {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 0;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: nowrap;
+    gap: 12px;
+}
+
+.calendar-header .calendar-title {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.calendar-header-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.calendar-header > div:last-child {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.calendar-goto-today {
+    font-size: 14px;
+    color: #2563eb;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.calendar-goto-today:hover {
+    text-decoration: underline;
+}
+
+.calendar-weekday {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: right;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.calendar-weekday span {
+    padding-right: 4px;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: 96px;
+    gap: 4px;
+}
+
+.calendar-day {
+    padding: 4px 4px 4px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-width: 0;
+    overflow: hidden;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.calendar-day .day-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.calendar-day .day-num {
+    font-weight: 500;
+    text-align: right;
+}
+
+.calendar-day .day-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    justify-content: flex-start;
+    flex-shrink: 0;
+}
+
+.calendar-day .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.calendar-day .dot.unchecked {
+    background: #d1d5db;
+    opacity: 0.5;
+}
+
+.calendar-day .day-label-row,
+.calendar-day .day-reminder-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 12px;
+    color: #6b7280;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.calendar-day .day-label-icon,
+.calendar-day .day-reminder-icon {
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.calendar-day .day-reminder-icon-completed {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.calendar-day .day-label,
+.calendar-day .day-reminder-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendar-day:hover {
+    background: #f3f4f6;
+}
+
+.calendar-day.other-month {
+    color: #9ca3af;
+}
+
+.calendar-day.other-month .day-label-row,
+.calendar-day.other-month .day-reminder-row {
+    color: #9ca3af;
+}
+
+.calendar-day.past {
+    background: #f2f2f2;
+}
+
+.calendar-day.today .day-num {
+    background: #dc2626;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.calendar-day.selected {
+    box-shadow: 0 0 0 2px #2563eb;
+}
+
+/* Calendar detail card */
+.calendar-detail-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin-bottom: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.calendar-detail-card #detail-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* 日期下方标签行：多个标签同一行显示 */
+.detail-labels-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+/* 日历标签样式（UI规范：透明底色，文字和边框随主题适配） */
+.detail-label-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    font-size: 13px;
+    color: #374151;
+    background: transparent;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+/* 详情分章节 */
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.detail-section:last-child {
+    margin-bottom: 0;
+}
+
+.detail-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 8px;
+}
+
+.detail-section-content {
+    min-height: 0;
+}
+
+.detail-reminder-item .detail-reminder-icon {
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.detail-event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.detail-event-item .detail-event-item-content-wrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.event-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.detail-event-item:hover,
+.event-item:hover {
+    background: #f3f4f6;
+}
+
+.detail-event-item.disabled {
+    cursor: default;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.detail-event-item.disabled:hover {
+    background: #f9fafb;
+}
+
+.detail-event-item.checked,
+.event-item.checked {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.detail-event-item .detail-event-item-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.detail-complete-icon {
+    margin-left: auto;
+    padding-left: 12px;
+    color: #16a34a;
+    font-size: 16px;
+    font-weight: 600;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.detail-event-item .dot,
+.event-item .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.detail-event-item .dot,
+.detail-event-item .detail-reminder-icon {
+    align-self: center;
+}
+
+.event-item .event-item-name {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.event-item .label-type-icon {
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.event-item .event-item-name-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.event-item .label-range-text {
+    color: #6b7280;
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+.event-item .event-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.add-event-hint,
+.empty-state {
+    color: #6b7280;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Stats page */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.stats-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.stats-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+}
+
+.stats-circle-inner {
+    font-size: 20px;
+    font-weight: 700;
+    color: #16a34a;
+}
+
+.stats-card-label {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.stats-task-list {
+    margin-top: 16px;
+}
+
+.stats-task-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.stats-task-item:last-child {
+    border-bottom: none;
+}
+
+.stats-task-bar-wrap {
+    flex: 1;
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.stats-task-bar {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.2s;
+}
+
+.stats-task-pct {
+    min-width: 40px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* Event management */
+.event-type-tabs-wrap {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.event-type-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.event-type-tabs-actions {
+    margin-left: auto;
+}
+
+.event-type-tab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: #374151;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.event-type-tab:hover {
+    color: #2563eb;
+}
+
+.event-type-tab.active {
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.event-form-checkin,
+.event-form-reminder,
+.event-form-labels {
+    margin-bottom: 20px;
+    overflow: visible; /* 确保内部下拉面板不会被卡片边框裁剪 */
+}
+
+.event-form-labels-row {
+    gap: 10px; /* 字段间距 10px，与新增打卡区保持一致 */
+    flex-wrap: nowrap; /* 新增日期标签区：一行显示 */
+    overflow: visible; /* 允许下拉面板超出本行，不被边框裁剪 */
+    padding-bottom: 2px;
+}
+
+.event-form-labels-row .event-form-field,
+.event-form-labels-row .event-form-field-group,
+.event-form-labels-row .event-form-field-actions {
+    flex-shrink: 0;
+}
+
+.event-form-labels-row .event-form-field-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.event-form-labels-row .event-form-field-group select.event-form-select {
+    width: 100px;
+    min-width: 100px;
+    padding: 8px 10px; /* 文本与边框水平间距约 10px */
+}
+
+/* 日期标签页：类型下拉（“每年固定日期/指定日期”）宽度与内边距 */
+.event-form-labels-row .event-form-field > select.event-form-select {
+    width: 100px;
+    min-width: 100px;
+    height: 36px;
+    padding: 8px 10px; /* 左右间距 10px */
+    box-sizing: border-box;
+}
+
+.custom-select-wrap {
+    position: relative;
+    width: 100px;
+    min-width: 100px;
+}
+
+.custom-select-trigger {
+    width: 100%;
+    height: 36px; /* 与 UI 规范输入高度一致 */
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.custom-select-trigger:hover {
+    border-color: #9ca3af;
+}
+
+.custom-select-trigger::after {
+    content: "▼";
+    font-size: 10px;
+    margin-left: auto;
+    opacity: 0.6;
+}
+
+.custom-select-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 2px;
+    max-height: 240px; /* UI 规范：面板最大高度 */
+    overflow: auto; /* 超出显示滚动条 */
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 100;
+}
+
+.custom-select-dropdown.open {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.custom-select-option:hover {
+    background: #f3f4f6;
+}
+
+.custom-select-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.event-form-labels-row .event-form-field input {
+    width: 160px;
+    min-width: 160px;
+    height: 36px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.event-form-field.event-form-field-actions {
+    flex-shrink: 0;
+}
+
+.event-form-field-actions-btns {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.event-form-labels-row .event-form-field-actions .btn,
+.event-form-labels-row .event-form-field-actions .btn.primary,
+.event-form-labels-row .event-form-field-actions .btn.btn-ghost {
+    height: 36px;
+    padding: 6px 14px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.holiday-status {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.event-form-reminder-row .event-form-field-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.event-form-type-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reminder-type-icon {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.event-form-select:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.event-form-select {
+    min-width: 120px;
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    background-color: #fff;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.event-form-reminder-row .event-form-field select.event-form-select {
+    width: 120px;
+    min-width: 120px;
+}
+
+.event-form-time-inputs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.event-form-time-inputs input {
+    width: 56px;
+    height: 38px;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.event-form-field-day-unit,
+.field-with-unit {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 4px;
+}
+
+.field-unit {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.event-form-reminder-row .event-form-field input[type="number"]#reminder-day-of-month,
+.event-form-reminder-row .event-form-field-group input[type="number"] {
+    width: 80px;
+    min-width: 80px;
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.event-form-reminder-row #btn-add-reminder {
+    height: 38px;
+    padding: 0 20px;
+    flex-shrink: 0;
+}
+
+.event-form-reminder-row .event-form-field input[type="text"],
+.event-form-reminder-row .event-form-field input[type="date"] {
+    width: 160px;
+    min-width: 160px;
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.event-form-checkin-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* 日期标签新增区：字段 + “添加” + “获取中国节假日” 按钮始终在同一行 */
+.event-form-checkin-row.event-form-labels-row {
+    flex-wrap: nowrap;
+}
+
+.event-form-checkin-row .event-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.event-form-checkin-row .event-form-field label {
+    font-size: 13px;
+    color: #374151;
+    white-space: nowrap;
+}
+
+.event-form-checkin-row .event-form-field input[type="text"],
+.event-form-checkin-row .event-form-field input[type="date"] {
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.event-form-color-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 颜色预览区：输入颜色值后直接显示对应颜色 */
+.color-swatch-preview {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: var(--swatch-color, #4CAF50);
+    flex-shrink: 0;
+}
+
+/* 新增打卡：将颜色选择弹窗定位到输入框下方 */
+.event-form-color-inputs-popup-below {
+    position: relative;
+}
+
+/* 将隐藏的 color input 定位到输入框下方，使原生弹窗在输入框下方打开 */
+.event-form-color-inputs-popup-below .color-input-below {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    margin-top: 4px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transform: none !important;
+}
+
+.color-swatch-trigger {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.color-swatch-trigger::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--swatch-color, #4CAF50);
+}
+
+.color-input-hidden {
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.event-form-color-inputs input[type="text"] {
+    width: 160px;
+    min-width: 160px;
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.event-form-checkin-row .event-form-field input[type="text"]#checkin-name,
+.event-form-checkin-row .event-form-field input[type="date"] {
+    width: 160px;
+    min-width: 160px;
+}
+
+
+.event-form-checkin-row #btn-add-checkin {
+    height: 38px;
+    padding: 0 20px;
+    flex-shrink: 0;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.form-row label {
+    min-width: 90px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.form-row input[type="text"],
+.form-row input[type="date"],
+.form-row input[type="number"],
+.form-row input[type="color"],
+.form-row select.event-form-select {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    min-width: 120px;
+    height: 38px; /* 与全局 .field-control 保持一致 */
+    box-sizing: border-box;
+}
+
+.form-row select.event-form-select {
+    background-color: #fff;
+    cursor: pointer;
+}
+
+/* 事件管理新增/编辑输入框聚焦态：与 .field-control 一致 */
+.event-form-checkin-row .event-form-field input:focus,
+.event-form-reminder-row .event-form-field input:focus,
+.event-form-reminder-row .event-form-field-group input:focus,
+.event-form-labels-row .event-form-field input:focus,
+.form-row input:focus,
+.event-form-select:focus {
+    border-color: #2563eb;
+    outline: 2px solid rgba(37, 99, 235, 0.35);
+    outline-offset: -2px;
+    background-color: #fff;
+}
+
+.event-list-card .event-list-header {
+    flex-shrink: 0;
+}
+
+.event-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.event-list-header .card-title {
+    margin: 0;
+}
+
+.event-list-filters {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+.reminder-type-filter,
+.reminder-validity-filter,
+.date-label-filter {
+    min-width: 120px;
+    flex-shrink: 0;
+}
+
+.event-list {
+    margin-top: 0;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.event-item-editing {
+    padding: 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: default;
+}
+
+.event-item-editing:hover {
+    background: #f9fafb;
+}
+
+.event-list-edit-row .event-form-field input[type="text"],
+.event-list-edit-row .event-form-field input[type="date"] {
+    width: 160px;
+    min-width: 160px;
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.event-list-edit-row .event-form-color-inputs input[type="text"] {
+    width: 160px;
+    min-width: 160px;
+    height: 38px;
+}
+
+.event-list-edit-row .edit-inline-save,
+.event-list-edit-row .edit-inline-cancel {
+    height: 38px;
+    flex-shrink: 0;
+}
+
+.event-item .event-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.event-item-reminder-editing .event-form-reminder-row {
+    flex-wrap: wrap;
+}
+
+.event-item-reminder-editing .event-form-field-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.event-item-label-editing .event-form-labels-row {
+    flex-wrap: wrap;
+}
+
+.event-item-label-editing .event-form-field-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.event-item-label-editing .edit-inline-label-save,
+.event-item-label-editing .edit-inline-label-cancel {
+    height: 38px;
+    flex-shrink: 0;
+}
+
+.btn-ghost {
+    padding: 4px 10px;
+    font-size: 13px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-ghost:hover {
+    background: #e5e7eb;
+}
+
+.btn-edit-event {
+    padding: 4px 10px;
+    font-size: 13px;
+    background: #ffffff;
+    color: #dc2626;
+    border: 1px solid #dc2626;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-edit-event:hover {
+    background: #fef2f2;
+}
+
+#btn-add-event,
+#btn-edit-event-save {
+    padding: 6px 14px;
+    font-size: 14px;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#btn-add-event:hover,
+#btn-edit-event-save:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+/* Icon options */
+.icon-opt {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 2px;
+    transition: all 0.2s;
+}
+
+.icon-opt:hover {
+    background: #f5f7fa;
+}
+
+.icon-opt.selected {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.1);
+}
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 16px;
+}
+
+.modal-event-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+    cursor: pointer;
+}
+
+.modal-event-item:hover {
+    background: #f3f4f6;
+}
+
+.modal-event-item.checked {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.delete-event-msg {
+    color: #374151;
+    margin-bottom: 16px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+/* Toast */
+#toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+#toast.show {
+    opacity: 1;
+}
+
+#toast.toast-success {
+    background: #16a34a;
+}
+
+#toast.toast-info {
+    background: #2563eb;
+}
+
+#toast.toast-error {
+    background: #dc2626;
+}
+
+/* Page visibility */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+#page-calendar.page.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#page-events.page.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#page-events .event-type-tabs-wrap,
+#page-events .event-form-checkin,
+#page-events .event-form-reminder {
+    flex-shrink: 0;
+}
+
+.event-list-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}

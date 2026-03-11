@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>学习笔记 - 工作小助手</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+    <link href="/static/quill/quill.snow.css" rel="stylesheet">
+</head>
+<body>
+<div class="app-container notes-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+            <h1>学习笔记</h1>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+
+    <div class="notes-layout">
+        <aside class="notes-sidebar">
+            <button id="btn-add-note" class="btn primary notes-add-btn">+ 新增笔记</button>
+            <div class="notes-filter-row">
+                <select id="notes-filter-category" class="notes-filter-select" data-ui-select="single">
+                    <option value="">全部</option>
+                </select>
+                <button type="button" id="btn-manage-categories" class="notes-manage-categories-btn" aria-label="管理分类" title="管理分类">✎</button>
+                <span class="notes-filter-count">共 <span id="notes-count-num" class="notes-count-num">0</span> 条</span>
+            </div>
+            <ul id="notes-list" class="notes-list">
+                <li class="notes-list-empty">暂无笔记，点击上方"新增笔记"添加</li>
+            </ul>
+        </aside>
+
+        <main class="notes-detail">
+            <div class="notes-detail-content">
+                <div id="notes-detail-placeholder" class="notes-placeholder">
+                    请从左侧选择一条笔记，或点击"新增笔记"开始创作
+                </div>
+                <div id="notes-detail-form" class="notes-form" style="display: none;">
+                    <div class="notes-form-row notes-form-row-title-category">
+                        <div class="notes-form-group">
+                            <label class="notes-form-label">标题</label>
+                            <input type="text" id="note-title" class="notes-form-input" placeholder="请输入标题" />
+                        </div>
+                        <div class="notes-form-group notes-form-group-category">
+                            <label class="notes-form-label">分类</label>
+                            <select id="note-category" class="notes-form-input notes-form-select" data-ui-select="single">
+                                <option value="">请选择</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="notes-form-row notes-form-content-row">
+                        <label class="notes-form-label">内容</label>
+                        <div id="note-editor-wrap" class="note-editor-wrap">
+                            <div id="note-editor"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="notes-actions" class="notes-actions" style="display: none;">
+                <div class="notes-actions-inner">
+                    <button id="btn-clear" class="btn notes-action-btn" style="display: none;">清空</button>
+                    <button id="btn-submit" class="btn primary notes-action-btn" style="display: none;">提交</button>
+                    <button id="btn-delete" class="btn notes-action-btn notes-delete-btn" style="display: none;">删除</button>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- 分类管理抽屉 -->
+<div id="notes-cats-drawer-overlay" class="notes-drawer-overlay"></div>
+<div id="notes-cats-drawer" class="notes-drawer" role="dialog" aria-modal="true" aria-labelledby="notes-cats-drawer-title">
+    <div class="notes-drawer-header">
+        <div class="notes-drawer-title" id="notes-cats-drawer-title">分类管理</div>
+        <button type="button" id="notes-cats-drawer-close" class="notes-drawer-close" aria-label="关闭">&times;</button>
+    </div>
+    <div class="notes-drawer-body">
+        <div class="notes-drawer-add-row">
+            <input type="text" id="notes-cat-new-name" class="field-control" placeholder="输入分类名称" />
+            <button type="button" id="notes-cat-add-btn" class="btn primary">添加</button>
+        </div>
+        <div class="notes-drawer-list" id="notes-cats-list"></div>
+    </div>
+    <div class="notes-drawer-footer">
+        <button type="button" id="notes-cats-drawer-ok" class="btn">关闭</button>
+    </div>
+</div>
+
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/ui-select.js"></script>
+<script src="/static/quill/quill.min.js"></script>
+<script src="/static/notes.js"></script>
+</body>
+</html>

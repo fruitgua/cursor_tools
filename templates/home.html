@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>首页 - 工作小助手</title>
+    <link rel="icon" type="image/png" href="/static/frog.png">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body class="home-page">
+<div class="app-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+        <div class="header-title-row">
+            <h1>呱呱的壮团助手</h1>
+            <img src="/static/frog.png" alt="" class="frog-img frog-header" aria-hidden="true">
+        </div>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+        </div>
+    </header>
+
+    <main class="home-main">
+        <div class="home-content">
+            <p class="home-intro">我是你的工作小助手，你可以不断完善我的能力。</p>
+        <section class="home-grid">
+            <button class="home-card" data-key="checkin">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">📅</div>
+                <div class="home-card-title">每日打卡</div>
+                <div class="home-card-desc">记录每日习惯与目标完成情况</div>
+            </button>
+            <button class="home-card" data-key="notes">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">📝</div>
+                <div class="home-card-title">学习笔记</div>
+                <div class="home-card-desc">业精于勤，荒于嬉；行成于思，毁于随。</div>
+            </button>
+            <button class="home-card" data-key="address-helper">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">📚</div>
+                <div class="home-card-title">单词本</div>
+                <div class="home-card-desc">不积跬步，无以至千里；不积小流，无以成江海。</div>
+            </button>
+            <button class="home-card" data-key="todos">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">✅</div>
+                <div class="home-card-title">待办事项</div>
+                <div class="home-card-desc">未来用于管理每日待办与计划</div>
+            </button>
+            <button class="home-card" data-key="accounts">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">🔐</div>
+                <div class="home-card-title">常用账号</div>
+                <div class="home-card-desc">管理常用系统的网址与账号信息</div>
+            </button>
+            <button class="home-card" data-key="bookmarks">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">🔖</div>
+                <div class="home-card-title">常用书签</div>
+                <div class="home-card-desc">管理常用的学习网站</div>
+            </button>
+            <button class="home-card" data-key="file-manager">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">📁</div>
+                <div class="home-card-title">本地文件管理工具</div>
+                <div class="home-card-desc">扫描并分类展示本地文件夹，支持编辑和删除</div>
+            </button>
+            <button class="home-card" data-key="atlas">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">🖼️</div>
+                <div class="home-card-title">图鉴小能手</div>
+                <div class="home-card-desc">未来用于管理和浏览各类图鉴</div>
+            </button>
+        </section>
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <p>提示：当前仅"本地文件管理工具"已实现，其余能力等待你来逐步完善。</p>
+    </footer>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/home.js"></script>
+</body>
+</html>
