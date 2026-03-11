@@ -30,7 +30,7 @@ function initHome() {
         card.addEventListener("click", () => {
             const key = card.getAttribute("data-key");
             if (key === "file-manager") {
-                window.location.href = "/";
+                window.location.href = "/files";
             } else if (key === "checkin") {
                 window.location.href = "/static/checkin.html";
             } else if (key === "accounts") {

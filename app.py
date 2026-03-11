@@ -3,7 +3,7 @@ import json
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 
-from flask import Flask, jsonify, render_template, request, Response
+from flask import Flask, jsonify, render_template, request, Response, redirect, url_for
 from send2trash import send2trash
 
 from database import (
@@ -53,6 +53,7 @@ DEFAULT_CHECKIN_STATE: Dict[str, Any] = {
 VOCAB_STATE_KEY = "vocab_data"
 DEFAULT_VOCAB_STATE: Dict[str, Any] = {
     "items": [],
+    "tags": [],  # { "name": str, "scope": "english" | "chinese" }
 }
 
 TODOS_STATE_KEY = "todos_data"
@@ -168,11 +169,9 @@ def filter_items(
 @app.route("/")
 def index() -> str:
     """
-    Render the main HTML page.
-
-    :return: Rendered HTML content.
+    Redirect root URL to /home so that http://127.0.0.1:5000/ opens the home page.
     """
-    return render_template("index.html")
+    return redirect(url_for("home"))
 
 
 @app.route("/home")
@@ -182,6 +181,15 @@ def home() -> str:
     :return: Rendered HTML content.
     """
     return render_template("home.html")
+
+
+@app.route("/files")
+def file_manager_page() -> str:
+    """
+    Render the local file management tool page.
+    :return: Rendered HTML content.
+    """
+    return render_template("index.html")
 
 
 @app.route("/accounts")
@@ -1048,8 +1056,42 @@ def api_vocab_get_state() -> Any:
         data = DEFAULT_VOCAB_STATE
     if not isinstance(data, dict):
         data = DEFAULT_VOCAB_STATE
-    data.setdefault("items", [])
-    return jsonify({"success": True, "data": data})
+    items = data.get("items") or []
+    if not isinstance(items, list):
+        items = []
+
+    def _build_tags_from_items(raw_items: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+        seen = set()
+        out: List[Dict[str, str]] = []
+        for it in raw_items:
+            if not isinstance(it, dict):
+                continue
+            # 历史迁移：所有已有标签统一按英文标签处理
+            scope = "english"
+            tags = it.get("tags") or []
+            if not isinstance(tags, list):
+                continue
+            for tag in tags:
+                name = str(tag or "").strip()
+                if not name:
+                    continue
+                key = (name, scope)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append({"name": name, "scope": scope})
+        return out
+
+    tags = data.get("tags")
+    # 如果 tags 字段不存在或为空列表，则根据历史 items 迁移生成
+    if not isinstance(tags, list) or not tags:
+        tags = _build_tags_from_items(items)
+
+    data_out: Dict[str, Any] = {
+        "items": items,
+        "tags": tags,
+    }
+    return jsonify({"success": True, "data": data_out})
 
 
 @app.route("/api/vocab/state", methods=["POST"])
@@ -1064,7 +1106,25 @@ def api_vocab_set_state() -> Any:
     items = body.get("items") or []
     if not isinstance(items, list):
         items = []
-    data: Dict[str, Any] = {"items": items}
+    raw_tags = body.get("tags") or []
+    tags: List[Dict[str, Any]] = []
+    if isinstance(raw_tags, list):
+        seen = set()
+        for t in raw_tags:
+            if not isinstance(t, dict):
+                continue
+            name = str(t.get("name") or "").strip()
+            scope = str(t.get("scope") or "english").lower()
+            if scope not in ("english", "chinese"):
+                scope = "english"
+            if not name:
+                continue
+            key = (name, scope)
+            if key in seen:
+                continue
+            seen.add(key)
+            tags.append({"name": name, "scope": scope})
+    data: Dict[str, Any] = {"items": items, "tags": tags}
     try:
         payload = json.dumps(data, ensure_ascii=False)
         set_app_state(VOCAB_STATE_KEY, payload)

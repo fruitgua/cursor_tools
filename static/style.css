@@ -256,6 +256,16 @@ body {
     background-color: #1d4ed8;
 }
 
+/* 危险按钮（幽灵样式）：用于删除、危险操作 */
+.btn-ghost-danger {
+    background-color: #ffffff;
+    border: 1px solid #dc2626;
+    color: #dc2626;
+}
+.btn-ghost-danger:hover:not(:disabled) {
+    background-color: #fee2e2;
+}
+
 .btn:active:not(:disabled) {
     transform: translateY(1px);
     box-shadow: none;
