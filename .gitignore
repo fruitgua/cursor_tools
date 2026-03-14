@@ -9,6 +9,9 @@ __pycache__/
 venv/
 env/
 
+# 本地大模型配置（含 API Key，不提交）
+config_llm.json
+
 # 本地数据库文件
 file_remarks.db
 file_remarks.db-journal

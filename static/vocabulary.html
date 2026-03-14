@@ -34,14 +34,11 @@
         .vocab-result-card .result-word { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
         .vocab-result-card .result-meaning { font-size: 14px; color: #374151; line-height: 1.6; white-space: pre-wrap; margin-bottom: 8px; }
         .vocab-actions { display: flex; gap: 8px; margin-top: 0; flex-wrap: wrap; }
-        .vocab-query-row #btn-query {
-            height: 36px;
-            width: 120px;       /* 固定宽度，避免文字变化导致抖动 */
-            box-sizing: border-box;
-        }
+        .vocab-query-row #btn-query,
+        .vocab-query-row #btn-add-word,
         .vocab-query-row #btn-add-phrase {
             height: 36px;
-            width: 120px;
+            width: 100px;       /* 固定宽度，避免文字变化导致抖动 */
             box-sizing: border-box;
         }
         .vocab-search-section { margin: 0 0 16px; display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; min-width: 0; }
@@ -187,6 +184,9 @@
         .vocab-drawer-label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151; }
         .vocab-drawer-display { width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; background: #f9fafb; color: #111827; box-sizing: border-box; height: 38px; }
         .vocab-drawer-input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; height: 38px; }
+        .vocab-drawer-auto-text { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; min-height: 200px; resize: vertical; }
+        .vocab-drawer-auto-actions { margin-top: 8px; }
+        .vocab-drawer-auto-actions .btn { width: 100px; }
         .vocab-drawer-editor-wrap { border: 1px solid #d1d5db; border-radius: 6px; min-height: 100px; overflow: hidden; }
         .vocab-drawer-editor-wrap .ql-toolbar { border: none; border-bottom: 1px solid #d1d5db; border-radius: 6px 6px 0 0; }
         .vocab-drawer-editor-wrap .ql-container { border: none; border-radius: 0 0 6px 6px; min-height: 60px; }
@@ -198,6 +198,19 @@
         .vocab-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; border: 1px solid #c7d2fe; }
         .vocab-chip button { border: none; background: transparent; cursor: pointer; color: inherit; padding: 0; line-height: 1; font-size: 14px; }
         .vocab-chip-input { border: none; outline: none; min-width: 140px; flex: 1; font-size: 14px; padding: 6px 0; }
+        .vocab-syn-related { margin-top: 8px; font-size: 13px; color: #6b7280; }
+        .vocab-syn-related-label { margin-bottom: 4px; }
+        .vocab-syn-related-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .vocab-syn-related-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px dashed #9ca3af;
+            font-size: 12px;
+            color: #4b5563;
+            background: #f9fafb;
+        }
         .vocab-drawer-footer { flex-shrink: 0; padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end; }
         .vocab-item-edit { flex-shrink: 0; padding: 6px 12px; font-size: 13px; background: #fff; border: 1px solid #2563eb; color: #2563eb; }
         .vocab-item-edit:hover { background: rgba(37,99,235,0.1); }
@@ -309,6 +322,7 @@
                 <div class="vocab-query-row">
                     <input type="text" id="query-input" class="field-control" placeholder="输入英文单词、中文单字或词语" />
                     <button type="button" id="btn-query" class="btn primary">查询</button>
+                    <button type="button" id="btn-add-word" class="btn primary">新增单词</button>
                     <button type="button" id="btn-add-phrase" class="btn primary">新增词组</button>
                 </div>
                 <div id="query-result" class="vocab-result-card" style="display:none;">
@@ -477,6 +491,12 @@
         <button type="button" id="vocab-drawer-close" class="vocab-drawer-close" aria-label="关闭">&times;</button>
     </div>
     <div class="vocab-drawer-body">
+        <div class="vocab-drawer-field" id="drawer-auto-parse-field">
+            <textarea id="drawer-auto-text" class="vocab-drawer-auto-text" placeholder="请输入文本自动识别"></textarea>
+            <div class="vocab-drawer-auto-actions">
+                <button type="button" id="btn-auto-parse" class="btn primary">自动识别</button>
+            </div>
+        </div>
         <div class="vocab-drawer-field" id="drawer-pronunciation-field">
             <label class="vocab-drawer-label">发音 / 拼音</label>
             <input type="text" id="drawer-pronunciation" class="vocab-drawer-input" placeholder="英文词汇填音标或发音；中文词汇填拼音" />
@@ -484,14 +504,6 @@
         <div class="vocab-drawer-field">
             <label class="vocab-drawer-label">中文释义（富文本）</label>
             <div id="drawer-meaning-zh-editor" class="vocab-drawer-editor-wrap"></div>
-        </div>
-        <div class="vocab-drawer-field" id="drawer-meaning-en-field">
-            <label class="vocab-drawer-label">英文释义</label>
-            <textarea id="drawer-meaning-en" class="vocab-drawer-textarea" placeholder="请输入英文释义"></textarea>
-        </div>
-        <div class="vocab-drawer-field">
-            <label class="vocab-drawer-label">例句</label>
-            <textarea id="drawer-example" class="vocab-drawer-textarea" placeholder="请输入例句（可选）"></textarea>
         </div>
         <div class="vocab-drawer-field vocab-drawer-wordforms" id="drawer-wordforms-field">
             <label class="vocab-drawer-label">词形变化</label>
@@ -538,12 +550,21 @@
             <div id="drawer-synonyms-wrap" class="vocab-chip-wrap">
                 <input id="drawer-synonyms-input" class="vocab-chip-input" placeholder="输入同义词，回车添加" />
             </div>
+            <div id="drawer-related-synonyms" class="vocab-syn-related" style="display:none;"></div>
         </div>
         <div class="vocab-drawer-field" id="drawer-related-phrases-field">
             <label class="vocab-drawer-label">关联词组</label>
             <div id="drawer-related-phrases" class="vocab-related-phrases">
                 <div class="vocab-related-empty">暂无关联词组。</div>
             </div>
+        </div>
+        <div class="vocab-drawer-field" id="drawer-meaning-en-field">
+            <label class="vocab-drawer-label">英文释义</label>
+            <textarea id="drawer-meaning-en" class="vocab-drawer-textarea" placeholder="请输入英文释义"></textarea>
+        </div>
+        <div class="vocab-drawer-field">
+            <label class="vocab-drawer-label">例句</label>
+            <textarea id="drawer-example" class="vocab-drawer-textarea" placeholder="请输入例句（可选）"></textarea>
         </div>
     </div>
     <div class="vocab-drawer-footer">
@@ -976,9 +997,9 @@
     }
 
     /**
-     * 执行查询并展示结果
+     * 执行查询并展示结果（通过后端大语言模型接口）
      */
-    let lastQueryContext = null; // { type, word, meaning }
+    let lastQueryContext = null; // { type, word, meaningZh, meaningEn, pronunciation, wordForms, synonyms, example }
     async function doQuery() {
         const input = document.getElementById("query-input").value.trim();
         const resultEl = document.getElementById("query-result");
@@ -986,6 +1007,7 @@
         const meaningEl = document.getElementById("result-meaning");
         const btnQuery = document.getElementById("btn-query");
         const btnAdd = document.getElementById("btn-add-vocab");
+        const btnAddWord = document.getElementById("btn-add-word");
         const btnAddPhrase = document.getElementById("btn-add-phrase");
 
         if (!input) {
@@ -996,53 +1018,104 @@
         btnQuery.disabled = true;
         btnQuery.textContent = "查询中...";
         if (btnAdd) btnAdd.disabled = true;
+        if (btnAddWord) btnAddWord.disabled = true;
         if (btnAddPhrase) btnAddPhrase.disabled = true;
-        let type = null;
-        let res = { success: false, meaning: "", word: input };
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            controller.abort();
-        }, 15000);
+
+        let res = { success: false };
         try {
-            type = detectLanguage(input);
-            if (type === "english") {
-                res = await queryEnglishWord(input, controller.signal);
-            } else if (type === "chinese") {
-                // 先尝试萌典拼音/释义，失败时回退到有道中文接口，提升生僻字命中率（如“叕”）
-                res = await getPinyin(input, controller.signal);
-                if (!res.success) {
-                    res = await queryChinesePhrase(input, controller.signal);
-                }
-            } else if (type === "phrase") {
-                res = await queryChinesePhrase(input, controller.signal);
+            const r = await fetch("/api/vocab/llm-query", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: input })
+            });
+            if (r && r.ok) {
+                res = await r.json();
+            } else {
+                res = { success: false, message: "查询接口返回错误" };
             }
         } catch (e) {
-            if (e.name === "AbortError") {
-                res = { success: false, meaning: "", word: input, timeout: true };
-            } else {
-                console.warn("query error", e);
-            }
+            console.warn("llm query error", e);
+            res = { success: false, message: "查询失败，请稍后重试" };
         } finally {
-            clearTimeout(timeoutId);
             btnQuery.disabled = false;
             btnQuery.textContent = "查询";
+            if (btnAddWord) btnAddWord.disabled = false;
             if (btnAddPhrase) btnAddPhrase.disabled = false;
         }
-        if (res.success) {
-            wordEl.textContent = res.word;
-            meaningEl.textContent = res.meaning;
-            resultEl.style.display = "block";
-            resultEl.dataset.queryType = type;
-            lastQueryContext = { type, word: res.word, meaning: res.meaning || "", wordForms: res.wordForms || {} };
-            if (btnAdd) btnAdd.disabled = false;
-        } else {
+
+        const detectedType = detectLanguage(input) || "english";
+
+        if (!res.success || !res.data) {
             wordEl.textContent = input;
-            meaningEl.textContent = res.timeout ? "查询超时" : "未找到释义";
+            meaningEl.textContent = res.message || "未找到释义";
             resultEl.style.display = "block";
-            resultEl.dataset.queryType = "";
-            lastQueryContext = { type: detectLanguage(input) || "english", word: input, meaning: "", wordForms: {} };
+            resultEl.dataset.queryType = detectedType;
+            lastQueryContext = {
+                type: detectedType,
+                word: input,
+                meaningZh: "",
+                meaningEn: "",
+                pronunciation: "",
+                wordForms: {},
+                synonyms: [],
+                example: ""
+            };
             if (btnAdd) btnAdd.disabled = false;
+            return;
         }
+
+        const d = res.data;
+        const word = (d.word || input || "").trim();
+        const meaningZh = String(d.meaning_zh || "");
+        const meaningEn = String(d.meaning_en || "");
+
+        wordEl.textContent = word;
+        // 结果卡片中按“字段名称：字段内容”展示所有解析结果
+        const fieldLines = [];
+        const pushField = (label, value) => {
+            const v = (value == null ? "" : String(value)).trim();
+            if (!v) return;
+            fieldLines.push(label + "：" + v);
+        };
+        pushField("发音", d.pronunciation || "");
+        pushField("中文释义", meaningZh);
+        pushField("英文释义", meaningEn);
+        if (Array.isArray(d.synonyms) && d.synonyms.length) {
+            pushField("同义词", d.synonyms.map(x => String(x || "").trim()).filter(Boolean).join("，"));
+        }
+        pushField("过去式", d.past || "");
+        pushField("过去分词", d.past_participle || "");
+        pushField("现在分词", d.present_participle || "");
+        pushField("第三人称单数", d.third_person_singular || "");
+        pushField("比较级", d.comparative || "");
+        pushField("最高级", d.superlative || "");
+        pushField("复数", d.plural || "");
+        pushField("例句", d.example || "");
+
+        meaningEl.textContent = fieldLines.join("\n");
+        resultEl.style.display = "block";
+        resultEl.dataset.queryType = detectedType;
+
+        lastQueryContext = {
+            type: detectedType,
+            word,
+            meaningZh,
+            meaningEn,
+            pronunciation: String(d.pronunciation || ""),
+            wordForms: {
+                pastTense: String(d.past || ""),
+                pastParticiple: String(d.past_participle || ""),
+                presentParticiple: String(d.present_participle || ""),
+                thirdPersonSingular: String(d.third_person_singular || ""),
+                comparative: String(d.comparative || ""),
+                superlative: String(d.superlative || ""),
+                plural: String(d.plural || "")
+            },
+            synonyms: Array.isArray(d.synonyms) ? d.synonyms.map(String) : [],
+            example: String(d.example || "")
+        };
+
+        if (btnAdd) btnAdd.disabled = false;
     }
 
     /**
@@ -1058,12 +1131,191 @@
         }
         const ctx = lastQueryContext || { type: (resultEl && resultEl.dataset.queryType) || "english", word, meaning: "" };
         const list = getWordList();
-        const type = ctx.type || "english";
+        let type = ctx.type || "english";
+
+        // 如果当前是英文输入且包含空格（如 take off），视为“英文词组”
+        if (type === "english") {
+            const w = String(word || "");
+            if (/\s/.test(w)) {
+                type = "phrase";
+                ctx.type = "phrase";
+            }
+        }
+
         const exists = list.some(item => (item.type || "english") === type && (item.word || "").toLowerCase() === word.toLowerCase());
         if (exists) {
             showToast("单词已经存在，请勿重复添加");
             return;
         }
+        openDrawerForNewFromQuery(ctx);
+    }
+
+    /**
+     * 自动识别原始文本，填充英文单词相关字段
+     * 仅在英文单词模式下生效（editingVocabType === "english"）
+     */
+    async function autoParseTextFromRaw() {
+        if (editingVocabType !== "english") {
+            showToast("当前仅支持英文单词自动识别。");
+            return;
+        }
+        const textarea = document.getElementById("drawer-auto-text");
+        if (!textarea) return;
+        const raw = (textarea.value || "").trim();
+        if (!raw) {
+            showToast("请输入文本自动识别");
+            return;
+        }
+
+        // 预处理：简单去掉干扰标签文案，避免影响大模型判断
+        const REMOVE_WORDS = ["查看全部", "高中", "初中", "CET4", "CET6", "TOEFL", "GMAT", "考研"];
+        let cleaned = raw;
+        REMOVE_WORDS.forEach(w => {
+            cleaned = cleaned.replaceAll(w, "");
+        });
+        cleaned = cleaned.trim();
+        if (!cleaned) {
+            showToast("有效内容为空，请检查文本。");
+            return;
+        }
+
+        // 调用与查询相同的大语言模型接口，让模型从原始文本中解析各字段
+        let res = { success: false };
+        try {
+            const r = await fetch("/api/vocab/llm-query", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: cleaned })
+            });
+            if (r && r.ok) {
+                res = await r.json();
+            } else {
+                res = { success: false, message: "自动识别接口返回错误" };
+            }
+        } catch (e) {
+            console.warn("llm auto-parse error", e);
+            res = { success: false, message: "自动识别失败，请稍后重试" };
+        }
+
+        if (!res.success || !res.data) {
+            showToast(res.message || "自动识别失败", "error");
+            return;
+        }
+
+        const d = res.data;
+
+        // 发音
+        const pronEl = document.getElementById("drawer-pronunciation");
+        if (pronEl && d.pronunciation) {
+            pronEl.value = String(d.pronunciation || "");
+        }
+
+        // 中文释义
+        if (drawerQuillZh && d.meaning_zh) {
+            drawerQuillZh.setText(String(d.meaning_zh || ""));
+        }
+
+        // 英文释义
+        const enEl = document.getElementById("drawer-meaning-en");
+        if (enEl && d.meaning_en) {
+            enEl.value = String(d.meaning_en || "");
+        }
+
+        // 例句
+        const exEl = document.getElementById("drawer-example");
+        if (exEl && d.example) {
+            exEl.value = String(d.example || "");
+        }
+
+        // 词形变化
+        setDrawerWordForms({
+            pastTense: String(d.past || ""),
+            pastParticiple: String(d.past_participle || ""),
+            presentParticiple: String(d.present_participle || ""),
+            thirdPersonSingular: String(d.third_person_singular || ""),
+            comparative: String(d.comparative || ""),
+            superlative: String(d.superlative || ""),
+            plural: String(d.plural || "")
+        });
+
+        // 同义词：追加到当前同义词列表中（去重）
+        if (Array.isArray(d.synonyms) && d.synonyms.length) {
+            const names = d.synonyms.map(x => String(x || "").trim()).filter(Boolean);
+            const set = new Set(drawerSynonyms || []);
+            names.forEach(n => set.add(n));
+            drawerSynonyms = Array.from(set);
+            const synWrap = document.getElementById("drawer-synonyms-wrap");
+            const renderSyn = () => renderChipList(synWrap, drawerSynonyms, (idx) => { drawerSynonyms.splice(idx, 1); renderSyn(); });
+            renderSyn();
+        }
+
+        showToast("自动识别完成");
+    }
+
+    /**
+     * 计算“关联同义词”：
+     * 若在单词 A 中设置了 B 为同义词，则在单词 B 的同义词区域展示 A（只读关联，不写回数据）
+     */
+    function getRelatedSynonymsForWord(currentWord, currentId) {
+        const word = String(currentWord || "").trim();
+        if (!word) return [];
+        const list = getWordList().map(normalizeItem);
+        const seen = new Set();
+        const out = [];
+        list.forEach(it => {
+            if (!it || !Array.isArray(it.synonyms)) return;
+            if (currentId && it.id === currentId) return;
+            if (it.synonyms.includes(word)) {
+                const w = String(it.word || "").trim();
+                if (w && !seen.has(w)) {
+                    seen.add(w);
+                    out.push(w);
+                }
+            }
+        });
+        return out;
+    }
+
+    function renderRelatedSynonymsForDrawer(currentWord, currentId) {
+        const container = document.getElementById("drawer-related-synonyms");
+        if (!container) return;
+        const list = getRelatedSynonymsForWord(currentWord, currentId);
+        if (!list.length) {
+            container.style.display = "none";
+            container.innerHTML = "";
+            return;
+        }
+        container.style.display = "";
+        container.innerHTML =
+            '<div class="vocab-syn-related-label">关联同义词（从其他单词关联）</div>' +
+            '<div class="vocab-syn-related-list">' +
+            list.map(w => '<span class="vocab-syn-related-chip">' + escapeHtml(w) + "</span>").join("") +
+            "</div>";
+    }
+
+    /**
+     * 【新增单词】按钮：直接从查询输入框打开新增抽屉
+     * - 若输入为空：toast “请输入单词”
+     * - 若有输入：根据语言类型（英文 / 中文）进入对应的添加流程
+     * - 不依赖查询结果卡片，始终允许打开抽屉
+     */
+    function addWordFromInput() {
+        const inputEl = document.getElementById("query-input");
+        const raw = (inputEl && inputEl.value || "").trim();
+        if (!raw) {
+            showToast("请输入单词");
+            return;
+        }
+        const list = getWordList();
+        let lang = detectLanguage(raw) || "english";
+        if (lang !== "chinese") lang = "english";
+        const type = lang;
+        const exists = list.some(item => (item.type || "english") === type && (item.word || "").toLowerCase() === raw.toLowerCase());
+        if (exists) {
+            showToast("单词已经存在，请勿重复添加");
+            return;
+        }
+        const ctx = { type, word: raw, meaning: "", wordForms: {} };
         openDrawerForNewFromQuery(ctx);
     }
 
@@ -1491,7 +1743,12 @@
 
     function openDrawerBase() {
         document.getElementById("vocab-drawer-overlay").classList.add("open");
-        document.getElementById("vocab-drawer").classList.add("open");
+        const drawer = document.getElementById("vocab-drawer");
+        if (drawer) {
+            drawer.classList.add("open");
+            const body = drawer.querySelector(".vocab-drawer-body");
+            if (body) body.scrollTop = 0;
+        }
     }
 
     function closeEditDrawer() {
@@ -1511,16 +1768,30 @@
     }
 
     function parseQueryMeaningToFields(ctx) {
-        const meaning = String(ctx.meaning || "");
-        const pickBlock = (label) => {
-            const idx = meaning.indexOf(label);
-            if (idx < 0) return "";
-            const after = meaning.slice(idx + label.length);
-            const parts = after.split(/\n\s*\n/);
-            return (parts[0] || "").trim();
-        };
-        const pronunciation = (pickBlock("音标：") || pickBlock("拼音：") || "").trim();
-        const zh = (pickBlock("中文释义：") || pickBlock("释义：") || meaning).trim();
+        // 新版：优先从大模型结构化结果中取字段，若缺失再从原 meaning 文本中兜底解析
+        const meaning = String(ctx.meaning || ctx.meaningZh || "");
+        const fromPron = String(ctx.pronunciation || "").trim();
+        const fromZh = String(ctx.meaningZh || "").trim();
+
+        let pronunciation = fromPron;
+        let zh = fromZh;
+
+        if (!pronunciation || !zh) {
+            const pickBlock = (label) => {
+                const idx = meaning.indexOf(label);
+                if (idx < 0) return "";
+                const after = meaning.slice(idx + label.length);
+                const parts = after.split(/\n\s*\n/);
+                return (parts[0] || "").trim();
+            };
+            if (!pronunciation) {
+                pronunciation = (pickBlock("音标：") || pickBlock("拼音：") || "").trim();
+            }
+            if (!zh) {
+                zh = (pickBlock("中文释义：") || pickBlock("释义：") || meaning).trim();
+            }
+        }
+
         return {
             pronunciation,
             meaningZhHtml: toQuillHtmlFromTextOrHtml(zh),
@@ -1556,24 +1827,38 @@
         document.getElementById("drawer-word").textContent = ctx.word || "";
         const fields = parseQueryMeaningToFields(ctx);
         document.getElementById("drawer-pronunciation").value = fields.pronunciation || "";
-        document.getElementById("drawer-meaning-en").value = "";
-        document.getElementById("drawer-example").value = "";
+        // 中文释义（富文本）
+        initDrawerQuill();
+        if (drawerQuillZh) {
+            const zhHtml = ctx.meaningZh ? toQuillHtmlFromTextOrHtml(ctx.meaningZh) : (fields.meaningZhHtml || "");
+            drawerQuillZh.root.innerHTML = zhHtml || "";
+        }
+        // 英文释义
+        document.getElementById("drawer-meaning-en").value = (ctx.meaningEn || "");
+        // 例句
+        document.getElementById("drawer-example").value = (ctx.example || "");
+        // 词形变化
         setDrawerWordForms(ctx.wordForms || {});
+        const autoField = document.getElementById("drawer-auto-parse-field");
+        const autoTextarea = document.getElementById("drawer-auto-text");
+        if (autoField) autoField.style.display = (editingVocabType === "english" ? "" : "none");
+        if (autoTextarea) autoTextarea.value = "";
         const pronField = document.getElementById("drawer-pronunciation-field");
         if (pronField) pronField.style.display = (editingVocabType === "phrase" ? "none" : "");
         const enField = document.getElementById("drawer-meaning-en-field");
-        if (enField) enField.style.display = (editingVocabType === "english" ? "" : "none");
+        // 英文释义：英文单词和英文词组都显示
+        if (enField) enField.style.display = (editingVocabType === "english" || editingVocabType === "phrase" ? "" : "none");
         const wfField = document.getElementById("drawer-wordforms-field");
         if (wfField) wfField.style.display = (editingVocabType === "english" ? "" : "none");
+        // 标签 / 同义词
         drawerTags = [];
-        drawerSynonyms = [];
-        initDrawerQuill();
-        if (drawerQuillZh) drawerQuillZh.root.innerHTML = fields.meaningZhHtml || "";
+        drawerSynonyms = Array.isArray(ctx.synonyms) ? ctx.synonyms.slice() : [];
         const tagsWrap = document.getElementById("drawer-tags-wrap");
         const synWrap = document.getElementById("drawer-synonyms-wrap");
         renderChipList(tagsWrap, drawerTags, () => {});
         renderChipList(synWrap, drawerSynonyms, () => {});
         renderRelatedPhrases(ctx.word || "");
+        renderRelatedSynonymsForDrawer(ctx.word || "", null);
         openDrawerBase();
     }
 
@@ -1592,10 +1877,15 @@
         document.getElementById("drawer-meaning-en").value = "";
         document.getElementById("drawer-example").value = "";
         setDrawerWordForms({});
+        const autoField = document.getElementById("drawer-auto-parse-field");
+        const autoTextarea = document.getElementById("drawer-auto-text");
+        if (autoField) autoField.style.display = "none";
+        if (autoTextarea) autoTextarea.value = "";
         const pronField = document.getElementById("drawer-pronunciation-field");
         if (pronField) pronField.style.display = "none";
         const enField = document.getElementById("drawer-meaning-en-field");
-        if (enField) enField.style.display = "none";
+        // 词组支持中文释义 + 英文释义 + 例句，不显示词形变化和发音
+        if (enField) enField.style.display = "";
         const wfField = document.getElementById("drawer-wordforms-field");
         if (wfField) wfField.style.display = "none";
         drawerTags = [];
@@ -1608,6 +1898,7 @@
         renderChipList(synWrap, drawerSynonyms, () => {});
         const relatedField = document.getElementById("drawer-related-phrases-field");
         if (relatedField) relatedField.style.display = "none";
+        renderRelatedSynonymsForDrawer(phrase, null);
         openDrawerBase();
     }
 
@@ -1631,6 +1922,11 @@
             superlative: item.superlative ?? "",
             plural: item.plural ?? ""
         });
+        const autoField = document.getElementById("drawer-auto-parse-field");
+        const autoTextarea = document.getElementById("drawer-auto-text");
+        if (autoField) autoField.style.display = (editingVocabType === "english" ? "" : "none");
+        if (autoTextarea) autoTextarea.value = "";
+
         const pronField = document.getElementById("drawer-pronunciation-field");
         if (pronField) pronField.style.display = (editingVocabType === "phrase" ? "none" : "");
         const enField = document.getElementById("drawer-meaning-en-field");
@@ -1648,6 +1944,7 @@
         renderTags();
         renderSyn();
         renderRelatedPhrases(item.word || "");
+        renderRelatedSynonymsForDrawer(item.word || "", id);
         openDrawerBase();
     }
 
@@ -1950,6 +2247,10 @@
         document.getElementById("btn-query").addEventListener("click", doQuery);
         document.getElementById("query-input").addEventListener("keydown", e => { if (e.key === "Enter") doQuery(); });
         document.getElementById("btn-add-vocab").addEventListener("click", saveWord);
+        const btnAddWord = document.getElementById("btn-add-word");
+        if (btnAddWord) {
+            btnAddWord.addEventListener("click", addWordFromInput);
+        }
         const btnAddPhrase = document.getElementById("btn-add-phrase");
         if (btnAddPhrase) {
             btnAddPhrase.addEventListener("click", openDrawerForNewPhrase);
@@ -1959,6 +2260,10 @@
         document.getElementById("vocab-drawer-overlay").addEventListener("click", closeEditDrawer);
         document.getElementById("edit-cancel").addEventListener("click", closeEditDrawer);
         document.getElementById("edit-save").addEventListener("click", saveVocabEdit);
+        const btnAutoParse = document.getElementById("btn-auto-parse");
+        if (btnAutoParse) {
+            btnAutoParse.addEventListener("click", autoParseTextFromRaw);
+        }
         // 标签 / 同义词 chips
         const tagsWrap = document.getElementById("drawer-tags-wrap");
         const synWrap = document.getElementById("drawer-synonyms-wrap");

@@ -1,5 +1,6 @@
 import os
 import json
+import ssl
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -65,6 +66,30 @@ NOTES_CATEGORIES_STATE_KEY = "notes_categories"
 DEFAULT_NOTES_CATEGORIES_STATE: Dict[str, Any] = {
     "items": ["AI", "系统使用", "读书笔记", "其他"],
 }
+
+
+# LLM 配置文件路径（可选）：config_llm.json
+LLM_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config_llm.json")
+
+
+def _load_llm_config() -> Dict[str, str]:
+    """
+    从本地 config_llm.json 加载大模型配置（api_key / base_url / model）。
+    若文件不存在或解析失败，则返回空配置，后续再回退到环境变量。
+    """
+    try:
+        with open(LLM_CONFIG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return {"api_key": "", "base_url": "", "model": ""}
+    except Exception:
+        return {"api_key": "", "base_url": "", "model": ""}
+
+    return {
+        "api_key": str(data.get("api_key") or "").strip(),
+        "base_url": str(data.get("base_url") or "").strip(),
+        "model": str(data.get("model") or "").strip(),
+    }
 
 
 def get_paginated_items(
@@ -1131,6 +1156,148 @@ def api_vocab_set_state() -> Any:
         return jsonify({"success": True})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": f"保存词汇数据失败：{exc}"}), 500
+
+
+def _call_llm_for_vocab(text: str) -> Dict[str, Any]:
+    """
+    调用大语言模型，将原始查询文本解析为结构化的单词信息。
+
+    为了方便本地配置，这里约定：
+    - 使用 OpenAI 兼容接口
+    - 必须在环境变量中提供 OPENAI_API_KEY
+    - 可选：OPENAI_API_BASE、OPENAI_VOCAB_MODEL
+
+    如果未配置密钥或调用失败，将抛出异常，由上层捕获并返回错误给前端。
+    """
+    import urllib.request
+    import urllib.error
+
+    cfg = _load_llm_config()
+    # 优先使用本地配置文件中的 key / base / model，其次回退到环境变量
+    api_key = cfg["api_key"] or os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_TOKEN")
+    if not api_key:
+        raise RuntimeError("服务端未配置 OPENAI_API_KEY，无法使用大模型查询。")
+
+    base_url = cfg["base_url"] or os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
+    model = cfg["model"] or os.environ.get("OPENAI_VOCAB_MODEL", "gpt-4o-mini")
+
+    system_prompt = (
+        "你是一个精确的英汉词典引擎，请根据用户输入的单词或短语，返回 ONLY JSON，不要包含任何多余文字。\n"
+        "JSON 结构严格为：\n"
+        "{\n"
+        '  \"word\": string,              // 标准单词形式\n'
+        '  \"pronunciation\": string,     // 音标或发音描述，可为空\n'
+        '  \"meaning_zh\": string,        // 中文释义，要求每个义项前必须带有词性缩写（如 \"adj.\"、\"n.\"、\"v.\" 等），多义用分号或换行分隔，例如：\"adj. 优良的；能干的；……；n. 善；好事；……\"\n'
+        '  \"meaning_en\": string,        // 英文释义，可为空\n'
+        '  \"synonyms\": string[],        // 同义词列表，只包含单词，不要解释\n'
+        '  \"past\": string,              // 过去式，可为空\n'
+        '  \"past_participle\": string,   // 过去分词，可为空\n'
+        '  \"present_participle\": string,// 现在分词，可为空\n'
+        '  \"third_person_singular\": string, // 第三人称单数，可为空\n'
+        '  \"comparative\": string,       // 比较级，可为空\n'
+        '  \"superlative\": string,       // 最高级，可为空\n'
+        '  \"plural\": string,            // 复数形式，可为空\n'
+        '  \"example\": string            // 一个代表性英文例句，尽量简单，同时附带中文翻译，例如：\"I wear sweatpants at home. 在家时我穿运动休闲裤。\"\n'
+        "}\n"
+        "确保 meaning_zh 中的每个义项都清晰标明词性（如 \"adj.\"、\"n.\"），并且始终返回合法 JSON。"
+    )
+
+    user_prompt = f"查询单词或短语：{text}"
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.2,
+    }
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Authorization", f"Bearer {api_key}")
+
+    # 本地开发环境：关闭 SSL 证书校验，避免 macOS 上的 CA 配置问题
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    try:
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+            resp_data = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:  # pragma: no cover - 网络/配置类问题
+        raise RuntimeError(f"大模型接口 HTTP 错误：{exc.code}") from exc
+    except urllib.error.URLError as exc:  # pragma: no cover
+        raise RuntimeError(f"大模型接口网络错误：{exc.reason}") from exc
+
+    try:
+        obj = json.loads(resp_data)
+        content = obj["choices"][0]["message"]["content"]
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError("解析大模型返回内容失败。") from exc
+
+    # content 可能被模型包在 ```json ``` 中，做一次清洗
+    content_str = str(content).strip()
+    if content_str.startswith("```"):
+        # 去掉 ```json ... ``` 包裹
+        content_str = content_str.strip("`")
+        # 去掉可能的语言标签
+        idx = content_str.find("{")
+        if idx >= 0:
+            content_str = content_str[idx:]
+
+    try:
+        data = json.loads(content_str)
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError("大模型未返回合法 JSON。") from exc
+
+    if not isinstance(data, dict):
+        raise RuntimeError("大模型返回 JSON 结构不是对象。")
+
+    # 做一次轻量兜底，避免前端取值时报错
+    def _s(key: str) -> str:
+        v = data.get(key)
+        return "" if v is None else str(v)
+
+    result: Dict[str, Any] = {
+        "word": _s("word"),
+        "pronunciation": _s("pronunciation"),
+        "meaning_zh": _s("meaning_zh"),
+        "meaning_en": _s("meaning_en"),
+        "synonyms": data.get("synonyms") or [],
+        "past": _s("past"),
+        "past_participle": _s("past_participle"),
+        "present_participle": _s("present_participle"),
+        "third_person_singular": _s("third_person_singular"),
+        "comparative": _s("comparative"),
+        "superlative": _s("superlative"),
+        "plural": _s("plural"),
+        "example": _s("example"),
+    }
+    if not isinstance(result["synonyms"], list):
+        result["synonyms"] = []
+    result["synonyms"] = [str(x) for x in result["synonyms"] if x]
+    return result
+
+
+@app.route("/api/vocab/llm-query", methods=["POST"])
+def api_vocab_llm_query() -> Any:
+    """
+    使用大语言模型查询单词信息，并返回结构化字段。
+    """
+    body = request.get_json(silent=True) or {}
+    text = str(body.get("text") or "").strip()
+    if not text:
+        return jsonify({"success": False, "message": "请输入要查询的单词"}), 400
+
+    try:
+        data = _call_llm_for_vocab(text)
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+    return jsonify({"success": True, "data": data})
 
 
 @app.route("/api/todos/state", methods=["GET"])
