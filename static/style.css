@@ -15,7 +15,14 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
     background-color: #f5f7fb;
     color: #222;
-    overflow: hidden; /* 页面整体不滚动，只让列表区域滚动 */
+    overflow: hidden; /* 桌面：页面整体不滚动，只让列表区域滚动 */
+}
+
+/* 移动端（H5）下允许整页滚动，避免首页 / 待办等页面无法拉到底部 */
+@media (max-width: 720px) {
+    body {
+        overflow: auto;
+    }
 }
 
 .app-container {

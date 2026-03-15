@@ -57,6 +57,10 @@
     gap: 12px;
 }
 
+/* 桌面：返回首页显示文字，隐藏 icon */
+.btn-go-home-icon { display: none; }
+.btn-go-home-text { display: inline; }
+
 /* Cards */
 .card {
     background: #fff;
@@ -170,19 +174,30 @@
     gap: 4px;
 }
 
-/* 移动端（手机 H5）布局：上方固定整月日历，下方为可滚动的每日事件列表 */
+/* 移动端（手机 H5）布局：上方固定整月日历，下方为可滚动的每日事件列表；右上角仅保留 HOME 图标 */
 @media (max-width: 720px) {
-    /* 简化导航，只保留“月历”tab，隐藏统计 / 事件管理和头部右侧按钮 */
+    /* 简化导航，只保留“月历”tab，隐藏统计 / 事件管理 */
     .nav-tabs .nav-tab[data-page="stats"],
     .nav-tabs .nav-tab[data-page="events"],
     #page-stats,
-    #page-events,
-    .header-actions {
+    #page-events {
         display: none !important;
     }
+    /* 头部右侧：H5 下隐藏导出、切换模板，仅显示返回首页为 HOME 图标 */
+    #btn-export-checkin,
+    #theme-switcher-container.header-action-extra {
+        display: none !important;
+    }
+    .btn-go-home-icon { display: inline; font-size: 18px; line-height: 1; }
+    .btn-go-home-text { display: none; }
+    .btn-go-home { min-width: 36px; padding-left: 10px; padding-right: 10px; }
 
     .app {
         padding: 12px 12px 16px;
+    }
+
+    #page-calendar.page.active {
+        overflow: auto; /* 允许整页在手机上向下滚动，看到详情底部 */
     }
 
     .calendar-layout {
@@ -213,11 +228,24 @@
     }
 
     .calendar-grid {
-        grid-auto-rows: 72px;
+        grid-auto-rows: 1fr;
     }
 
     .calendar-day {
         font-size: 13px;
+        aspect-ratio: 1 / 1; /* 高宽 1:1 */
+        padding: 6px;
+    }
+
+    /* H5：仅展示日期 + 一个图标（提醒 / 日期标签），隐藏其它详细行和打卡点 */
+    .calendar-day .day-dots,
+    .calendar-day .day-label-row,
+    .calendar-day .day-reminder-row {
+        display: none !important;
+    }
+
+    .calendar-day .day-single-icon {
+        display: inline-flex;
     }
 
     .calendar-detail-card {
@@ -249,9 +277,21 @@
     flex-shrink: 0;
 }
 
+.calendar-day .day-top-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .calendar-day .day-num {
     font-weight: 500;
     text-align: right;
+}
+
+.calendar-day .day-single-icon {
+    font-size: 14px;
+    line-height: 1;
+    display: none; /* 默认桌面隐藏，H5 下再显示 */
 }
 
 .calendar-day .day-dots {

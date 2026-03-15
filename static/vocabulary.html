@@ -31,12 +31,15 @@
         .vocab-query-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .vocab-query-row .field-control { flex: 1; min-width: 200px; }
         .vocab-result-card { margin-top: 12px; padding: 16px 20px 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(15,23,42,0.08); background: #fff; }
-        .vocab-result-card .result-word { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+        .vocab-result-card .result-word-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+        .vocab-result-card .result-word { font-size: 18px; font-weight: 600; margin: 0; flex: 1; min-width: 0; }
         .vocab-result-card .result-meaning { font-size: 14px; color: #374151; line-height: 1.6; white-space: pre-wrap; margin-bottom: 8px; }
+        .btn-ghost { height: 36px; padding: 0 14px; font-size: 14px; box-sizing: border-box; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; }
+        .btn-ghost:hover { background: #e5e7eb; }
+        html[data-theme="dark"] .btn-ghost { background: rgba(255,255,255,0.08); border-color: #2A3038; color: rgba(255,255,255,0.87); }
+        html[data-theme="dark"] .btn-ghost:hover { background: rgba(255,255,255,0.12); }
         .vocab-actions { display: flex; gap: 8px; margin-top: 0; flex-wrap: wrap; }
-        .vocab-query-row #btn-query,
-        .vocab-query-row #btn-add-word,
-        .vocab-query-row #btn-add-phrase {
+        .vocab-query-row #btn-query {
             height: 36px;
             width: 100px;       /* 固定宽度，避免文字变化导致抖动 */
             box-sizing: border-box;
@@ -53,6 +56,8 @@
         .vocab-tag-filter { flex: 0 0 200px; min-width: 200px; flex-shrink: 0; }
         .vocab-tag-combobox { position: relative; width: 100%; }
         .vocab-tag-filter-input { padding-right: 30px; width: 100%; min-width: 0; }
+        .vocab-tag-filter-input::placeholder { color: #111827; }
+        html[data-theme="dark"] .vocab-tag-filter-input::placeholder { color: #e5e7eb; }
         .vocab-search-actions .btn {
             height: 36px;
             padding: 0 14px;
@@ -77,15 +82,31 @@
             gap: 12px;
             overflow-y: auto;
         }
-        .vocab-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; flex-shrink: 0; }
-        .vocab-page-info { font-size: 13px; color: #6b7280; margin-right: auto; }
-        .vocab-page-status { font-size: 13px; color: #374151; }
+        .vocab-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; flex-shrink: 0; flex-wrap: nowrap; }
+        .vocab-page-actions { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; flex-shrink: 0; }
+        .vocab-pagination .vocab-page-actions .btn,
+        .vocab-page-select-trigger { height: 36px; box-sizing: border-box; }
+        .vocab-page-select-wrap { position: relative; flex-shrink: 0; }
+        .vocab-page-select-trigger { min-width: 56px; padding: 0 24px 0 8px; font-size: 13px; line-height: 34px; cursor: pointer; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #111827; text-align: left; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+        .vocab-page-select-trigger:hover:not(:disabled) { border-color: #9ca3af; }
+        .vocab-page-select-trigger:disabled { cursor: default; opacity: 0.7; }
+        .vocab-page-select-dropdown { position: absolute; bottom: calc(100% + 6px); left: 0; min-width: 100%; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 8px 20px rgba(15,23,42,0.12); z-index: 50; max-height: 240px; overflow-y: auto; display: none; }
+        .vocab-page-select-dropdown.open { display: block; }
+        .vocab-page-select-option { padding: 8px 10px; font-size: 13px; cursor: pointer; }
+        .vocab-page-select-option:hover { background: #f3f4f6; }
+        .vocab-page-select-option.active { background: #eef2ff; color: #1d4ed8; }
+        html[data-theme="dark"] .vocab-page-select-trigger { background-color: #1E2228; border-color: #2A3038; color: rgba(255,255,255,0.87); }
+        html[data-theme="dark"] .vocab-page-select-dropdown { background: #1E2228; border-color: #2A3038; }
+        html[data-theme="dark"] .vocab-page-select-option:hover { background: rgba(255,255,255,0.06); }
+        html[data-theme="dark"] .vocab-page-select-option.active { background: rgba(74,158,255,0.12); color: #4A9EFF; }
+        .vocab-page-info { font-size: 13px; color: #6b7280; margin-right: auto; flex-shrink: 0; white-space: nowrap; }
+        .vocab-page-status { font-size: 13px; color: #374151; white-space: nowrap; }
         .vocab-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(15,23,42,0.08); transition: box-shadow 0.2s, transform 0.05s; background: #fff; }
         .vocab-item:hover { box-shadow: 0 2px 8px rgba(15,23,42,0.12); }
         .vocab-item-content { flex: 1; min-width: 0; }
-        .vocab-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .vocab-item-word { font-size: 16px; font-weight: 600; }
-        .vocab-item-labels { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+        .vocab-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+        .vocab-item-word { font-size: 16px; font-weight: 600; min-width: 0; word-break: break-word; overflow-wrap: break-word; }
+        .vocab-item-labels { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
         .vocab-item-type { display: inline-flex; align-items: center; padding: 2px 8px; font-size: 12px; border-radius: 999px; background: #2563eb; color: #fff; }
         .vocab-item-meaning { font-size: 14px; color: #374151; line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
         .vocab-item-time { font-size: 12px; color: #9ca3af; margin-top: 6px; }
@@ -184,7 +205,7 @@
         .vocab-drawer-label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151; }
         .vocab-drawer-display { width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 14px; background: #f9fafb; color: #111827; box-sizing: border-box; height: 38px; }
         .vocab-drawer-input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; height: 38px; }
-        .vocab-drawer-auto-text { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; min-height: 200px; resize: vertical; }
+        .vocab-drawer-auto-text { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; height: 80px; min-height: 80px; resize: vertical; }
         .vocab-drawer-auto-actions { margin-top: 8px; }
         .vocab-drawer-auto-actions .btn { width: 100px; }
         .vocab-drawer-editor-wrap { border: 1px solid #d1d5db; border-radius: 6px; min-height: 100px; overflow: hidden; }
@@ -296,6 +317,48 @@
             outline-offset: -2px;
             background-color: #fff;
         }
+
+        /* 桌面：返回首页显示文字，隐藏 icon */
+        .btn-go-home-icon { display: none; }
+        .btn-go-home-text { display: inline; }
+
+        /* H5 自适应：小屏下简化 TAB、隐藏切换模板、返回首页仅 icon、筛选区均分并隐藏导出导入 */
+        @media (max-width: 720px) {
+            .vocab-tab-extra { display: none !important; }
+            #theme-switcher-container.header-action-theme { display: none !important; }
+            .btn-go-home-icon { display: inline; font-size: 18px; line-height: 1; }
+            .btn-go-home-text { display: none; }
+            .btn-go-home { min-width: 36px; padding-left: 10px; padding-right: 10px; }
+            /* 查询词汇等内容在 H5 下允许整体纵向滚动，避免结果区域被截断 */
+            .vocab-scroll {
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .vocab-search-section {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+            }
+            .vocab-search-section .vocab-type-filter,
+            .vocab-search-section .vocab-tag-filter,
+            .vocab-search-section #search-english,
+            .vocab-search-section #search-chinese {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                max-width: none;
+            }
+            .vocab-search-section .vocab-type-filter .field-control,
+            .vocab-search-section .vocab-tag-filter .vocab-tag-combobox,
+            .vocab-search-section .vocab-tag-filter .vocab-tag-filter-input {
+                width: 100%;
+                min-width: 0;
+                box-sizing: border-box;
+            }
+            .vocab-search-actions { display: none !important; }
+            .vocab-pagination { flex-wrap: nowrap; gap: 8px; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .vocab-page-actions { flex-wrap: nowrap; gap: 8px; }
+        }
     </style>
 </head>
 <body>
@@ -305,12 +368,12 @@
             <button type="button" class="nav-tab active vocab-tab" data-tab="query">查询词汇</button>
             <button type="button" class="nav-tab vocab-tab" data-tab="english">英文单词本</button>
             <button type="button" class="nav-tab vocab-tab" data-tab="chinese">中文词汇</button>
-            <button type="button" class="nav-tab vocab-tab" data-tab="tags">标签管理</button>
-            <button type="button" class="nav-tab vocab-tab" data-tab="review">复习模式</button>
+            <button type="button" class="nav-tab vocab-tab vocab-tab-extra" data-tab="tags">标签管理</button>
+            <button type="button" class="nav-tab vocab-tab vocab-tab-extra" data-tab="review">复习模式</button>
         </div>
         <div class="header-actions">
-            <div id="theme-switcher-container"></div>
-            <button id="btn-go-home" class="btn btn-go-home">返回首页</button>
+            <div id="theme-switcher-container" class="header-action-theme"></div>
+            <button id="btn-go-home" class="btn btn-go-home" title="返回首页" aria-label="返回首页"><span class="btn-go-home-icon" aria-hidden="true">⌂</span><span class="btn-go-home-text">返回首页</span></button>
         </div>
     </div>
 
@@ -322,11 +385,12 @@
                 <div class="vocab-query-row">
                     <input type="text" id="query-input" class="field-control" placeholder="输入英文单词、中文单字或词语" />
                     <button type="button" id="btn-query" class="btn primary">查询</button>
-                    <button type="button" id="btn-add-word" class="btn primary">新增单词</button>
-                    <button type="button" id="btn-add-phrase" class="btn primary">新增词组</button>
                 </div>
                 <div id="query-result" class="vocab-result-card" style="display:none;">
-                    <div class="result-word" id="result-word"></div>
+                    <div class="result-word-row">
+                        <div class="result-word" id="result-word"></div>
+                        <button type="button" class="btn btn-ghost" id="btn-copy-result">复制</button>
+                    </div>
                     <div class="result-meaning" id="result-meaning"></div>
                     <div class="vocab-actions">
                         <button type="button" id="btn-add-vocab" class="btn primary">添加到我的单词本</button>
@@ -347,7 +411,7 @@
                 </div>
                 <div class="vocab-tag-filter" id="tag-filter-wrap-english">
                     <div class="vocab-tag-combobox">
-                        <input type="text" id="tag-filter-english" class="field-control vocab-tag-filter-input" placeholder="分类标签（全部）" autocomplete="off" />
+                        <input type="text" id="tag-filter-english" class="field-control vocab-tag-filter-input" placeholder="全部标签" autocomplete="off" />
                         <div class="vocab-tag-caret" aria-hidden="true"></div>
                         <div class="vocab-tag-dropdown" id="tag-filter-english-dropdown" style="display:none;"></div>
                     </div>
@@ -365,6 +429,10 @@
                     <div class="vocab-page-actions">
                         <button type="button" class="btn" id="vocab-english-prev">上一页</button>
                         <span class="vocab-page-status" id="vocab-english-page-status">第 1 / 1 页</span>
+                        <div class="vocab-page-select-wrap" id="vocab-english-page-select-wrap">
+                            <button type="button" class="vocab-page-select-trigger" id="vocab-english-page-select-trigger" title="跳转页码">1</button>
+                            <div class="vocab-page-select-dropdown" id="vocab-english-page-select-dropdown"></div>
+                        </div>
                         <button type="button" class="btn" id="vocab-english-next">下一页</button>
                     </div>
                 </div>
@@ -376,7 +444,7 @@
             <section class="vocab-search-section">
                 <div class="vocab-tag-filter" id="tag-filter-wrap-chinese">
                     <div class="vocab-tag-combobox">
-                        <input type="text" id="tag-filter-chinese" class="field-control vocab-tag-filter-input" placeholder="分类标签（全部）" autocomplete="off" />
+                        <input type="text" id="tag-filter-chinese" class="field-control vocab-tag-filter-input" placeholder="全部标签" autocomplete="off" />
                         <div class="vocab-tag-caret" aria-hidden="true"></div>
                         <div class="vocab-tag-dropdown" id="tag-filter-chinese-dropdown" style="display:none;"></div>
                     </div>
@@ -394,6 +462,10 @@
                     <div class="vocab-page-actions">
                         <button type="button" class="btn" id="vocab-chinese-prev">上一页</button>
                         <span class="vocab-page-status" id="vocab-chinese-page-status">第 1 / 1 页</span>
+                        <div class="vocab-page-select-wrap" id="vocab-chinese-page-select-wrap">
+                            <button type="button" class="vocab-page-select-trigger" id="vocab-chinese-page-select-trigger" title="跳转页码">1</button>
+                            <div class="vocab-page-select-dropdown" id="vocab-chinese-page-select-dropdown"></div>
+                        </div>
                         <button type="button" class="btn" id="vocab-chinese-next">下一页</button>
                     </div>
                 </div>
@@ -1007,8 +1079,6 @@
         const meaningEl = document.getElementById("result-meaning");
         const btnQuery = document.getElementById("btn-query");
         const btnAdd = document.getElementById("btn-add-vocab");
-        const btnAddWord = document.getElementById("btn-add-word");
-        const btnAddPhrase = document.getElementById("btn-add-phrase");
 
         if (!input) {
             showToast("请输入要查询的内容");
@@ -1018,8 +1088,6 @@
         btnQuery.disabled = true;
         btnQuery.textContent = "查询中...";
         if (btnAdd) btnAdd.disabled = true;
-        if (btnAddWord) btnAddWord.disabled = true;
-        if (btnAddPhrase) btnAddPhrase.disabled = true;
 
         let res = { success: false };
         try {
@@ -1039,8 +1107,6 @@
         } finally {
             btnQuery.disabled = false;
             btnQuery.textContent = "查询";
-            if (btnAddWord) btnAddWord.disabled = false;
-            if (btnAddPhrase) btnAddPhrase.disabled = false;
         }
 
         const detectedType = detectLanguage(input) || "english";
@@ -1151,8 +1217,12 @@
     }
 
     /**
-     * 自动识别原始文本，填充英文单词相关字段
-     * 仅在英文单词模式下生效（editingVocabType === "english"）
+     * 自动识别原始文本，填充英文单词相关字段（本地解析版）
+     * 规则：
+     * - 按行解析，支持 "字段名：内容" 或 "字段名:内容"
+     * - "："左侧为字段名称，右侧为内容；同一字段多行会自动拼接为多行
+     * - 支持字段：中文释义 / 英文释义 / 例句 / 同义词 / 发音
+     * - 同义词按中文逗号 "，"、英文逗号 "," 等分隔
      */
     async function autoParseTextFromRaw() {
         if (editingVocabType !== "english") {
@@ -1167,86 +1237,91 @@
             return;
         }
 
-        // 预处理：简单去掉干扰标签文案，避免影响大模型判断
-        const REMOVE_WORDS = ["查看全部", "高中", "初中", "CET4", "CET6", "TOEFL", "GMAT", "考研"];
-        let cleaned = raw;
-        REMOVE_WORDS.forEach(w => {
-            cleaned = cleaned.replaceAll(w, "");
-        });
-        cleaned = cleaned.trim();
-        if (!cleaned) {
-            showToast("有效内容为空，请检查文本。");
-            return;
-        }
+        const lines = raw.split(/\r?\n+/);
+        const data = {
+            pronunciation: "",
+            meaning_zh: "",
+            meaning_en: "",
+            example: "",
+            synonyms: ""
+        };
 
-        // 调用与查询相同的大语言模型接口，让模型从原始文本中解析各字段
-        let res = { success: false };
-        try {
-            const r = await fetch("/api/vocab/llm-query", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: cleaned })
-            });
-            if (r && r.ok) {
-                res = await r.json();
-            } else {
-                res = { success: false, message: "自动识别接口返回错误" };
+        const normalizeKey = (k) => {
+            const s = String(k || "").trim();
+            if (!s) return "";
+            if (["中文释义", "释义", "中文"].includes(s)) return "meaning_zh";
+            if (["英文释义", "英文解释", "英文"].includes(s)) return "meaning_en";
+            if (["例句", "例句英文", "例句中文"].includes(s)) return "example";
+            if (["同义词", "近义词"].includes(s)) return "synonyms";
+            if (["发音", "音标", "读音"].includes(s)) return "pronunciation";
+            return "";
+        };
+
+        const appendValue = (key, value) => {
+            if (!key || !value) return;
+            if (!data[key]) data[key] = value;
+            else data[key] += "\n" + value;
+        };
+
+        let currentKey = "";
+        lines.forEach((line) => {
+            const t = String(line || "").trim();
+            if (!t) return;
+            let idx = t.indexOf("：");
+            if (idx < 0) idx = t.indexOf(":");
+            if (idx > -1) {
+                const left = t.slice(0, idx);
+                const right = t.slice(idx + 1).trim();
+                const key = normalizeKey(left);
+                currentKey = key;
+                if (key) appendValue(key, right);
+            } else if (currentKey) {
+                appendValue(currentKey, t);
             }
-        } catch (e) {
-            console.warn("llm auto-parse error", e);
-            res = { success: false, message: "自动识别失败，请稍后重试" };
-        }
+        });
 
-        if (!res.success || !res.data) {
-            showToast(res.message || "自动识别失败", "error");
+        if (!data.pronunciation && !data.meaning_zh && !data.meaning_en && !data.example && !data.synonyms) {
+            showToast("未识别到有效字段，请检查文本格式。");
             return;
         }
-
-        const d = res.data;
 
         // 发音
         const pronEl = document.getElementById("drawer-pronunciation");
-        if (pronEl && d.pronunciation) {
-            pronEl.value = String(d.pronunciation || "");
+        if (pronEl && data.pronunciation) {
+            pronEl.value = data.pronunciation;
         }
 
-        // 中文释义
-        if (drawerQuillZh && d.meaning_zh) {
-            drawerQuillZh.setText(String(d.meaning_zh || ""));
+        // 中文释义（富文本：保持换行）
+        if (drawerQuillZh && data.meaning_zh) {
+            drawerQuillZh.setText(String(data.meaning_zh || ""));
         }
 
         // 英文释义
         const enEl = document.getElementById("drawer-meaning-en");
-        if (enEl && d.meaning_en) {
-            enEl.value = String(d.meaning_en || "");
+        if (enEl && data.meaning_en) {
+            enEl.value = data.meaning_en;
         }
 
         // 例句
         const exEl = document.getElementById("drawer-example");
-        if (exEl && d.example) {
-            exEl.value = String(d.example || "");
+        if (exEl && data.example) {
+            exEl.value = data.example;
         }
 
-        // 词形变化
-        setDrawerWordForms({
-            pastTense: String(d.past || ""),
-            pastParticiple: String(d.past_participle || ""),
-            presentParticiple: String(d.present_participle || ""),
-            thirdPersonSingular: String(d.third_person_singular || ""),
-            comparative: String(d.comparative || ""),
-            superlative: String(d.superlative || ""),
-            plural: String(d.plural || "")
-        });
-
-        // 同义词：追加到当前同义词列表中（去重）
-        if (Array.isArray(d.synonyms) && d.synonyms.length) {
-            const names = d.synonyms.map(x => String(x || "").trim()).filter(Boolean);
-            const set = new Set(drawerSynonyms || []);
-            names.forEach(n => set.add(n));
-            drawerSynonyms = Array.from(set);
-            const synWrap = document.getElementById("drawer-synonyms-wrap");
-            const renderSyn = () => renderChipList(synWrap, drawerSynonyms, (idx) => { drawerSynonyms.splice(idx, 1); renderSyn(); });
-            renderSyn();
+        // 同义词：按分隔符拆分并追加到当前列表（去重）
+        if (data.synonyms) {
+            const names = String(data.synonyms || "")
+                .split(/[,，、;；\s]+/)
+                .map(x => x.trim())
+                .filter(Boolean);
+            if (names.length) {
+                const set = new Set(drawerSynonyms || []);
+                names.forEach(n => set.add(n));
+                drawerSynonyms = Array.from(set);
+                const synWrap = document.getElementById("drawer-synonyms-wrap");
+                const renderSyn = () => renderChipList(synWrap, drawerSynonyms, (idx) => { drawerSynonyms.splice(idx, 1); renderSyn(); });
+                renderSyn();
+            }
         }
 
         showToast("自动识别完成");
@@ -1291,32 +1366,6 @@
             '<div class="vocab-syn-related-list">' +
             list.map(w => '<span class="vocab-syn-related-chip">' + escapeHtml(w) + "</span>").join("") +
             "</div>";
-    }
-
-    /**
-     * 【新增单词】按钮：直接从查询输入框打开新增抽屉
-     * - 若输入为空：toast “请输入单词”
-     * - 若有输入：根据语言类型（英文 / 中文）进入对应的添加流程
-     * - 不依赖查询结果卡片，始终允许打开抽屉
-     */
-    function addWordFromInput() {
-        const inputEl = document.getElementById("query-input");
-        const raw = (inputEl && inputEl.value || "").trim();
-        if (!raw) {
-            showToast("请输入单词");
-            return;
-        }
-        const list = getWordList();
-        let lang = detectLanguage(raw) || "english";
-        if (lang !== "chinese") lang = "english";
-        const type = lang;
-        const exists = list.some(item => (item.type || "english") === type && (item.word || "").toLowerCase() === raw.toLowerCase());
-        if (exists) {
-            showToast("单词已经存在，请勿重复添加");
-            return;
-        }
-        const ctx = { type, word: raw, meaning: "", wordForms: {} };
-        openDrawerForNewFromQuery(ctx);
     }
 
     /**
@@ -1538,7 +1587,7 @@
             : options.slice();
         const items = ["", ...filtered];
         dropdown.innerHTML = items.map(function(t) {
-            const label = t ? t : "全部";
+            const label = t ? t : "全部标签";
             const active = (t === selected) ? " active" : "";
             return '<div class="vocab-tag-option' + active + '" data-value="' + escapeHtml(t) + '">' + escapeHtml(label) + "</div>";
         }).join("");
@@ -1557,12 +1606,13 @@
         });
     }
 
-    function showTagDropdown(type) {
+    function showTagDropdown(type, filterKeyword) {
         const dropdown = document.getElementById("tag-filter-" + type + "-dropdown");
         if (!dropdown) return;
         dropdown.style.display = "";
         const input = document.getElementById("tag-filter-" + type);
-        renderTagDropdown(type, input ? input.value : "");
+        const kw = (filterKeyword !== undefined && filterKeyword !== null) ? String(filterKeyword).trim() : (input ? input.value : "");
+        renderTagDropdown(type, kw);
     }
 
     function hideTagDropdown(type) {
@@ -1592,10 +1642,27 @@
         const statusEl = document.getElementById("vocab-english-page-status");
         const prevBtn = document.getElementById("vocab-english-prev");
         const nextBtn = document.getElementById("vocab-english-next");
+        const trigger = document.getElementById("vocab-english-page-select-trigger");
+        const dropdown = document.getElementById("vocab-english-page-select-dropdown");
         if (countEl) countEl.textContent = "共 " + total + " 条";
         if (statusEl) statusEl.textContent = "第 " + page + " / " + totalPages + " 页";
         if (prevBtn) prevBtn.disabled = page <= 1;
         if (nextBtn) nextBtn.disabled = page >= totalPages;
+        if (trigger) {
+            trigger.textContent = String(page);
+            trigger.disabled = totalPages <= 1;
+        }
+        if (dropdown) {
+            dropdown.innerHTML = "";
+            for (let i = 1; i <= totalPages; i++) {
+                const opt = document.createElement("div");
+                opt.className = "vocab-page-select-option" + (i === page ? " active" : "");
+                opt.setAttribute("data-page", String(i));
+                opt.textContent = String(i);
+                dropdown.appendChild(opt);
+            }
+            dropdown.classList.remove("open");
+        }
     }
 
     function updateChinesePagination(total, page, totalPages) {
@@ -1603,10 +1670,27 @@
         const statusEl = document.getElementById("vocab-chinese-page-status");
         const prevBtn = document.getElementById("vocab-chinese-prev");
         const nextBtn = document.getElementById("vocab-chinese-next");
+        const trigger = document.getElementById("vocab-chinese-page-select-trigger");
+        const dropdown = document.getElementById("vocab-chinese-page-select-dropdown");
         if (countEl) countEl.textContent = "共 " + total + " 条";
         if (statusEl) statusEl.textContent = "第 " + page + " / " + totalPages + " 页";
         if (prevBtn) prevBtn.disabled = page <= 1;
         if (nextBtn) nextBtn.disabled = page >= totalPages;
+        if (trigger) {
+            trigger.textContent = String(page);
+            trigger.disabled = totalPages <= 1;
+        }
+        if (dropdown) {
+            dropdown.innerHTML = "";
+            for (let i = 1; i <= totalPages; i++) {
+                const opt = document.createElement("div");
+                opt.className = "vocab-page-select-option" + (i === page ? " active" : "");
+                opt.setAttribute("data-page", String(i));
+                opt.textContent = String(i);
+                dropdown.appendChild(opt);
+            }
+            dropdown.classList.remove("open");
+        }
     }
 
     function renderEnglishList() {
@@ -1690,12 +1774,7 @@
                 theme: "snow",
                 modules: {
                     toolbar: [
-                        [{ header: [1, 2, 3, false] }],
-                        ["bold", "italic", "underline", "strike"],
-                        [{ color: [] }, { background: [] }],
-                        [{ list: "ordered" }, { list: "bullet" }],
-                        [{ align: [] }],
-                        ["link"],
+                        [{ color: [] }],
                         ["clean"],
                     ],
                 },
@@ -1862,46 +1941,6 @@
         openDrawerBase();
     }
 
-    function openDrawerForNewPhrase() {
-        const inputEl = document.getElementById("query-input");
-        const phrase = (inputEl?.value || "").trim();
-        if (!phrase) {
-            showToast("请输入要新增的词组内容");
-            return;
-        }
-        editingVocabId = null;
-        editingVocabType = "phrase";
-        document.getElementById("vocab-drawer-title-text").textContent = "新增词组";
-        document.getElementById("drawer-word").textContent = phrase;
-        document.getElementById("drawer-pronunciation").value = "";
-        document.getElementById("drawer-meaning-en").value = "";
-        document.getElementById("drawer-example").value = "";
-        setDrawerWordForms({});
-        const autoField = document.getElementById("drawer-auto-parse-field");
-        const autoTextarea = document.getElementById("drawer-auto-text");
-        if (autoField) autoField.style.display = "none";
-        if (autoTextarea) autoTextarea.value = "";
-        const pronField = document.getElementById("drawer-pronunciation-field");
-        if (pronField) pronField.style.display = "none";
-        const enField = document.getElementById("drawer-meaning-en-field");
-        // 词组支持中文释义 + 英文释义 + 例句，不显示词形变化和发音
-        if (enField) enField.style.display = "";
-        const wfField = document.getElementById("drawer-wordforms-field");
-        if (wfField) wfField.style.display = "none";
-        drawerTags = [];
-        drawerSynonyms = [];
-        initDrawerQuill();
-        if (drawerQuillZh) drawerQuillZh.root.innerHTML = "";
-        const tagsWrap = document.getElementById("drawer-tags-wrap");
-        const synWrap = document.getElementById("drawer-synonyms-wrap");
-        renderChipList(tagsWrap, drawerTags, () => {});
-        renderChipList(synWrap, drawerSynonyms, () => {});
-        const relatedField = document.getElementById("drawer-related-phrases-field");
-        if (relatedField) relatedField.style.display = "none";
-        renderRelatedSynonymsForDrawer(phrase, null);
-        openDrawerBase();
-    }
-
     function openDrawerForEdit(id) {
         const list = getWordList().map(normalizeItem);
         const item = list.find(w => w.id === id);
@@ -1930,7 +1969,8 @@
         const pronField = document.getElementById("drawer-pronunciation-field");
         if (pronField) pronField.style.display = (editingVocabType === "phrase" ? "none" : "");
         const enField = document.getElementById("drawer-meaning-en-field");
-        if (enField) enField.style.display = (editingVocabType === "english" ? "" : "none");
+        // 英文释义：英文单词和英文词组都显示（与添加到单词本词组类型一致）
+        if (enField) enField.style.display = (editingVocabType === "english" || editingVocabType === "phrase" ? "" : "none");
         const wfField = document.getElementById("drawer-wordforms-field");
         if (wfField) wfField.style.display = (editingVocabType === "english" ? "" : "none");
         drawerTags = Array.isArray(item.tags) ? item.tags.slice() : [];
@@ -2030,6 +2070,7 @@
         saveWordList(list);
         closeEditDrawer();
         showToast("已保存");
+        refreshTagFilterOptions();
         renderEnglishList();
         renderChineseList();
         renderReviewStats();
@@ -2164,6 +2205,29 @@
         });
     }
 
+    /** 刷新时清空各 tab 的查询条件 */
+    function clearAllVocabFilters() {
+        const queryInput = document.getElementById("query-input");
+        if (queryInput) queryInput.value = "";
+        const resultEl = document.getElementById("query-result");
+        if (resultEl) resultEl.style.display = "none";
+        selectedTagEnglish = "";
+        selectedTagChinese = "";
+        selectedTypeEnglish = "";
+        pageEnglish = 1;
+        pageChinese = 1;
+        const typeFilter = document.getElementById("type-filter-english");
+        if (typeFilter) typeFilter.value = "";
+        const tagEng = document.getElementById("tag-filter-english");
+        if (tagEng) tagEng.value = "";
+        const searchEng = document.getElementById("search-english");
+        if (searchEng) searchEng.value = "";
+        const tagCh = document.getElementById("tag-filter-chinese");
+        if (tagCh) tagCh.value = "";
+        const searchCh = document.getElementById("search-chinese");
+        if (searchCh) searchCh.value = "";
+    }
+
     async function initVocabData() {
         let list = [];
         try {
@@ -2242,19 +2306,40 @@
     async function init() {
         await initVocabData();
         refreshTagFilterOptions();
+        clearAllVocabFilters();
         renderTagsTable();
 
         document.getElementById("btn-query").addEventListener("click", doQuery);
         document.getElementById("query-input").addEventListener("keydown", e => { if (e.key === "Enter") doQuery(); });
         document.getElementById("btn-add-vocab").addEventListener("click", saveWord);
-        const btnAddWord = document.getElementById("btn-add-word");
-        if (btnAddWord) {
-            btnAddWord.addEventListener("click", addWordFromInput);
-        }
-        const btnAddPhrase = document.getElementById("btn-add-phrase");
-        if (btnAddPhrase) {
-            btnAddPhrase.addEventListener("click", openDrawerForNewPhrase);
-        }
+        document.getElementById("btn-copy-result").addEventListener("click", function() {
+            const meaningEl = document.getElementById("result-meaning");
+            const text = (meaningEl && (meaningEl.textContent || meaningEl.innerText || "").trim()) || "";
+            if (!text) {
+                showToast("暂无内容可复制");
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() { showToast("已复制"); }).catch(function() { fallbackCopy(text); });
+            } else {
+                fallbackCopy(text);
+            }
+            function fallbackCopy(str) {
+                const ta = document.createElement("textarea");
+                ta.value = str;
+                ta.style.position = "fixed";
+                ta.style.opacity = "0";
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand("copy");
+                    showToast("已复制");
+                } catch (e) {
+                    showToast("复制失败", "error");
+                }
+                document.body.removeChild(ta);
+            }
+        });
         document.getElementById("btn-go-home").addEventListener("click", () => { window.location.href = "/home"; });
         document.getElementById("vocab-drawer-close").addEventListener("click", closeEditDrawer);
         document.getElementById("vocab-drawer-overlay").addEventListener("click", closeEditDrawer);
@@ -2406,10 +2491,10 @@
                 }
             };
 
-            input.addEventListener("focus", () => showTagDropdown(type));
-            input.addEventListener("click", () => showTagDropdown(type));
+            input.addEventListener("focus", () => showTagDropdown(type, ""));
+            input.addEventListener("click", () => showTagDropdown(type, ""));
             input.addEventListener("input", () => {
-                // 输入中仅用于过滤选项；当清空时立即回到“全部”
+                // 输入中仅用于过滤选项；当清空时立即回到“全部标签”
                 const v = String(input.value || "");
                 if (!v.trim()) {
                     if (type === "english") {
@@ -2422,7 +2507,7 @@
                         renderChineseList();
                     }
                 }
-                showTagDropdown(type);
+                showTagDropdown(type, input.value);
             });
             input.addEventListener("keydown", (e) => {
                 if (e.key === "Escape") {
@@ -2492,6 +2577,48 @@
             pageEnglish += 1;
             renderEnglishList();
         });
+        (function() {
+            const engTrigger = document.getElementById("vocab-english-page-select-trigger");
+            const engDropdown = document.getElementById("vocab-english-page-select-dropdown");
+            const zhTrigger = document.getElementById("vocab-chinese-page-select-trigger");
+            const zhDropdown = document.getElementById("vocab-chinese-page-select-dropdown");
+            if (engTrigger && engDropdown) {
+                engTrigger.addEventListener("click", function(e) {
+                    e.stopPropagation();
+                    if (engTrigger.disabled) return;
+                    engDropdown.classList.toggle("open");
+                    if (zhDropdown) zhDropdown.classList.remove("open");
+                });
+                engDropdown.addEventListener("click", function(e) {
+                    const p = e.target.getAttribute("data-page");
+                    if (p) {
+                        pageEnglish = parseInt(p, 10);
+                        engDropdown.classList.remove("open");
+                        renderEnglishList();
+                    }
+                });
+            }
+            if (zhTrigger && zhDropdown) {
+                zhTrigger.addEventListener("click", function(e) {
+                    e.stopPropagation();
+                    if (zhTrigger.disabled) return;
+                    zhDropdown.classList.toggle("open");
+                    if (engDropdown) engDropdown.classList.remove("open");
+                });
+                zhDropdown.addEventListener("click", function(e) {
+                    const p = e.target.getAttribute("data-page");
+                    if (p) {
+                        pageChinese = parseInt(p, 10);
+                        zhDropdown.classList.remove("open");
+                        renderChineseList();
+                    }
+                });
+            }
+            document.addEventListener("click", function() {
+                if (engDropdown) engDropdown.classList.remove("open");
+                if (zhDropdown) zhDropdown.classList.remove("open");
+            });
+        })();
 
         const zhPrev = document.getElementById("vocab-chinese-prev");
         const zhNext = document.getElementById("vocab-chinese-next");
@@ -2505,7 +2632,6 @@
             pageChinese += 1;
             renderChineseList();
         });
-
         // 标签管理：新增标签
         const tagAddBtn = document.getElementById("tag-add-btn");
         if (tagAddBtn) {

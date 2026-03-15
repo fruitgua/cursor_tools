@@ -1346,8 +1346,11 @@ def api_todos_set_state() -> Any:
 def main() -> None:
     """
     Application entry point for running the Flask development server.
+    - host="0.0.0.0" 允许同一局域网内其他设备（如手机）通过电脑 IP 访问。
+    - 手机访问：确保手机与电脑在同一 WiFi，浏览器输入 http://<电脑IP>:5000 ，例如 http://192.168.1.100:5000
     """
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
 
 
 if __name__ == "__main__":

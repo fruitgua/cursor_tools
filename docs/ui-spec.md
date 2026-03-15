@@ -362,7 +362,31 @@ font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFa
 - 无背景，`color: #0078E1`
 - font-size：12px
 
-### 5.7 侧边栏与列表项
+### 5.7 分页（页码下拉跳转）
+
+用于列表底部分页区域（如单词本「英文单词本」「中文词汇」页）。
+
+**布局** `.vocab-pagination`
+
+- `display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px`
+- 左侧：总条数文案（如「共 n 条」）
+- 右侧操作区 `.vocab-page-actions`：上一页按钮、页码状态文案（「第 x / y 页」）、**页码下拉框**、下一页按钮
+
+**页码下拉框**
+
+- 在「第 x / y 页」与「下一页」之间提供页码下拉（触发器 + 下拉面板），点击触发器展开面板，选择页码后跳转并重新渲染列表。
+- 触发器：使用 `.vocab-page-select-trigger`，展示当前页码，样式与分页区控件统一（如 `min-width: 56px`）；仅一页时可禁用（`disabled`）。
+- **下拉面板** `.vocab-page-select-dropdown`：
+  - **面板最大高度**：固定 `240px`；当选项总高度超过 240px 时，面板必须出现垂直滚动条（`overflow-y: auto`）。
+  - 定位：绝对定位在触发器上方（如 `bottom: calc(100% + 6px)`），与分类标签下拉等保持一致。
+  - 选项：动态生成 1 至 总页数（totalPages），当前页选项使用 `.active` 高亮；选项使用 `.vocab-page-select-option`，支持悬停与选中态。
+- 交互：点击选项将当前页设为该页码并关闭面板、重新渲染列表；点击页面其他区域关闭面板。
+
+**规范**
+
+- 分页区域应包含：上一页、页码状态、页码下拉、下一页；带分页的列表页（英文单词本、中文词汇等）统一采用此规范，支持页码下拉快速跳转；页码下拉面板遵循最大高度 240px 与 overflow 规则。
+
+### 5.8 侧边栏与列表项
 
 **侧边栏** `.notes-sidebar` / `.bookmarks-sidebar`
 
@@ -376,7 +400,7 @@ font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFa
 - 悬停：`background: #f3f4f6`
 - 选中：`background: #e8f5e9`，`border-left: 3px solid #4caf50`
 
-### 5.8 Toast
+### 5.9 Toast
 
 ```html
 <div id="toast-container"></div>
@@ -386,7 +410,7 @@ font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFa
 - 类名：`.toast-info` / `.toast-success` / `.toast-error`
 - 背景：主色 / 绿 / 红
 
-### 5.9 右侧抽屉 Drawer
+### 5.10 右侧抽屉 Drawer
 
 用于详情查看、编辑、创建（例如单词本的“加入词汇本 / 编辑”）。
 

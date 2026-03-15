@@ -515,11 +515,6 @@
             cells.push({ dateStr, dayNum: i, otherMonth: true });
         }
 
-        const dayRecords = state.data.records.filter(r => {
-            const [ry, rm, rd] = r.date.split("-").map(Number);
-            return ry === y && rm === m + 1;
-        });
-
         grid.innerHTML = cells.map(c => {
             const dayRecordsForDate = state.data.records.filter(r => r.date === c.dateStr);
             const checked = dayRecordsForDate
@@ -542,6 +537,17 @@
             const labels = getLabelsForDate(c.dateStr);
             const reminders = getRemindersForDate(c.dateStr);
             const labelIcon = (addType) => addType === "sync" ? "☁️" : "🏷️";
+
+            // 统一用于 H5 的「单一图标」：优先级相同，只取第一个（先看日期标签，再看提醒事件）
+            let singleIcon = "";
+            if (labels.length > 0) {
+                singleIcon = labelIcon(labels[0].addType);
+            } else if (reminders.length > 0) {
+                const first = reminders[0];
+                const completed = isChecked(first.id, c.dateStr);
+                singleIcon = completed ? "✓" : getIconForReminderType(first.reminderType || "normal");
+            }
+
             const labelRows = labels.map(l =>
                 `<div class="day-label-row"><span class="day-label-icon" aria-hidden="true">${labelIcon(l.addType)}</span><span class="day-label">${escapeHtml(l.name)}</span></div>`
             ).join("");
@@ -554,7 +560,10 @@
             return `<div class="${cls}" data-date="${c.dateStr}">
                 <div class="day-top-row">
                     <div class="day-dots">${dotsHtml}</div>
-                    <span class="day-num">${c.dayNum}</span>
+                    <div class="day-top-right">
+                        <span class="day-single-icon" aria-hidden="true">${singleIcon}</span>
+                        <span class="day-num">${c.dayNum}</span>
+                    </div>
                 </div>
                 ${labelRows}
                 ${remindersRows}
