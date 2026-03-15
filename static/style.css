@@ -23,6 +23,11 @@ body {
     body {
         overflow: auto;
     }
+
+    /* 首页 H5：保留前四项入口（每日打卡、学习笔记、单词本、待办事项），隐藏后续操作按钮 */
+    .home-grid .home-card:nth-child(n + 5) {
+        display: none;
+    }
 }
 
 .app-container {
