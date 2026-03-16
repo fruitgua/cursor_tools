@@ -538,35 +538,44 @@
             const reminders = getRemindersForDate(c.dateStr);
             const labelIcon = (addType) => addType === "sync" ? "☁️" : "🏷️";
 
-            // 统一用于 H5 的「单一图标」：优先级相同，只取第一个（先看日期标签，再看提醒事件）
-            let singleIcon = "";
-            if (labels.length > 0) {
-                singleIcon = labelIcon(labels[0].addType);
-            } else if (reminders.length > 0) {
-                const first = reminders[0];
-                const completed = isChecked(first.id, c.dateStr);
-                singleIcon = completed ? "✓" : getIconForReminderType(first.reminderType || "normal");
+            // 按顺序组装单元格中的标签/提醒行：自定义标签 -> 同步标签 -> 事件提醒，上限 3 条
+            const customLabels = labels.filter(l => l.addType !== "sync");
+            const syncLabels = labels.filter(l => l.addType === "sync");
+            const itemsHtml = [];
+
+            const pushLabelRows = (arr) => {
+                for (const l of arr) {
+                    if (itemsHtml.length >= 3) break;
+                    itemsHtml.push(
+                        `<div class="day-label-row"><span class="day-label-icon" aria-hidden="true">${labelIcon(l.addType)}</span><span class="day-label">${escapeHtml(l.name)}</span></div>`
+                    );
+                }
+            };
+
+            pushLabelRows(customLabels);
+            if (itemsHtml.length < 3) pushLabelRows(syncLabels);
+
+            if (itemsHtml.length < 3) {
+                for (const evt of reminders) {
+                    if (itemsHtml.length >= 3) break;
+                    const completed = isChecked(evt.id, c.dateStr);
+                    const icon = completed ? "✓" : getIconForReminderType(evt.reminderType || "normal");
+                    const iconClass = completed ? "day-reminder-icon day-reminder-icon-completed" : "day-reminder-icon";
+                    itemsHtml.push(
+                        `<div class="day-reminder-row"><span class="${iconClass}" aria-hidden="true">${icon}</span><span class="day-reminder-name">${escapeHtml(evt.name || "")}</span></div>`
+                    );
+                }
             }
 
-            const labelRows = labels.map(l =>
-                `<div class="day-label-row"><span class="day-label-icon" aria-hidden="true">${labelIcon(l.addType)}</span><span class="day-label">${escapeHtml(l.name)}</span></div>`
-            ).join("");
-            const remindersRows = reminders.map(evt => {
-                const completed = isChecked(evt.id, c.dateStr);
-                const icon = completed ? "✓" : getIconForReminderType(evt.reminderType || "normal");
-                const iconClass = completed ? "day-reminder-icon day-reminder-icon-completed" : "day-reminder-icon";
-                return `<div class="day-reminder-row"><span class="${iconClass}" aria-hidden="true">${icon}</span><span class="day-reminder-name">${escapeHtml(evt.name || "")}</span></div>`;
-            }).join("");
+            const cellRowsHtml = itemsHtml.join("");
             return `<div class="${cls}" data-date="${c.dateStr}">
                 <div class="day-top-row">
                     <div class="day-dots">${dotsHtml}</div>
                     <div class="day-top-right">
-                        <span class="day-single-icon" aria-hidden="true">${singleIcon}</span>
                         <span class="day-num">${c.dayNum}</span>
                     </div>
                 </div>
-                ${labelRows}
-                ${remindersRows}
+                ${cellRowsHtml}
             </div>`;
         }).join("");
     }
@@ -1633,58 +1642,6 @@
     function bindEvents() {
         document.querySelectorAll(".nav-tab").forEach(tab => {
             tab.addEventListener("click", () => switchPage(tab.dataset.page));
-        });
-
-        document.getElementById("btn-export-checkin")?.addEventListener("click", () => {
-            try {
-                window.location.href = "/api/checkin/export";
-            } catch (e) {
-                console.warn("export checkin error", e);
-            }
-        });
-
-        const importInput = document.getElementById("input-import-checkin");
-        document.getElementById("btn-import-checkin")?.addEventListener("click", () => {
-            if (importInput) {
-                importInput.value = "";
-                importInput.click();
-            }
-        });
-        importInput?.addEventListener("change", (e) => {
-            const file = e.target.files && e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async () => {
-                try {
-                    const text = String(reader.result || "");
-                    const json = JSON.parse(text);
-                    const payload = {
-                        events: json.events || [],
-                        records: json.records || [],
-                        dateLabels: json.dateLabels || { specific: {}, annual: {} },
-                    };
-                    const res = await fetch("/api/checkin/state", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload),
-                    });
-                    if (!res || !res.ok) {
-                        toast("导入失败，请稍后重试。", "info");
-                        return;
-                    }
-                    state.data = payload;
-                    saveData(state.data);
-                    renderCalendar();
-                    showDetailPanel(state.selectedDate);
-                    renderEventList();
-                    renderStats();
-                    toast("导入成功。", "success");
-                } catch (err) {
-                    console.warn("import checkin data error", err);
-                    toast("导入失败，文件格式不正确。", "info");
-                }
-            };
-            reader.readAsText(file, "utf-8");
         });
 
         document.getElementById("btn-go-home")?.addEventListener("click", () => {

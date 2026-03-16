@@ -32,6 +32,12 @@ from database import (
     swap_bookmarks as swap_bookmarks_db,
     get_app_state,
     set_app_state,
+    get_all_vocab_words,
+    set_vocab_state,
+    get_all_todos,
+    set_todos_state,
+    get_calendar_events,
+    set_calendar_state,
 )
 from utils import scan_directory, validate_directory_path
 
@@ -900,6 +906,17 @@ def api_checkin_get_state() -> Any:
     """
     Get persisted checkin state (events, records, dateLabels) from the server.
     """
+    # 优先从 calendar_events 表读取；若数据库尚未初始化数据，则回退到历史 app_state 存储
+    try:
+        data = get_calendar_events()
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取打卡数据失败：{exc}"}), 500
+
+    if data and isinstance(data, dict) and (
+        data.get("events") or data.get("records") or data.get("dateLabels")
+    ):
+        return jsonify({"success": True, "data": data})
+
     try:
         raw = get_app_state(CHECKIN_STATE_KEY)
     except Exception as exc:  # pylint: disable=broad-except
@@ -940,29 +957,17 @@ def api_checkin_set_state() -> Any:
         "dateLabels": body.get("dateLabels") or {"specific": {}, "annual": {}},
     }
     try:
-        payload = json.dumps(data, ensure_ascii=False)
-        set_app_state(CHECKIN_STATE_KEY, payload)
+        # 统一写入 calendar_events 表
+        set_calendar_state(data)
+        # 兼容旧版：同时更新 app_state，方便回滚或备份
+        try:
+            payload = json.dumps(data, ensure_ascii=False)
+            set_app_state(CHECKIN_STATE_KEY, payload)
+        except Exception:
+            pass
         return jsonify({"success": True})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": f"保存打卡数据失败：{exc}"}), 500
-
-
-@app.route("/api/checkin/export", methods=["GET"])
-def api_checkin_export() -> Response:
-    """
-    Export checkin state as a downloadable JSON file.
-    """
-    try:
-        raw = get_app_state(CHECKIN_STATE_KEY)
-    except Exception:
-        raw = None
-
-    if not raw:
-        raw = json.dumps(DEFAULT_CHECKIN_STATE, ensure_ascii=False, indent=2)
-    filename = f"checkin_export_{datetime.utcnow().strftime('%Y%m%d')}.json"
-    resp = Response(raw, mimetype="application/json; charset=utf-8")
-    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return resp
 
 
 @app.route("/api/checkin/mark-history-complete", methods=["POST"])
@@ -1068,6 +1073,17 @@ def api_vocab_get_state() -> Any:
     """
     获取服务端保存的单词本数据。
     """
+    # 优先从 vocab_words / vocab_tags 读取；若数据库尚未初始化数据，则回退到历史 app_state 存储
+    try:
+        items, tags = get_all_vocab_words()
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取词汇数据失败：{exc}"}), 500
+
+    if items or tags:
+        data_out: Dict[str, Any] = {"items": items, "tags": tags}
+        return jsonify({"success": True, "data": data_out})
+
+    # 数据库无记录时，兼容旧版 app_state 存储
     try:
         raw = get_app_state(VOCAB_STATE_KEY)
     except Exception as exc:  # pylint: disable=broad-except
@@ -1112,10 +1128,7 @@ def api_vocab_get_state() -> Any:
     if not isinstance(tags, list) or not tags:
         tags = _build_tags_from_items(items)
 
-    data_out: Dict[str, Any] = {
-        "items": items,
-        "tags": tags,
-    }
+    data_out: Dict[str, Any] = {"items": items, "tags": tags}
     return jsonify({"success": True, "data": data_out})
 
 
@@ -1151,8 +1164,15 @@ def api_vocab_set_state() -> Any:
             tags.append({"name": name, "scope": scope})
     data: Dict[str, Any] = {"items": items, "tags": tags}
     try:
-        payload = json.dumps(data, ensure_ascii=False)
-        set_app_state(VOCAB_STATE_KEY, payload)
+        # 统一写入 vocab_words / vocab_tags 表
+        set_vocab_state(items, tags)
+        # 兼容旧版：同时更新 app_state，方便后续一次性导入与回滚
+        try:
+            payload = json.dumps(data, ensure_ascii=False)
+            set_app_state(VOCAB_STATE_KEY, payload)
+        except Exception:
+            # app_state 失败不影响主流程
+            pass
         return jsonify({"success": True})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": f"保存词汇数据失败：{exc}"}), 500
@@ -1306,8 +1326,16 @@ def api_todos_get_state() -> Any:
     获取服务端保存的待办事项数据。
     """
     try:
-        raw = get_app_state(TODOS_STATE_KEY)
+        items = get_all_todos()
     except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取待办数据失败：{exc}"}), 500
+
+    if items:
+        return jsonify({"success": True, "data": {"items": items}})
+
+    try:
+        raw = get_app_state(TODOS_STATE_KEY)
+    except Exception as exc:  # pylint: disable-broad-except
         return jsonify({"success": False, "message": f"读取待办数据失败：{exc}"}), 500
 
     if not raw:
@@ -1336,8 +1364,14 @@ def api_todos_set_state() -> Any:
         items = []
     data: Dict[str, Any] = {"items": items}
     try:
-        payload = json.dumps(data, ensure_ascii=False)
-        set_app_state(TODOS_STATE_KEY, payload)
+        # 统一写入 todos 表
+        set_todos_state(items)
+        # 兼容旧版：同时更新 app_state，方便回滚或备份
+        try:
+            payload = json.dumps(data, ensure_ascii=False)
+            set_app_state(TODOS_STATE_KEY, payload)
+        except Exception:
+            pass
         return jsonify({"success": True})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": f"保存待办数据失败：{exc}"}), 500
@@ -1347,9 +1381,9 @@ def main() -> None:
     """
     Application entry point for running the Flask development server.
     - host="0.0.0.0" 允许同一局域网内其他设备（如手机）通过电脑 IP 访问。
-    - 手机访问：确保手机与电脑在同一 WiFi，浏览器输入 http://<电脑IP>:5000 ，例如 http://192.168.1.100:5000
+    - 手机访问：确保手机与电脑在同一 WiFi，浏览器输入 http://<电脑IP>:5001 ，例如 http://192.168.1.100:5001
     """
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=True)
 
 

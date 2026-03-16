@@ -39,7 +39,8 @@
         html[data-theme="dark"] .btn-ghost { background: rgba(255,255,255,0.08); border-color: #2A3038; color: rgba(255,255,255,0.87); }
         html[data-theme="dark"] .btn-ghost:hover { background: rgba(255,255,255,0.12); }
         .vocab-actions { display: flex; gap: 8px; margin-top: 0; flex-wrap: wrap; }
-        .vocab-query-row #btn-query {
+        .vocab-query-row #btn-query,
+        .vocab-query-row #btn-query-clear {
             height: 36px;
             width: 100px;       /* 固定宽度，避免文字变化导致抖动 */
             box-sizing: border-box;
@@ -117,6 +118,46 @@
         .vocab-empty { text-align: center; padding: 40px 20px; color: #9ca3af; font-size: 14px; }
         html[data-theme="dark"] .vocab-result-card,
         html[data-theme="dark"] .vocab-item { background-color: #1E2228 !important; border: 1px solid #2A3038; }
+
+        /* 查询词汇页通用弹窗样式（复用打卡页风格） */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.hidden {
+            display: none;
+        }
+        .modal {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 480px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 16px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+        html[data-theme="dark"] .modal {
+            background-color: #1E2228;
+            border-color: #2A3038;
+        }
         html[data-theme="dark"] .vocab-result-card .result-meaning,
         html[data-theme="dark"] .vocab-item-meaning { color: rgba(255,255,255,0.60) !important; }
         html[data-theme="dark"] .vocab-item-time { color: #9ca3af !important; }
@@ -513,6 +554,7 @@
                 <div class="vocab-query-row">
                     <input type="text" id="query-input" class="field-control" placeholder="输入英文单词、中文单字或词语" />
                     <button type="button" id="btn-query" class="btn primary">查询</button>
+                    <button type="button" id="btn-query-clear" class="btn">清空</button>
                 </div>
                 <div id="query-result" class="vocab-result-card" style="display:none;">
                     <div class="result-word-row">
@@ -545,10 +587,7 @@
                     </div>
                 </div>
                 <input type="text" id="search-english" class="field-control" placeholder="搜索英文词汇" />
-                <div class="vocab-search-actions">
-                    <button type="button" id="btn-export-english" class="btn">导出JSON</button>
-                    <button type="button" id="btn-import-english" class="btn">导入数据</button>
-                </div>
+                <div class="vocab-search-actions"></div>
             </section>
             <section class="vocab-list" id="vocab-list-english">
                 <div class="vocab-list-scroll" id="vocab-list-english-scroll"></div>
@@ -578,10 +617,7 @@
                     </div>
                 </div>
                 <input type="text" id="search-chinese" class="field-control" placeholder="搜索中文词汇" />
-                <div class="vocab-search-actions">
-                    <button type="button" id="btn-export-chinese" class="btn">导出JSON</button>
-                    <button type="button" id="btn-import-chinese" class="btn">导入数据</button>
-                </div>
+                <div class="vocab-search-actions"></div>
             </section>
             <section class="vocab-list" id="vocab-list-chinese">
                 <div class="vocab-list-scroll" id="vocab-list-chinese-scroll"></div>
@@ -712,6 +748,18 @@
 
 <div id="toast-container"></div>
 
+<!-- 查询单词已存在确认弹窗 -->
+<div id="query-exists-modal" class="modal-overlay hidden">
+    <div class="modal">
+        <h3 class="modal-title">当前单词已经存在</h3>
+        <p class="delete-event-msg">当前单词已经存在，是否继续查询？</p>
+        <div class="modal-actions">
+            <button type="button" class="btn" id="btn-query-exists-close">关闭</button>
+            <button type="button" class="btn primary" id="btn-query-exists-continue">继续查询</button>
+        </div>
+    </div>
+</div>
+
 <script src="/static/ui-select.js"></script>
 
 <!-- 编辑词汇抽屉 -->
@@ -815,6 +863,7 @@
     "use strict";
 
     const STORAGE_KEY = "vocabulary_words";
+    const STORAGE_VERSION_KEY = "vocabulary_words_version";
     const REVIEW_INTERVALS = [0, 1, 3, 7, 15, 30];
     const MOEDICT_API = "https://www.moedict.tw/raw/";
     const YOUDAO_API_S = "https://dict.youdao.com/jsonapi_s?doctype=json&jsonversion=4&q=";
@@ -1235,8 +1284,17 @@
      * 执行查询并展示结果（通过后端大语言模型接口）
      */
     let lastQueryContext = null; // { type, word, meaningZh, meaningEn, pronunciation, wordForms, synonyms, example }
-    async function doQuery() {
-        const input = document.getElementById("query-input").value.trim();
+    let pendingQueryText = "";   // “已存在是否继续查询”时暂存输入
+
+    function findExistingWordInVocab(rawInput) {
+        const input = String(rawInput || "").trim();
+        if (!input) return null;
+        const list = getWordList();
+        const lower = input.toLowerCase();
+        return list.find(item => String(item.word || "").trim().toLowerCase() === lower) || null;
+    }
+
+    async function doQueryInternal(input) {
         const resultEl = document.getElementById("query-result");
         const wordEl = document.getElementById("result-word");
         const meaningEl = document.getElementById("result-meaning");
@@ -1348,6 +1406,26 @@
     }
 
     /**
+     * 查询按钮入口：先检查当前单词库中是否已存在同名单词，存在则弹窗确认是否继续查询接口
+     */
+    async function doQuery() {
+        const inputEl = document.getElementById("query-input");
+        const raw = (inputEl && inputEl.value || "").trim();
+        if (!raw) {
+            showToast("请输入要查询的内容");
+            return;
+        }
+        const exists = findExistingWordInVocab(raw);
+        const modal = document.getElementById("query-exists-modal");
+        if (exists && modal) {
+            pendingQueryText = raw;
+            modal.classList.remove("hidden");
+            return;
+        }
+        await doQueryInternal(raw);
+    }
+
+    /**
      * “加入词汇本”：打开右侧抽屉编辑（无论是否有释义都允许进入）
      */
     function saveWord() {
@@ -1384,7 +1462,9 @@
      * 规则：
      * - 按行解析，支持 "字段名：内容" 或 "字段名:内容"
      * - "："左侧为字段名称，右侧为内容；同一字段多行会自动拼接为多行
-     * - 支持字段：中文释义 / 英文释义 / 例句 / 同义词 / 发音
+     * - 支持字段：
+     *   - 中文释义 / 英文释义 / 例句 / 同义词 / 发音
+     *   - 过去式 / 过去分词 / 现在分词 / 第三人称单数 / 比较级 / 最高级 / 复数
      * - 同义词按中文逗号 "，"、英文逗号 "," 等分隔
      */
     async function autoParseTextFromRaw() {
@@ -1406,7 +1486,14 @@
             meaning_zh: "",
             meaning_en: "",
             example: "",
-            synonyms: ""
+            synonyms: "",
+            past_tense: "",
+            past_participle: "",
+            present_participle: "",
+            third_person: "",
+            comparative: "",
+            superlative: "",
+            plural: ""
         };
 
         const normalizeKey = (k) => {
@@ -1417,6 +1504,14 @@
             if (["例句", "例句英文", "例句中文"].includes(s)) return "example";
             if (["同义词", "近义词"].includes(s)) return "synonyms";
             if (["发音", "音标", "读音"].includes(s)) return "pronunciation";
+            // 词形变化
+            if (["过去式", "过去形", "past", "past tense"].includes(s)) return "past_tense";
+            if (["过去分词", "past participle"].includes(s)) return "past_participle";
+            if (["现在分词", "ing", "present participle"].includes(s)) return "present_participle";
+            if (["第三人称单数", "三单", "third person"].includes(s)) return "third_person";
+            if (["比较级", "comparative"].includes(s)) return "comparative";
+            if (["最高级", "superlative"].includes(s)) return "superlative";
+            if (["复数", "plural"].includes(s)) return "plural";
             return "";
         };
 
@@ -1443,7 +1538,20 @@
             }
         });
 
-        if (!data.pronunciation && !data.meaning_zh && !data.meaning_en && !data.example && !data.synonyms) {
+        if (
+            !data.pronunciation &&
+            !data.meaning_zh &&
+            !data.meaning_en &&
+            !data.example &&
+            !data.synonyms &&
+            !data.past_tense &&
+            !data.past_participle &&
+            !data.present_participle &&
+            !data.third_person &&
+            !data.comparative &&
+            !data.superlative &&
+            !data.plural
+        ) {
             showToast("未识别到有效字段，请检查文本格式。");
             return;
         }
@@ -1470,6 +1578,20 @@
         if (exEl && data.example) {
             exEl.value = data.example;
         }
+
+        // 词形变化：直接填入对应输入框
+        const setVal = (id, val) => {
+            if (!val) return;
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        };
+        setVal("drawer-past-tense", data.past_tense);
+        setVal("drawer-past-participle", data.past_participle);
+        setVal("drawer-present-participle", data.present_participle);
+        setVal("drawer-third-person", data.third_person);
+        setVal("drawer-comparative", data.comparative);
+        setVal("drawer-superlative", data.superlative);
+        setVal("drawer-plural", data.plural);
 
         // 同义词：按分隔符拆分并追加到当前列表（去重）
         if (data.synonyms) {
@@ -1612,8 +1734,15 @@
 
     function saveWordList(list) {
         vocabCache = list.slice();
+        // 简单版本号：每次保存时自增，用于多标签页之间做最新数据判断
+        let nextVersion = 1;
+        try {
+            const cur = parseInt(localStorage.getItem(STORAGE_VERSION_KEY) || "0", 10);
+            nextVersion = isNaN(cur) ? 1 : cur + 1;
+        } catch (_) {}
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+            localStorage.setItem(STORAGE_VERSION_KEY, String(nextVersion));
         } catch (e) {
             console.warn("saveWordList localStorage error", e);
         }
@@ -2803,12 +2932,68 @@
 
     async function init() {
         await initVocabData();
+        // 多标签页同步：监听 localStorage 变更，其他标签更新词库后自动刷新本标签数据
+        window.addEventListener("storage", function (evt) {
+            if (!evt) return;
+            if (evt.key !== STORAGE_KEY) return;
+            try {
+                const raw = evt.newValue;
+                if (!raw) return;
+                const list = JSON.parse(raw);
+                if (!Array.isArray(list)) return;
+                vocabCache = list.slice();
+                // 根据当前 tab 类型刷新对应列表
+                const activeTab = document.querySelector(".vocab-tab.active");
+                if (activeTab) {
+                    const tabName = activeTab.dataset.tab;
+                    if (tabName === "english") {
+                        renderEnglishList();
+                    } else if (tabName === "chinese") {
+                        renderChineseList();
+                    }
+                } else {
+                    renderEnglishList();
+                    renderChineseList();
+                }
+                try { refreshTagFilterOptions(); } catch (_) {}
+            } catch (e) {
+                console.warn("sync vocab from storage event failed", e);
+            }
+        });
         refreshTagFilterOptions();
         clearAllVocabFilters();
         renderTagsTable();
 
+        // 查询单词：先检查是否已在当前单词库中，若存在则弹出确认是否继续调用接口
         document.getElementById("btn-query").addEventListener("click", doQuery);
         document.getElementById("query-input").addEventListener("keydown", e => { if (e.key === "Enter") doQuery(); });
+        const btnQueryClear = document.getElementById("btn-query-clear");
+        if (btnQueryClear) {
+            btnQueryClear.addEventListener("click", () => {
+                const input = document.getElementById("query-input");
+                if (input) input.value = "";
+                const resultEl = document.getElementById("query-result");
+                if (resultEl) resultEl.style.display = "none";
+            });
+        }
+
+        const queryExistsModal = document.getElementById("query-exists-modal");
+        const btnQueryExistsClose = document.getElementById("btn-query-exists-close");
+        const btnQueryExistsContinue = document.getElementById("btn-query-exists-continue");
+        if (btnQueryExistsClose && queryExistsModal) {
+            btnQueryExistsClose.addEventListener("click", () => {
+                queryExistsModal.classList.add("hidden");
+                pendingQueryText = "";
+            });
+        }
+        if (btnQueryExistsContinue && queryExistsModal) {
+            btnQueryExistsContinue.addEventListener("click", () => {
+                const text = pendingQueryText;
+                pendingQueryText = "";
+                queryExistsModal.classList.add("hidden");
+                if (text) doQueryInternal(text);
+            });
+        }
         document.getElementById("btn-add-vocab").addEventListener("click", saveWord);
         document.getElementById("btn-copy-result").addEventListener("click", function() {
             const meaningEl = document.getElementById("result-meaning");
@@ -3178,139 +3363,7 @@
             }
         })();
 
-        document.getElementById("btn-export-english").addEventListener("click", function() {
-            exportJson(
-                getWordList().filter(function(item) {
-                    var t = item.type || "english";
-                    return t === "english" || t === "phrase";
-                }),
-                "英文单词本"
-            );
-        });
-        var importEnglishInput = document.createElement("input");
-        importEnglishInput.type = "file";
-        importEnglishInput.accept = "application/json";
-        importEnglishInput.style.display = "none";
-        document.body.appendChild(importEnglishInput);
-        document.getElementById("btn-import-english").addEventListener("click", function() {
-            importEnglishInput.value = "";
-            importEnglishInput.click();
-        });
-        importEnglishInput.addEventListener("change", function(e) {
-            var file = e.target.files && e.target.files[0];
-            if (!file) return;
-            var reader = new FileReader();
-            reader.onload = function() {
-                try {
-                    var text = String(reader.result || "");
-                    var json = JSON.parse(text);
-                    var items = Array.isArray(json) ? json : (Array.isArray(json.items) ? json.items : []);
-                    if (!items.length) {
-                        showToast("导入失败：文件中没有数据");
-                        return;
-                    }
-                    var list = getWordList();
-                    var byKey = {};
-                    list.forEach(function(it) {
-                        var key = (it.type || "english") + "::" + (it.word || "");
-                        byKey[key] = it;
-                    });
-                    items.forEach(function(raw) {
-                        if (!raw || !raw.word) return;
-                        var norm = normalizeItem(raw);
-                        if ((norm.type || "english") !== "english") return;
-                        var k = (norm.type || "english") + "::" + norm.word;
-                        if (byKey[k]) {
-                            var existing = byKey[k];
-                            existing.pronunciation = norm.pronunciation || existing.pronunciation || "";
-                            existing.meaningZh = norm.meaningZh || existing.meaningZh || "";
-                            existing.meaningEn = norm.meaningEn || existing.meaningEn || "";
-                            existing.tags = Array.isArray(norm.tags) && norm.tags.length ? norm.tags : (existing.tags || []);
-                            existing.synonyms = Array.isArray(norm.synonyms) && norm.synonyms.length ? norm.synonyms : (existing.synonyms || []);
-                            existing.pastTense = norm.pastTense ?? existing.pastTense ?? "";
-                            existing.pastParticiple = norm.pastParticiple ?? existing.pastParticiple ?? "";
-                            existing.presentParticiple = norm.presentParticiple ?? existing.presentParticiple ?? "";
-                            existing.thirdPersonSingular = norm.thirdPersonSingular ?? existing.thirdPersonSingular ?? "";
-                            existing.comparative = norm.comparative ?? existing.comparative ?? "";
-                            existing.superlative = norm.superlative ?? existing.superlative ?? "";
-                            existing.plural = norm.plural ?? existing.plural ?? "";
-                        } else {
-                            list.push(norm);
-                            byKey[k] = norm;
-                        }
-                    });
-                    saveWordList(list);
-                    showToast("导入成功");
-                    renderEnglishList();
-                    renderChineseList();
-                } catch (err) {
-                    console.warn("import english vocab error", err);
-                    showToast("导入失败：文件格式不正确");
-                }
-            };
-            reader.readAsText(file, "utf-8");
-        });
-        var importChineseInput = document.createElement("input");
-        importChineseInput.type = "file";
-        importChineseInput.accept = "application/json";
-        importChineseInput.style.display = "none";
-        document.body.appendChild(importChineseInput);
-        document.getElementById("btn-import-chinese").addEventListener("click", function() {
-            importChineseInput.value = "";
-            importChineseInput.click();
-        });
-        importChineseInput.addEventListener("change", function(e) {
-            var file = e.target.files && e.target.files[0];
-            if (!file) return;
-            var reader = new FileReader();
-            reader.onload = function() {
-                try {
-                    var text = String(reader.result || "");
-                    var json = JSON.parse(text);
-                    var items = Array.isArray(json) ? json : (Array.isArray(json.items) ? json.items : []);
-                    if (!items.length) {
-                        showToast("导入失败：文件中没有数据");
-                        return;
-                    }
-                    var list = getWordList();
-                    var byKey = {};
-                    list.forEach(function(it) {
-                        var t = it.type === "chinese" || it.type === "phrase" ? it.type : (it.type || "english");
-                        var key = t + "::" + (it.word || "");
-                        byKey[key] = it;
-                    });
-                    items.forEach(function(raw) {
-                        if (!raw || !raw.word) return;
-                        var norm = normalizeItem(raw);
-                        if (!(norm.type === "chinese" || norm.type === "phrase")) return;
-                        var k = norm.type + "::" + norm.word;
-                        if (byKey[k]) {
-                            var existing = byKey[k];
-                            existing.pronunciation = norm.pronunciation || existing.pronunciation || "";
-                            existing.meaningZh = norm.meaningZh || existing.meaningZh || "";
-                            existing.meaningEn = norm.meaningEn || existing.meaningEn || "";
-                            existing.example = norm.example || existing.example || "";
-                            existing.tags = Array.isArray(norm.tags) && norm.tags.length ? norm.tags : (existing.tags || []);
-                            existing.synonyms = Array.isArray(norm.synonyms) && norm.synonyms.length ? norm.synonyms : (existing.synonyms || []);
-                        } else {
-                            list.push(norm);
-                            byKey[k] = norm;
-                        }
-                    });
-                    saveWordList(list);
-                    showToast("导入成功");
-                    renderEnglishList();
-                    renderChineseList();
-                } catch (err) {
-                    console.warn("import chinese vocab error", err);
-                    showToast("导入失败：文件格式不正确");
-                }
-            };
-            reader.readAsText(file, "utf-8");
-        });
-        document.getElementById("btn-export-chinese").addEventListener("click", function() {
-            exportJson(getWordList().filter(item => item.type === "chinese"), "中文词汇");
-        });
+        // 单词本不再提供导入/导出 JSON 能力，这里不绑定相关按钮事件。
         document.querySelectorAll(".vocab-tab").forEach(tab => {
             tab.addEventListener("click", () => {
                 document.querySelectorAll(".vocab-tab").forEach(t => t.classList.remove("active"));

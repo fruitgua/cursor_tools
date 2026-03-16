@@ -1,6 +1,7 @@
 import os
 import sqlite3
-from typing import Optional
+import json
+from typing import Optional, List, Dict, Tuple
 
 
 DB_NAME = "file_remarks.db"
@@ -107,6 +108,76 @@ def init_db() -> None:
             """
         )
         conn.commit()
+        # 新增：统一存储词汇、标签、待办、日历事件等轻量业务数据的表
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS vocab_words (
+                id TEXT PRIMARY KEY,
+                word TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'english',
+                meaning_zh TEXT NOT NULL DEFAULT '',
+                meaning_en TEXT NOT NULL DEFAULT '',
+                meaning_raw TEXT NOT NULL DEFAULT '',
+                pronunciation TEXT NOT NULL DEFAULT '',
+                example TEXT NOT NULL DEFAULT '',
+                past_tense TEXT NOT NULL DEFAULT '',
+                past_participle TEXT NOT NULL DEFAULT '',
+                present_participle TEXT NOT NULL DEFAULT '',
+                third_person_singular TEXT NOT NULL DEFAULT '',
+                comparative TEXT NOT NULL DEFAULT '',
+                superlative TEXT NOT NULL DEFAULT '',
+                plural TEXT NOT NULL DEFAULT '',
+                tags TEXT NOT NULL DEFAULT '',       -- JSON array string
+                synonyms TEXT NOT NULL DEFAULT '',   -- JSON array string
+                level INTEGER NOT NULL DEFAULT 1,
+                review_count INTEGER NOT NULL DEFAULT 0,
+                next_review TEXT NOT NULL DEFAULT '',
+                quiz_count INTEGER NOT NULL DEFAULT 0,
+                quiz_correct INTEGER NOT NULL DEFAULT 0,
+                quiz_last_date TEXT NOT NULL DEFAULT '',
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS vocab_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                scope TEXT NOT NULL DEFAULT 'english'
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS todos (
+                id TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                due_time TEXT NOT NULL DEFAULT '',
+                category TEXT NOT NULL DEFAULT '',
+                remind_time TEXT NOT NULL DEFAULT '',
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS calendar_events (
+                id TEXT PRIMARY KEY,
+                date TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT '',
+                title TEXT NOT NULL DEFAULT '',
+                content TEXT NOT NULL DEFAULT '',
+                meta TEXT NOT NULL DEFAULT '',
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
+            )
+            """
+        )
+        conn.commit()
     finally:
         conn.close()
 
@@ -189,6 +260,481 @@ def set_app_state(key: str, value: str) -> None:
             (key, value),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def get_all_vocab_words() -> Tuple[List[Dict], List[Dict]]:
+    """
+    从 vocab_words / vocab_tags 表加载单词本完整状态。
+
+    :return: (items, tags)
+    """
+    conn = get_connection()
+    try:
+        # 词汇列表
+        cur = conn.execute(
+            """
+            SELECT
+                id,
+                word,
+                type,
+                meaning_zh,
+                meaning_en,
+                meaning_raw,
+                pronunciation,
+                example,
+                past_tense,
+                past_participle,
+                present_participle,
+                third_person_singular,
+                comparative,
+                superlative,
+                plural,
+                tags,
+                synonyms,
+                level,
+                review_count,
+                next_review,
+                quiz_count,
+                quiz_correct,
+                quiz_last_date
+            FROM vocab_words
+            ORDER BY created_at ASC, id ASC
+            """
+        )
+        rows = cur.fetchall()
+        items: List[Dict] = []
+        for row in rows:
+            try:
+                tags_raw = row["tags"] or ""
+                syn_raw = row["synonyms"] or ""
+                tags = json.loads(tags_raw) if tags_raw else []
+                synonyms = json.loads(syn_raw) if syn_raw else []
+            except Exception:
+                tags = []
+                synonyms = []
+            items.append(
+                {
+                    "id": row["id"],
+                    "word": row["word"] or "",
+                    "type": row["type"] or "english",
+                    "meaningZh": row["meaning_zh"] or "",
+                    "meaningEn": row["meaning_en"] or "",
+                    "meaning": row["meaning_raw"] or "",
+                    "pronunciation": row["pronunciation"] or "",
+                    "example": row["example"] or "",
+                    "pastTense": row["past_tense"] or "",
+                    "pastParticiple": row["past_participle"] or "",
+                    "presentParticiple": row["present_participle"] or "",
+                    "thirdPersonSingular": row["third_person_singular"] or "",
+                    "comparative": row["comparative"] or "",
+                    "superlative": row["superlative"] or "",
+                    "plural": row["plural"] or "",
+                    "tags": tags if isinstance(tags, list) else [],
+                    "synonyms": synonyms if isinstance(synonyms, list) else [],
+                    "level": row["level"],
+                    "reviewCount": row["review_count"],
+                    "nextReview": row["next_review"] or "",
+                    "quizCount": row["quiz_count"],
+                    "quizCorrect": row["quiz_correct"],
+                    "quizLastDate": row["quiz_last_date"] or "",
+                }
+            )
+
+        # 标签列表
+        cur = conn.execute(
+            """
+            SELECT id, name, scope
+            FROM vocab_tags
+            ORDER BY name ASC, id ASC
+            """
+        )
+        rows = cur.fetchall()
+        tags: List[Dict] = [
+            {"name": row["name"] or "", "scope": row["scope"] or "english"}
+            for row in rows
+        ]
+        return items, tags
+    finally:
+        conn.close()
+
+
+def set_vocab_state(items: List[Dict], tags: List[Dict]) -> None:
+    """
+    覆盖写入单词本状态到 vocab_words / vocab_tags 表。
+    前端每次提交完整 items / tags 列表。
+    """
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN")
+        conn.execute("DELETE FROM vocab_words")
+        conn.execute("DELETE FROM vocab_tags")
+
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            vid = str(it.get("id") or "").strip()
+            word = str(it.get("word") or "").strip()
+            if not vid or not word:
+                continue
+            vtype = str(it.get("type") or "english").strip() or "english"
+            meaning_zh = str(it.get("meaningZh") or it.get("meaning_zh") or "").strip()
+            meaning_en = str(it.get("meaningEn") or it.get("meaning_en") or "").strip()
+            meaning_raw = str(it.get("meaning") or "").strip()
+            pronunciation = str(it.get("pronunciation") or "").strip()
+            example = str(it.get("example") or "").strip()
+            past_tense = str(it.get("pastTense") or it.get("past_tense") or "").strip()
+            past_participle = str(
+                it.get("pastParticiple") or it.get("past_participle") or ""
+            ).strip()
+            present_participle = str(
+                it.get("presentParticiple") or it.get("present_participle") or ""
+            ).strip()
+            third_person_singular = str(
+                it.get("thirdPersonSingular") or it.get("third_person_singular") or ""
+            ).strip()
+            comparative = str(
+                it.get("comparative") or it.get("comparative_form") or ""
+            ).strip()
+            superlative = str(
+                it.get("superlative") or it.get("superlative_form") or ""
+            ).strip()
+            plural = str(it.get("plural") or "").strip()
+            tag_list = it.get("tags") or []
+            syn_list = it.get("synonyms") or []
+            try:
+                tags_json = json.dumps(tag_list, ensure_ascii=False)
+            except Exception:
+                tags_json = "[]"
+            try:
+                syn_json = json.dumps(syn_list, ensure_ascii=False)
+            except Exception:
+                syn_json = "[]"
+            level = int(it.get("level") or 1)
+            review_count = int(it.get("reviewCount") or it.get("review_count") or 0)
+            next_review = str(it.get("nextReview") or it.get("next_review") or "").strip()
+            quiz_count = int(it.get("quizCount") or it.get("quiz_count") or 0)
+            quiz_correct = int(it.get("quizCorrect") or it.get("quiz_correct") or 0)
+            quiz_last_date = str(
+                it.get("quizLastDate") or it.get("quiz_last_date") or ""
+            ).strip()
+
+            conn.execute(
+                """
+                INSERT INTO vocab_words (
+                    id, word, type,
+                    meaning_zh, meaning_en, meaning_raw,
+                    pronunciation, example,
+                    past_tense, past_participle, present_participle,
+                    third_person_singular, comparative, superlative, plural,
+                    tags, synonyms,
+                    level, review_count, next_review,
+                    quiz_count, quiz_correct, quiz_last_date,
+                    created_at, updated_at
+                ) VALUES (
+                    ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?,
+                    strftime('%s', 'now'), strftime('%s', 'now')
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                    word = excluded.word,
+                    type = excluded.type,
+                    meaning_zh = excluded.meaning_zh,
+                    meaning_en = excluded.meaning_en,
+                    meaning_raw = excluded.meaning_raw,
+                    pronunciation = excluded.pronunciation,
+                    example = excluded.example,
+                    past_tense = excluded.past_tense,
+                    past_participle = excluded.past_participle,
+                    present_participle = excluded.present_participle,
+                    third_person_singular = excluded.third_person_singular,
+                    comparative = excluded.comparative,
+                    superlative = excluded.superlative,
+                    plural = excluded.plural,
+                    tags = excluded.tags,
+                    synonyms = excluded.synonyms,
+                    level = excluded.level,
+                    review_count = excluded.review_count,
+                    next_review = excluded.next_review,
+                    quiz_count = excluded.quiz_count,
+                    quiz_correct = excluded.quiz_correct,
+                    quiz_last_date = excluded.quiz_last_date,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    vid,
+                    word,
+                    vtype,
+                    meaning_zh,
+                    meaning_en,
+                    meaning_raw,
+                    pronunciation,
+                    example,
+                    past_tense,
+                    past_participle,
+                    present_participle,
+                    third_person_singular,
+                    comparative,
+                    superlative,
+                    plural,
+                    tags_json,
+                    syn_json,
+                    level,
+                    review_count,
+                    next_review,
+                    quiz_count,
+                    quiz_correct,
+                    quiz_last_date,
+                ),
+            )
+
+        seen_tag_keys = set()
+        for t in tags:
+            if not isinstance(t, dict):
+                continue
+            name = str(t.get("name") or "").strip()
+            scope = str(t.get("scope") or "english").lower()
+            if scope not in ("english", "chinese"):
+                scope = "english"
+            if not name:
+                continue
+            key = (name, scope)
+            if key in seen_tag_keys:
+                continue
+            seen_tag_keys.add(key)
+            conn.execute(
+                "INSERT INTO vocab_tags (name, scope) VALUES (?, ?)", (name, scope)
+            )
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_all_todos() -> List[Dict]:
+    """
+    从 todos 表加载所有待办事项，按创建时间排序。
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT
+                id,
+                content,
+                status,
+                due_time,
+                category,
+                remind_time,
+                created_at,
+                updated_at
+            FROM todos
+            ORDER BY created_at ASC, id ASC
+            """
+        )
+        rows = cur.fetchall()
+        items: List[Dict] = []
+        for row in rows:
+            items.append(
+                {
+                    "id": row["id"],
+                    "content": row["content"] or "",
+                    "status": row["status"] or "pending",
+                    "dueTime": row["due_time"] or "",
+                    "category": row["category"] or "",
+                    "remindTime": row["remind_time"] or "",
+                }
+            )
+        return items
+    finally:
+        conn.close()
+
+
+def set_todos_state(items: List[Dict]) -> None:
+    """
+    覆盖写入待办事项列表到 todos 表。
+    """
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN")
+        conn.execute("DELETE FROM todos")
+
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            tid = str(it.get("id") or "").strip()
+            content = str(it.get("content") or "").strip()
+            if not tid or not content:
+                continue
+            status = str(it.get("status") or "pending").strip() or "pending"
+            due_time = str(it.get("dueTime") or it.get("due_time") or "").strip()
+            category = str(it.get("category") or "").strip()
+            remind_time = str(it.get("remindTime") or it.get("remind_time") or "").strip()
+
+            conn.execute(
+                """
+                INSERT INTO todos (
+                    id,
+                    content,
+                    status,
+                    due_time,
+                    category,
+                    remind_time,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                    content = excluded.content,
+                    status = excluded.status,
+                    due_time = excluded.due_time,
+                    category = excluded.category,
+                    remind_time = excluded.remind_time,
+                    updated_at = excluded.updated_at
+                """,
+                (tid, content, status, due_time, category, remind_time),
+            )
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_calendar_events() -> Dict[str, Any]:
+    """
+    从 calendar_events 表加载所有事件，组装为与旧 CHECKIN_STATE 兼容的结构：
+    - events: 仍然留给前端原有事件结构使用（目前可先置空）
+    - records: 从 kind='record' 类型映射（如有需要后续细化）
+    - dateLabels: 从 kind='label' 类型构建 specific/annual。
+    为保持轻量，这里先将所有事件按 date 聚合到 specific 中。
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT id, date, kind, title, content, meta
+            FROM calendar_events
+            ORDER BY date ASC, created_at ASC
+            """
+        )
+        rows = cur.fetchall()
+        events: List[Dict] = []
+        records: List[Dict] = []
+        specific: Dict[str, Any] = {}
+        annual: Dict[str, Any] = {}
+
+        for row in rows:
+            kind = row["kind"] or ""
+            date_str = row["date"] or ""
+            meta_json = row["meta"] or ""
+            try:
+                meta = json.loads(meta_json) if meta_json else {}
+            except Exception:
+                meta = {}
+            base = {
+                "id": row["id"],
+                "date": date_str,
+                "kind": kind,
+                "title": row["title"] or "",
+                "content": row["content"] or "",
+                "meta": meta,
+            }
+            # 简单映射：label -> dateLabels.specific，record -> records，其它暂放入 events
+            if kind == "label":
+                if date_str:
+                    specific.setdefault(date_str, []).append(base)
+            elif kind == "record":
+                records.append(base)
+            else:
+                events.append(base)
+
+        return {
+            "events": events,
+            "records": records,
+            "dateLabels": {
+                "specific": specific,
+                "annual": annual,
+            },
+        }
+    finally:
+        conn.close()
+
+
+def set_calendar_state(data: Dict[str, Any]) -> None:
+    """
+    覆盖写入日历打卡状态到 calendar_events 表。
+    目前仅将 dateLabels.specific/annual 转化为 label 事件保存，其余 events/records 预留。
+    """
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN")
+        conn.execute("DELETE FROM calendar_events")
+
+        date_labels = data.get("dateLabels") or {}
+        specific = date_labels.get("specific") or {}
+        annual = date_labels.get("annual") or {}
+
+        # 将 specific 中的每个日期的标签写入表
+        for date_str, items in specific.items():
+            if not isinstance(items, list):
+                continue
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                eid = str(it.get("id") or "").strip() or f"lbl-{date_str}"
+                title = str(it.get("title") or "").strip()
+                content = str(it.get("content") or "").strip()
+                meta = it.get("meta") or {}
+                try:
+                    meta_json = json.dumps(meta, ensure_ascii=False)
+                except Exception:
+                    meta_json = "{}"
+                conn.execute(
+                    """
+                    INSERT INTO calendar_events (
+                        id,
+                        date,
+                        kind,
+                        title,
+                        content,
+                        meta,
+                        created_at,
+                        updated_at
+                    ) VALUES (
+                        ?, ?, 'label', ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
+                    )
+                    ON CONFLICT(id) DO UPDATE SET
+                        date = excluded.date,
+                        kind = excluded.kind,
+                        title = excluded.title,
+                        content = excluded.content,
+                        meta = excluded.meta,
+                        updated_at = excluded.updated_at
+                    """,
+                    (eid, date_str, title, content, meta_json),
+                )
+
+        # annual 目前仅占位，若后续有需要可展开为重复事件
+        # for key, items in annual.items(): ...
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

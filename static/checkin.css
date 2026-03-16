@@ -237,14 +237,15 @@
         padding: 6px;
     }
 
-    /* H5：仅展示日期 + 一个图标（提醒 / 日期标签），隐藏其它详细行和打卡点 */
+    /* H5：仅展示日期 + 顶部图标（日期标签 / 提醒），隐藏其它详细行和打卡点 */
     .calendar-day .day-dots,
     .calendar-day .day-label-row,
     .calendar-day .day-reminder-row {
         display: none !important;
     }
 
-    .calendar-day .day-single-icon {
+    .calendar-day .day-top-label-icon,
+    .calendar-day .day-top-reminder-icon {
         display: inline-flex;
     }
 
@@ -279,19 +280,20 @@
 
 .calendar-day .day-top-right {
     display: flex;
+    flex-direction: column; /* 第一行日期，第二行图标 */
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.calendar-day .day-top-icons {
+    display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .calendar-day .day-num {
     font-weight: 500;
     text-align: right;
-}
-
-.calendar-day .day-single-icon {
-    font-size: 14px;
-    line-height: 1;
-    display: none; /* 默认桌面隐藏，H5 下再显示 */
 }
 
 .calendar-day .day-dots {
