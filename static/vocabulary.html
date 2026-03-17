@@ -33,6 +33,20 @@
         .vocab-result-card { margin-top: 12px; padding: 16px 20px 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(15,23,42,0.08); background: #fff; }
         .vocab-result-card .result-word-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
         .vocab-result-card .result-word { font-size: 18px; font-weight: 600; margin: 0; flex: 1; min-width: 0; }
+        .vocab-speak-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            padding: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .vocab-speak-btn:hover {
+            opacity: 0.8;
+        }
         .vocab-result-card .result-meaning { font-size: 14px; color: #374151; line-height: 1.6; white-space: pre-wrap; margin-bottom: 8px; }
         .btn-ghost { height: 36px; padding: 0 14px; font-size: 14px; box-sizing: border-box; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; }
         .btn-ghost:hover { background: #e5e7eb; }
@@ -559,7 +573,10 @@
                 <div id="query-result" class="vocab-result-card" style="display:none;">
                     <div class="result-word-row">
                         <div class="result-word" id="result-word"></div>
-                        <button type="button" class="btn btn-ghost" id="btn-copy-result">复制</button>
+                        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                            <button type="button" class="vocab-speak-btn" id="btn-query-speak" title="朗读" aria-label="朗读">🔊</button>
+                            <button type="button" class="btn btn-ghost" id="btn-copy-result">复制</button>
+                        </div>
                     </div>
                     <div class="result-meaning" id="result-meaning"></div>
                     <div class="vocab-actions">
@@ -709,7 +726,11 @@
                         <div class="quiz-final-summary" id="quiz-final-summary"></div>
                     </div>
                     <div class="quiz-right">
-                        <div class="quiz-detail-row"><span class="quiz-detail-label">单词：</span><span id="quiz-detail-word" class="quiz-detail-word-main"></span></div>
+                        <div class="quiz-detail-row">
+                            <span class="quiz-detail-label">单词：</span>
+                            <span id="quiz-detail-word" class="quiz-detail-word-main"></span>
+                            <button type="button" class="vocab-speak-btn" id="btn-quiz-detail-speak" title="朗读" aria-label="朗读">🔊</button>
+                        </div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">中文释义：</span><span id="quiz-detail-zh" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">英文释义：</span><span id="quiz-detail-en" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">词形：</span><span id="quiz-detail-forms" class="quiz-detail-text"></span></div>
@@ -719,7 +740,11 @@
             <div id="quiz-wrong-area" style="display:none;">
                 <div class="quiz-layout quiz-wrong-layout">
                     <div class="quiz-left" id="quiz-wrong-detail" style="overflow-y:auto;">
-                        <div class="quiz-detail-row"><span class="quiz-detail-label">单词：</span><span id="quiz-wrong-word" class="quiz-detail-word-main"></span></div>
+                        <div class="quiz-detail-row">
+                            <span class="quiz-detail-label">单词：</span>
+                            <span id="quiz-wrong-word" class="quiz-detail-word-main"></span>
+                            <button type="button" class="vocab-speak-btn" id="btn-quiz-wrong-speak" title="朗读" aria-label="朗读">🔊</button>
+                        </div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">发音：</span><span id="quiz-wrong-pron" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">中文释义：</span><span id="quiz-wrong-zh" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">英文释义：</span><span id="quiz-wrong-en" class="quiz-detail-text"></span></div>
@@ -781,7 +806,10 @@
             </div>
         </div>
         <div class="vocab-drawer-field" id="drawer-pronunciation-field">
-            <label class="vocab-drawer-label">发音 / 拼音</label>
+            <label class="vocab-drawer-label">
+                发音 / 拼音
+                <button type="button" class="vocab-speak-btn" id="btn-drawer-speak" title="朗读" aria-label="朗读">🔊</button>
+            </label>
             <input type="text" id="drawer-pronunciation" class="vocab-drawer-input" placeholder="英文词汇填音标或发音；中文词汇填拼音" />
         </div>
         <div class="vocab-drawer-field">
@@ -1901,6 +1929,87 @@
         });
     }
 
+    // 统一朗读功能（基于浏览器 Web Speech API），带 15 秒节流
+    let lastSpeakAt = 0;
+    function speakWord(text, langHint, pronunciationText) {
+        if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+            showToast("当前浏览器不支持朗读功能");
+            return;
+        }
+        const now = Date.now();
+        if (now - lastSpeakAt < 15000) {
+            showToast("请勿连续点击。");
+            return;
+        }
+        lastSpeakAt = now;
+
+        const baseText = String(text || "").trim();
+        if (!baseText) return;
+
+        // 从发音/拼音字段中拆分多个发音：按换行和常见分隔符切分
+        const variants = [];
+        const rawPron = String(pronunciationText || "").trim();
+        if (rawPron) {
+            rawPron
+                .split(/[\n;]/)
+                .map(s => s.trim())
+                .filter(Boolean)
+                .forEach(s => variants.push(s));
+        }
+        // 至少要有一个朗读内容；如果没有专门发音，就直接读单词本身
+        if (!variants.length) {
+            variants.push(baseText);
+        }
+
+        const utterances = [];
+        const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+        variants.forEach(v => {
+            const utter = new SpeechSynthesisUtterance(v);
+            // 语言选择：根据类型或内容粗略判断
+            let lang = "en-US";
+            if (langHint === "english" || langHint === "phrase") {
+                lang = "en-US";
+            } else if (langHint === "chinese") {
+                lang = "zh-CN";
+            } else {
+                lang = /[\u4e00-\u9fa5]/.test(v) ? "zh-CN" : "en-US";
+            }
+            utter.lang = lang;
+
+            // 选择匹配语言的 voice：优先 female，再退回任意同语言
+            if (voices && voices.length) {
+                const primary = voices.filter(vc => vc.lang && vc.lang.startsWith(lang.split("-")[0]));
+                let cand = null;
+                if (primary.length) {
+                    const female = primary.find(vc => /female/i.test(vc.name || ""));
+                    cand = female || primary[0];
+                } else {
+                    cand = voices.find(vc => vc.lang === lang) || voices[0];
+                }
+                if (cand) utter.voice = cand;
+            }
+
+            // 默认配置（可按需修改）
+            if (lang.startsWith("en")) {
+                utter.rate = 0.9;   // 英文稍微慢一点
+                utter.pitch = 1.0;
+                utter.volume = 0.9;
+            } else if (lang.startsWith("zh")) {
+                utter.rate = 1.0;   // 中文正常语速
+                utter.pitch = 1.0;
+                utter.volume = 0.9;
+            } else {
+                utter.rate = 1.0;
+                utter.pitch = 1.0;
+                utter.volume = 0.9;
+            }
+
+            utterances.push(utter);
+        });
+
+        window.speechSynthesis.cancel();
+        utterances.forEach(u => window.speechSynthesis.speak(u));
+    }
     function showTagDropdown(type, filterKeyword) {
         const dropdown = document.getElementById("tag-filter-" + type + "-dropdown");
         if (!dropdown) return;
@@ -2585,8 +2694,10 @@
         if (btnNext) btnNext.disabled = true;
     }
 
+    let currentQuizItem = null;
     function fillQuizDetail(item) {
         if (!item) return;
+        currentQuizItem = item;
         const wordEl = document.getElementById("quiz-detail-word");
         const zhEl = document.getElementById("quiz-detail-zh");
         const enEl = document.getElementById("quiz-detail-en");
@@ -2607,8 +2718,10 @@
         }
     }
 
+    let currentQuizWrongItem = null;
     function fillQuizWrongDetail(item) {
         if (!item) return;
+        currentQuizWrongItem = item;
         const wordEl = document.getElementById("quiz-wrong-word");
         const pronEl = document.getElementById("quiz-wrong-pron");
         const zhEl = document.getElementById("quiz-wrong-zh");
@@ -2974,6 +3087,57 @@
                 if (input) input.value = "";
                 const resultEl = document.getElementById("query-result");
                 if (resultEl) resultEl.style.display = "none";
+            });
+        }
+
+        // 查询结果朗读（英文读发音，中文读拼音/发音）
+        const btnQuerySpeak = document.getElementById("btn-query-speak");
+        if (btnQuerySpeak) {
+            btnQuerySpeak.addEventListener("click", () => {
+                const wordEl = document.getElementById("result-word");
+                const resultEl = document.getElementById("query-result");
+                const word = (wordEl && wordEl.textContent || "").trim();
+                if (!word) return;
+                const type = (resultEl && resultEl.dataset.queryType) || detectLanguage(word) || "english";
+                const pron = (lastQueryContext && lastQueryContext.pronunciation) || "";
+                speakWord(word, type, pron);
+            });
+        }
+
+        // 编辑抽屉朗读：英文读发音，中文读拼音
+        const btnDrawerSpeak = document.getElementById("btn-drawer-speak");
+        if (btnDrawerSpeak) {
+            btnDrawerSpeak.addEventListener("click", () => {
+                const wordEl = document.getElementById("drawer-word");
+                const word = (wordEl && wordEl.textContent || "").trim();
+                const pronEl = document.getElementById("drawer-pronunciation");
+                const pron = (pronEl && pronEl.value || "").trim();
+                const type = editingVocabType || "english";
+                speakWord(word, type, pron);
+            });
+        }
+
+        // 英文复习：当前题右侧单词信息朗读
+        const btnQuizDetailSpeak = document.getElementById("btn-quiz-detail-speak");
+        if (btnQuizDetailSpeak) {
+            btnQuizDetailSpeak.addEventListener("click", () => {
+                if (!currentQuizItem) return;
+                const word = currentQuizItem.word || "";
+                const pron = currentQuizItem.pronunciation || "";
+                const type = currentQuizItem.type || "english";
+                speakWord(word, type, pron);
+            });
+        }
+
+        // 英文复习：错题模式左侧详情朗读
+        const btnQuizWrongSpeak = document.getElementById("btn-quiz-wrong-speak");
+        if (btnQuizWrongSpeak) {
+            btnQuizWrongSpeak.addEventListener("click", () => {
+                if (!currentQuizWrongItem) return;
+                const word = currentQuizWrongItem.word || "";
+                const pron = currentQuizWrongItem.pronunciation || "";
+                const type = currentQuizWrongItem.type || "english";
+                speakWord(word, type, pron);
             });
         }
 
