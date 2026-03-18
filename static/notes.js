@@ -12,6 +12,9 @@ let saveEnabled = true;
 let lastSavedSnapshot = null;
 let autoSubmitTimer = null;
 let isSubmittingNewNote = false;
+let isDirty = false;
+let autoSaveTimer = null;
+let confirmModalOnOk = null;
 
 function getCurrentNoteSnapshot() {
     if (currentNoteId == null) return null;
@@ -243,21 +246,110 @@ function applyFilterAndRender() {
     renderNotesList(filtered);
 }
 
+function formatDateTimeToMinute(d) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return (
+        d.getFullYear() +
+        "-" +
+        pad(d.getMonth() + 1) +
+        "-" +
+        pad(d.getDate()) +
+        " " +
+        pad(d.getHours()) +
+        ":" +
+        pad(d.getMinutes())
+    );
+}
+
+function setLastUpdatedLabel(dateObj) {
+    const el = document.getElementById("notes-last-updated");
+    if (!el) return;
+    if (!dateObj) {
+        el.textContent = "上次更新时间：-";
+        return;
+    }
+    el.textContent = "上次更新时间：" + formatDateTimeToMinute(dateObj);
+}
+
+function parseDbTimeToDate(ts) {
+    if (ts == null) return null;
+    if (typeof ts === "number" && isFinite(ts)) {
+        // DB created_at/updated_at is seconds since epoch
+        return new Date(ts * 1000);
+    }
+    const d = new Date(ts);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+}
+
+function markDirty() {
+    if (currentNoteId == null) return;
+    if (!saveEnabled) return;
+    isDirty = true;
+}
+
+function saveCurrentNoteSilently() {
+    if (currentNoteId == null) return Promise.resolve(false);
+    if (!saveEnabled) return Promise.resolve(false);
+    const snap = getCurrentNoteSnapshot();
+    if (!snap) return Promise.resolve(false);
+    if (lastSavedSnapshot && snapshotEquals(snap, lastSavedSnapshot)) {
+        isDirty = false;
+        return Promise.resolve(false);
+    }
+    const title = snap.title;
+    const category = snap.category;
+    const content = snap.content;
+    return fetch("/api/notes/" + currentNoteId, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, category, content }),
+    })
+        .then((r) => r.json())
+        .then((data) => {
+            if (data && data.success) {
+                lastSavedSnapshot = snap;
+                isDirty = false;
+                setLastUpdatedLabel(new Date());
+                loadNotesList();
+                return true;
+            }
+            return false;
+        })
+        .catch(() => false);
+}
+
+function startAutoSaveTimer() {
+    if (autoSaveTimer) clearInterval(autoSaveTimer);
+    autoSaveTimer = setInterval(() => {
+        if (currentNoteId == null) return;
+        if (!saveEnabled) return;
+        if (!isDirty) return;
+        // 每 60 秒尝试保存一次（无 toast）
+        saveCurrentNoteSilently();
+    }, 60000);
+}
+
 function showPlaceholder() {
     document.getElementById("notes-detail-placeholder").style.display = "block";
     document.getElementById("notes-detail-form").style.display = "none";
     document.getElementById("notes-actions").style.display = "none";
+    setLastUpdatedLabel(null);
 }
 
 function showAddForm() {
     saveEnabled = false;
     currentNoteId = null;
+    isDirty = false;
     document.getElementById("notes-detail-placeholder").style.display = "none";
     document.getElementById("notes-detail-form").style.display = "block";
     document.getElementById("notes-actions").style.display = "block";
     document.getElementById("btn-clear").style.display = "inline-block";
     document.getElementById("btn-submit").style.display = "inline-block";
     document.getElementById("btn-delete").style.display = "none";
+    const saveNowBtn = document.getElementById("btn-save-now");
+    if (saveNowBtn) saveNowBtn.style.display = "none";
+    setLastUpdatedLabel(null);
 
     document.getElementById("note-title").value = "";
     document.getElementById("note-category").value = "";
@@ -275,12 +367,15 @@ function showAddForm() {
 function showEditForm(note) {
     saveEnabled = false;
     currentNoteId = note.id;
+    isDirty = false;
     document.getElementById("notes-detail-placeholder").style.display = "none";
     document.getElementById("notes-detail-form").style.display = "block";
     document.getElementById("notes-actions").style.display = "block";
     document.getElementById("btn-clear").style.display = "none";
     document.getElementById("btn-submit").style.display = "none";
     document.getElementById("btn-delete").style.display = "inline-block";
+    const saveNowBtn = document.getElementById("btn-save-now");
+    if (saveNowBtn) saveNowBtn.style.display = "inline-block";
 
     document.getElementById("note-title").value = note.title || "";
     const rawCat = note.category || "";
@@ -311,6 +406,8 @@ function showEditForm(note) {
         category: rawCat,
         content: note.content || "",
     };
+    setLastUpdatedLabel(parseDbTimeToDate(note.updated_at) || parseDbTimeToDate(note.created_at) || new Date());
+    startAutoSaveTimer();
 }
 
 function openCatsDrawer() {
@@ -327,9 +424,12 @@ function closeCatsDrawer() {
 function renderCatsList() {
     const wrap = document.getElementById("notes-cats-list");
     if (!wrap) return;
+    const countByCategory = (name) =>
+        allNotes.filter((n) => String(n.category || "") === String(name || "")).length;
     wrap.innerHTML = categories
         .map((c, idx) => {
             const isEditing = editingCategoryName === c;
+            const cnt = countByCategory(c);
             return `
             <div class="notes-cat-card" data-name="${escapeHtml(c)}">
                 ${
@@ -338,6 +438,7 @@ function renderCatsList() {
                         : `<div class="notes-cat-name">${escapeHtml(c)}</div>`
                 }
                 <div class="notes-cat-actions">
+                    <span class="notes-cat-count">笔记数量：<span class="notes-cat-count-num">${cnt}</span></span>
                     ${
                         isEditing
                             ? `<button type="button" class="btn primary notes-cat-save" data-idx="${idx}">保存</button>
@@ -425,14 +526,17 @@ function renderCatsList() {
             const i = Number(btn.dataset.idx);
             const name = categories[i];
             if (!name) return;
-            // 前端先校验，减少无意义请求
-            const hasNotes = allNotes.some((n) => (n.category || "") === name);
-            if (hasNotes) {
-                showToast("当前分类下已有笔记，不可删除。", "error");
+            // 前端先校验：当前分类下有笔记则禁止删除
+            const cnt = allNotes.filter((n) => (n.category || "") === name).length;
+            if (cnt > 0) {
+                showToast("操作失败，当前分类正在使用。", "error");
                 return;
             }
-            if (!confirm(`确定要删除分类「${name}」吗？`)) return;
-            deleteCategory(name);
+            if (typeof window.openConfirmModalDynamic === "function") {
+                window.openConfirmModalDynamic("确定要删除分类「", name, "」吗？", () => deleteCategory(name));
+            } else {
+                openConfirmModal(`确定要删除分类「${name}」吗？`, () => deleteCategory(name));
+            }
         });
     });
 }
@@ -510,6 +614,13 @@ function loadNote(id) {
         .then((data) => {
             if (data.success) {
                 showEditForm(data.item);
+                // 确保左侧列表选中项可见
+                setTimeout(() => {
+                    const active = document.querySelector(".notes-list-item.active");
+                    try {
+                        active?.scrollIntoView({ block: "nearest" });
+                    } catch (_) {}
+                }, 0);
             } else {
                 showToast(data.message || "加载失败", "error");
             }
@@ -518,38 +629,8 @@ function loadNote(id) {
 }
 
 function debouncedSave() {
-    if (!saveEnabled) return;
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => {
-        if (currentNoteId == null) return;
-        const snap = getCurrentNoteSnapshot();
-        if (snap && snapshotEquals(snap, lastSavedSnapshot)) {
-            // 没有实际变更，不触发保存
-            saveTimeout = null;
-            return;
-        }
-        const title = snap ? snap.title : "";
-        const category = snap ? snap.category : "";
-        const content = snap ? snap.content : "";
-
-        fetch("/api/notes/" + currentNoteId, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, category, content }),
-        })
-            .then((r) => r.json())
-            .then((data) => {
-                if (data.success) {
-                    lastSavedSnapshot = snap;
-                    showToast("已保存");
-                    loadNotesList();
-                } else {
-                    showToast(data.message || "保存失败", "error");
-                }
-            })
-            .catch((err) => showToast("保存失败：" + (err.message || "网络错误"), "error"));
-        saveTimeout = null;
-    }, 800);
+    // 兼容旧调用：不再立刻保存，只标记脏数据，等待 60 秒自动保存或用户手动提交
+    markDirty();
 }
 
 function clearForm() {
@@ -588,9 +669,15 @@ function submitNote() {
         .then((r) => r.json())
         .then((data) => {
             if (data.success) {
-                showToast("添加成功");
-                loadNotesList();
-                showAddForm();
+                // 新增成功后进入“编辑态”（正常保存机制：每 60 秒自动保存 + 手动提交）
+                const newId = data.id;
+                if (newId != null) {
+                    // 先刷新左侧列表，再选中并打开新笔记，确保列表可见且高亮
+                    loadNotesList(() => loadNote(newId));
+                } else {
+                    loadNotesList();
+                    showAddForm();
+                }
             } else {
                 showToast(data.message || "添加失败", "error");
             }
@@ -623,8 +710,23 @@ function scheduleAutoSubmitNewNote() {
 
 function deleteNote() {
     if (currentNoteId == null) return;
-    if (!confirm("确定要删除这条笔记吗？")) return;
+    const titleEl = document.getElementById("note-title");
+    const title = String((titleEl && titleEl.value) || "").trim();
+    const msg = title ? `确定要删除笔记「${title}」吗？` : "确定要删除这条笔记吗？";
+    if (typeof window.openConfirmModal === "function") {
+        if (title && typeof window.openConfirmModalDynamic === "function") {
+            window.openConfirmModalDynamic("确定要删除笔记「", title, "」吗？", () => doDeleteNote());
+        } else {
+            window.openConfirmModal(msg, () => doDeleteNote());
+        }
+    } else {
+        // fallback
+        if (!confirm(msg)) return;
+        doDeleteNote();
+    }
+}
 
+function doDeleteNote() {
     fetch("/api/notes/" + currentNoteId, { method: "DELETE" })
         .then((r) => r.json())
         .then((data) => {
@@ -670,6 +772,14 @@ function bindEvents() {
     document.getElementById("btn-clear").onclick = clearForm;
     document.getElementById("btn-submit").onclick = submitNote;
     document.getElementById("btn-delete").onclick = deleteNote;
+    const saveNowBtn = document.getElementById("btn-save-now");
+    if (saveNowBtn) {
+        saveNowBtn.onclick = () => {
+            // 手动提交一次当前笔记内容并更新“上次更新时间”（无 toast）
+            markDirty();
+            saveCurrentNoteSilently();
+        };
+    }
 
     document.getElementById("notes-list").addEventListener("click", (e) => {
         const item = e.target.closest(".notes-list-item");
@@ -688,6 +798,49 @@ function bindEvents() {
         debouncedSave();
         scheduleAutoSubmitNewNote();
     });
+
+    // UI 规范：确认弹窗（用于分类删除等确认）
+    const confirmModal = document.getElementById("notes-confirm-modal");
+    const confirmText = document.getElementById("notes-confirm-text");
+    const btnCancel = document.getElementById("notes-confirm-cancel");
+    const btnOk = document.getElementById("notes-confirm-ok");
+
+    function closeConfirmModal() {
+        if (confirmModal) confirmModal.classList.add("hidden");
+        confirmModalOnOk = null;
+    }
+
+    window.openConfirmModal = function(message, onOk) {
+        if (!confirmModal || !confirmText) return;
+        confirmText.textContent = String(message || "");
+        confirmModalOnOk = typeof onOk === "function" ? onOk : null;
+        confirmModal.classList.remove("hidden");
+    };
+
+    window.openConfirmModalDynamic = function(prefix, dynamicValue, suffix, onOk) {
+        if (!confirmModal || !confirmText) return;
+        const pre = String(prefix || "");
+        const suf = String(suffix || "");
+        const dyn = escapeHtml(String(dynamicValue || ""));
+        // 仅动态值使用主色高亮，其余文本按默认颜色展示
+        confirmText.innerHTML = escapeHtml(pre) + '<span class="ui-modal-dynamic">' + dyn + "</span>" + escapeHtml(suf);
+        confirmModalOnOk = typeof onOk === "function" ? onOk : null;
+        confirmModal.classList.remove("hidden");
+    };
+
+    if (btnCancel) btnCancel.addEventListener("click", closeConfirmModal);
+    if (confirmModal) {
+        confirmModal.addEventListener("click", (e) => {
+            if (e.target === confirmModal) closeConfirmModal();
+        });
+    }
+    if (btnOk) {
+        btnOk.addEventListener("click", () => {
+            const fn = confirmModalOnOk;
+            closeConfirmModal();
+            if (fn) fn();
+        });
+    }
 }
 
 function initQuillLazy() {

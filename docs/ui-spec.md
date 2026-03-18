@@ -218,6 +218,36 @@ font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFa
 }
 ```
 
+### 5.3 提示弹窗（Modal）
+
+项目统一使用 `static/style.css` 中的 `.ui-modal-overlay` / `.ui-modal` 相关样式实现弹窗（确认/提示/loading）。
+
+- **置顶层级**：弹窗遮罩 `.ui-modal-overlay` 的 `z-index` 必须 **始终高于抽屉/侧滑面板/其它弹层**，确保任何页面的确认操作不会被遮挡。
+- **窗体尺寸**：宽度固定 320px；确认/提示弹窗默认最小高度 180px；loading 弹窗高度固定 200px。
+- **标题栏**：固定高度 40px，标题文字 14px 加粗，左对齐且左边距 20px，固定标题“操作提示”。
+- **内容区**：上/左/右 padding 20px，提示文字 13px；底部与按钮区域间距同样为 20px。
+- **操作区**：默认右对齐，右边距 20px，按钮间距 20px；确认按钮使用主按钮 `.btn.primary`，取消/我知道了使用幽灵按钮 `.btn.btn-ghost`。
+- **动态取值高亮**：弹窗内容里若包含动态变量（如分类名、笔记标题等），使用 `<span class="ui-modal-dynamic">动态值</span>` 包裹，颜色使用当前主题的主色（primary）。
+
+建议 DOM 结构：
+
+```html
+<div class="ui-modal-overlay hidden">
+  <div class="ui-modal">
+    <div class="ui-modal-header">
+      <div class="ui-modal-title">操作提示</div>
+    </div>
+    <div class="ui-modal-body">
+      <p class="ui-modal-body-text">确定要删除分类「<span class="ui-modal-dynamic">AI</span>」吗？</p>
+    </div>
+    <div class="ui-modal-actions">
+      <button class="btn btn-ghost">取消</button>
+      <button class="btn primary">确认</button>
+    </div>
+  </div>
+</div>
+```
+
 ### 5.3 标签
 
 **行内标签** `.field-label`

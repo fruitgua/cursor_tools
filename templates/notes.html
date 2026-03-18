@@ -63,9 +63,15 @@
             </div>
             <div id="notes-actions" class="notes-actions" style="display: none;">
                 <div class="notes-actions-inner">
-                    <button id="btn-clear" class="btn notes-action-btn" style="display: none;">清空</button>
-                    <button id="btn-submit" class="btn primary notes-action-btn" style="display: none;">提交</button>
-                    <button id="btn-delete" class="btn notes-action-btn notes-delete-btn" style="display: none;">删除</button>
+                    <div class="notes-actions-left">
+                        <span class="notes-actions-hint" id="notes-last-updated">上次更新时间：-</span>
+                    </div>
+                    <div class="notes-actions-right">
+                        <button id="btn-clear" class="btn notes-action-btn" style="display: none;">清空</button>
+                        <button id="btn-submit" class="btn primary notes-action-btn" style="display: none;">提交</button>
+                        <button id="btn-delete" class="btn notes-action-btn notes-delete-btn" style="display: none;">删除</button>
+                        <button id="btn-save-now" class="btn primary notes-action-btn" style="display: none;">提交</button>
+                    </div>
                 </div>
             </div>
         </main>
@@ -73,6 +79,22 @@
 </div>
 
 <div id="toast-container"></div>
+
+<!-- UI 规范：确认弹窗（分类删除确认） -->
+<div id="notes-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notes-confirm-title">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title" id="notes-confirm-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <p class="ui-modal-body-text" id="notes-confirm-text"></p>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="notes-confirm-cancel">取消</button>
+            <button type="button" class="btn primary" id="notes-confirm-ok">确认</button>
+        </div>
+    </div>
+</div>
 
 <!-- 分类管理抽屉 -->
 <div id="notes-cats-drawer-overlay" class="notes-drawer-overlay"></div>

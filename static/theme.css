@@ -439,6 +439,29 @@ html[data-theme="dark"] .app .detail-section-title {
 html[data-theme="dark"] .app .modal-overlay {
     background: rgba(0, 0, 0, 0.55) !important;
 }
+html[data-theme="dark"] .ui-modal-overlay {
+    background: rgba(0, 0, 0, 0.55) !important;
+}
+html[data-theme="dark"] .ui-modal {
+    background-color: #1E2228 !important;
+    border-color: #2A3038 !important;
+}
+html[data-theme="dark"] .ui-modal-title {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .ui-modal-body {
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+html[data-theme="dark"] .ui-modal-header {
+    border-bottom-color: #2A3038 !important;
+}
+html[data-theme="dark"] .ui-modal-spinner {
+    border-color: #2A3038 !important;
+    border-top-color: #4A9EFF !important;
+}
+html[data-theme="dark"] .ui-modal-dynamic {
+    color: #4A9EFF !important; /* dark 主题 primary */
+}
 html[data-theme="dark"] .app .add-event-form input,
 html[data-theme="dark"] .app .add-event-form input[type="text"],
 html[data-theme="dark"] .app .add-event-form input[type="date"],

@@ -80,11 +80,24 @@ def init_db() -> None:
                 title TEXT NOT NULL DEFAULT '',
                 category TEXT NOT NULL DEFAULT '',
                 content TEXT NOT NULL DEFAULT '',
-                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
             )
             """
         )
         conn.commit()
+        # 兼容旧版 notes 表：补充 updated_at 字段
+        try:
+            conn.execute("ALTER TABLE notes ADD COLUMN updated_at REAL NOT NULL DEFAULT 0")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        # 对历史数据：若 updated_at 为空则回填 created_at
+        try:
+            conn.execute("UPDATE notes SET updated_at = created_at WHERE updated_at = 0 OR updated_at IS NULL")
+            conn.commit()
+        except Exception:
+            pass
         _migrate_notes_category(conn)
         conn.execute(
             """
@@ -936,7 +949,7 @@ def get_all_notes() -> list:
     conn = get_connection()
     try:
         cur = conn.execute(
-            "SELECT id, title, category, content, created_at FROM notes ORDER BY created_at DESC"
+            "SELECT id, title, category, content, created_at, updated_at FROM notes ORDER BY created_at DESC"
         )
         rows = cur.fetchall()
         return [
@@ -946,6 +959,7 @@ def get_all_notes() -> list:
                 "category": row["category"] or "",
                 "content": row["content"] or "",
                 "created_at": row["created_at"],
+                "updated_at": row["updated_at"] if row["updated_at"] is not None else row["created_at"],
             }
             for row in rows
         ]
@@ -963,7 +977,7 @@ def get_note(note_id: int) -> Optional[dict]:
     conn = get_connection()
     try:
         cur = conn.execute(
-            "SELECT id, title, category, content, created_at FROM notes WHERE id = ?",
+            "SELECT id, title, category, content, created_at, updated_at FROM notes WHERE id = ?",
             (note_id,),
         )
         row = cur.fetchone()
@@ -975,6 +989,7 @@ def get_note(note_id: int) -> Optional[dict]:
             "category": row["category"] or "",
             "content": row["content"] or "",
             "created_at": row["created_at"],
+            "updated_at": row["updated_at"] if row["updated_at"] is not None else row["created_at"],
         }
     finally:
         conn.close()
@@ -989,7 +1004,7 @@ def add_note(title: str, category: str, content: str) -> int:
     conn = get_connection()
     try:
         cur = conn.execute(
-            "INSERT INTO notes (title, category, content) VALUES (?, ?, ?)",
+            "INSERT INTO notes (title, category, content, updated_at) VALUES (?, ?, ?, strftime('%s', 'now'))",
             (title or "", category or "", content or ""),
         )
         conn.commit()
@@ -1008,7 +1023,7 @@ def update_note(note_id: int, title: str, category: str, content: str) -> bool:
     try:
         cur = conn.execute(
             """
-            UPDATE notes SET title = ?, category = ?, content = ?
+            UPDATE notes SET title = ?, category = ?, content = ?, updated_at = strftime('%s', 'now')
             WHERE id = ?
             """,
             (title or "", category or "", content or "", note_id),
