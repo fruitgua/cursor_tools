@@ -10,6 +10,8 @@ let categories = ["AI", "系统使用", "读书笔记", "其他"];
 let editingCategoryName = null;
 let saveEnabled = true;
 let lastSavedSnapshot = null;
+let autoSubmitTimer = null;
+let isSubmittingNewNote = false;
 
 function getCurrentNoteSnapshot() {
     if (currentNoteId == null) return null;
@@ -566,6 +568,7 @@ function isContentEmpty(html) {
 }
 
 function submitNote() {
+    if (isSubmittingNewNote) return;
     const title = document.getElementById("note-title").value.trim();
     const categoryEl = document.getElementById("note-category");
     const category = categoryEl ? categoryEl.value : "";
@@ -576,6 +579,7 @@ function submitNote() {
         return;
     }
 
+    isSubmittingNewNote = true;
     fetch("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -591,7 +595,30 @@ function submitNote() {
                 showToast(data.message || "添加失败", "error");
             }
         })
-        .catch((err) => showToast("添加失败：" + (err.message || "网络错误"), "error"));
+        .catch((err) => showToast("添加失败：" + (err.message || "网络错误"), "error"))
+        .finally(() => {
+            isSubmittingNewNote = false;
+        });
+}
+
+function scheduleAutoSubmitNewNote() {
+    // 仅在“新增笔记”模式下自动提交（currentNoteId == null）
+    if (currentNoteId != null) return;
+    if (!saveEnabled) return;
+    if (isSubmittingNewNote) return;
+    if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
+    autoSubmitTimer = setTimeout(() => {
+        autoSubmitTimer = null;
+        if (currentNoteId != null) return;
+        if (!saveEnabled || isSubmittingNewNote) return;
+        const titleEl = document.getElementById("note-title");
+        const catEl = document.getElementById("note-category");
+        const title = titleEl ? String(titleEl.value || "").trim() : "";
+        const category = catEl ? String(catEl.value || "").trim() : "";
+        const content = quill ? (quill.root.innerHTML || "") : "";
+        if (!title || !category || isContentEmpty(content)) return;
+        submitNote();
+    }, 300);
 }
 
 function deleteNote() {
@@ -652,9 +679,15 @@ function bindEvents() {
         }
     });
 
-    document.getElementById("note-title").addEventListener("input", debouncedSave);
+    document.getElementById("note-title").addEventListener("input", () => {
+        debouncedSave();
+        scheduleAutoSubmitNewNote();
+    });
     document.getElementById("note-title").addEventListener("blur", debouncedSave);
-    document.getElementById("note-category").addEventListener("change", debouncedSave);
+    document.getElementById("note-category").addEventListener("change", () => {
+        debouncedSave();
+        scheduleAutoSubmitNewNote();
+    });
 }
 
 function initQuillLazy() {
@@ -666,6 +699,7 @@ function initQuillLazy() {
         initQuill();
         if (quill) {
             quill.on("text-change", debouncedSave);
+            quill.on("text-change", scheduleAutoSubmitNewNote);
         } else {
             throw new Error("编辑器元素未找到");
         }
