@@ -1012,7 +1012,9 @@
 
     async function fetchHolidays() {
         const statusEl = document.getElementById("holiday-fetch-status");
+        const loadingModal = document.getElementById("holiday-loading-modal");
         if (statusEl) statusEl.textContent = "获取中...";
+        if (loadingModal) loadingModal.classList.remove("hidden");
         const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
         try {
             if (!state.data.dateLabels) state.data.dateLabels = { specific: {}, annual: {} };
@@ -1044,6 +1046,8 @@
             if (statusEl) statusEl.textContent = "获取失败";
             toast("获取节假日失败", "info");
             console.warn("fetchHolidays error", e);
+        } finally {
+            if (loadingModal) loadingModal.classList.add("hidden");
         }
     }
 

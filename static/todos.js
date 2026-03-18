@@ -9,6 +9,51 @@
         doneFilter: "all",
     };
 
+    // UI 规范：确认弹窗（用于删除待办确认）
+    let confirmModalOnOk = null;
+    function initConfirmModal() {
+        const modal = document.getElementById("todos-confirm-modal");
+        const textEl = document.getElementById("todos-confirm-text");
+        const btnCancel = document.getElementById("todos-confirm-cancel");
+        const btnOk = document.getElementById("todos-confirm-ok");
+        if (!modal || !textEl || !btnCancel || !btnOk) return;
+
+        function close() {
+            modal.classList.add("hidden");
+            confirmModalOnOk = null;
+        }
+
+        window.openTodoConfirmModal = function (message, onOk) {
+            textEl.textContent = String(message || "");
+            confirmModalOnOk = typeof onOk === "function" ? onOk : null;
+            modal.classList.remove("hidden");
+        };
+
+        window.openTodoConfirmModalDynamic = function (prefix, dynamicValue, suffix, onOk) {
+            const pre = String(prefix || "");
+            const suf = String(suffix || "");
+            const dyn = escapeHtml(String(dynamicValue || ""));
+            textEl.innerHTML =
+                escapeHtml(pre) +
+                '<span class="ui-modal-dynamic">' +
+                dyn +
+                "</span>" +
+                escapeHtml(suf);
+            confirmModalOnOk = typeof onOk === "function" ? onOk : null;
+            modal.classList.remove("hidden");
+        };
+
+        btnCancel.addEventListener("click", close);
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) close();
+        });
+        btnOk.addEventListener("click", () => {
+            const fn = confirmModalOnOk;
+            close();
+            if (fn) fn();
+        });
+    }
+
     async function syncToServer(items) {
         try {
             await fetch("/api/todos/state", {
@@ -250,10 +295,17 @@
         if (!card) return;
         const id = card.getAttribute("data-id");
         if (!id) return;
+        const doDelete = () => {
+            const items = state.items.filter((it) => it.id !== id);
+            saveToStorage(items);
+            renderAll();
+        };
+        if (typeof window.openTodoConfirmModal === "function") {
+            window.openTodoConfirmModal("确认要删除当前标签吗？", doDelete);
+            return;
+        }
         if (!confirm("确定要删除这条待办事项吗？")) return;
-        const items = state.items.filter((it) => it.id !== id);
-        saveToStorage(items);
-        renderAll();
+        doDelete();
     }
 
     function onEditClick(e) {
@@ -352,17 +404,21 @@
         const dueEl = document.getElementById("edit-due");
 
         catEl.value = item.category || "other";
+        // 触发 ui-select.js 组件同步显示文本
+        try {
+            catEl.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch (_) {}
         contentEl.value = item.content || "";
         dueEl.value = item.dueTime
             ? dateToDatetimeLocalValue(parseDisplayDateTime(item.dueTime))
             : "";
 
-        overlay.classList.add("open");
+        overlay.classList.remove("hidden");
     }
 
     function closeEditModal() {
         state.editingId = null;
-        document.getElementById("edit-modal-overlay").classList.remove("open");
+        document.getElementById("edit-modal-overlay").classList.add("hidden");
     }
 
     function onEditSave() {
@@ -481,9 +537,6 @@
         }
 
         document
-            .getElementById("edit-modal-close")
-            .addEventListener("click", closeEditModal);
-        document
             .getElementById("edit-modal-cancel")
             .addEventListener("click", closeEditModal);
         document
@@ -492,7 +545,7 @@
         document
             .getElementById("edit-modal-overlay")
             .addEventListener("click", (e) => {
-                if (e.target.id === "edit-modal-overlay") {
+                if (e.target && e.target.id === "edit-modal-overlay") {
                     closeEditModal();
                 }
             });
@@ -508,6 +561,8 @@
 
         // 然后与服务端数据合并 & 同步，支持多浏览器共享
         loadFromServerAndMerge();
+
+        initConfirmModal();
     }
 
     if (document.readyState === "loading") {

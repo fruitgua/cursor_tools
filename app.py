@@ -312,16 +312,31 @@ def api_bookmarks_delete(bookmark_id: int) -> Any:
 
 @app.route("/api/bookmarks/<int:bookmark_id>/move-up", methods=["POST"])
 def api_bookmarks_move_up(bookmark_id: int) -> Any:
-    """Swap bookmark with the previous one in the list."""
+    """Swap bookmark with the previous one within the same category."""
     try:
         items = get_all_bookmarks()
-        ids = [item["id"] for item in items]
-        if bookmark_id not in ids:
+        # Find current item and its category
+        id_to_item = {item["id"]: item for item in items}
+        current = id_to_item.get(bookmark_id)
+        if current is None:
             return jsonify({"success": False, "message": "记录不存在"}), 404
+        cur_category = (current.get("category") or "").strip()
+
+        # Walk backwards in the global order to find the previous item in the same category
+        ids = [item["id"] for item in items]
         idx = ids.index(bookmark_id)
-        if idx <= 0:
-            return jsonify({"success": False, "message": "已是第一条，无法上移"}), 400
-        prev_id = ids[idx - 1]
+        prev_id: int | None = None
+        for j in range(idx - 1, -1, -1):
+            prev_item = items[j]
+            prev_cat = (prev_item.get("category") or "").strip()
+            if prev_cat == cur_category:
+                prev_id = prev_item["id"]
+                break
+
+        if prev_id is None:
+            # Already the first item within this category
+            return jsonify({"success": False, "message": "已是该分类第一条，无法上移"}), 400
+
         ok = swap_bookmarks_db(bookmark_id, prev_id)
         if not ok:
             return jsonify({"success": False, "message": "交换失败"}), 500

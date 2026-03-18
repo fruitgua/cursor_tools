@@ -252,7 +252,7 @@
         .quiz-layout {
             display: flex;
             gap: 16px;
-            min-height: 0;
+            min-height: 520px;
         }
         .quiz-left,
         .quiz-right {
@@ -572,11 +572,11 @@
                 </div>
                 <div id="query-result" class="vocab-result-card" style="display:none;">
                     <div class="result-word-row">
-                        <div class="result-word" id="result-word"></div>
-                        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                            <div class="result-word" id="result-word"></div>
                             <button type="button" class="vocab-speak-btn" id="btn-query-speak" title="朗读" aria-label="朗读">🔊</button>
-                            <button type="button" class="btn btn-ghost" id="btn-copy-result">复制</button>
                         </div>
+                        <button type="button" class="btn btn-ghost" id="btn-copy-result">复制</button>
                     </div>
                     <div class="result-meaning" id="result-meaning"></div>
                     <div class="vocab-actions">
@@ -733,7 +733,13 @@
                         </div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">中文释义：</span><span id="quiz-detail-zh" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">英文释义：</span><span id="quiz-detail-en" class="quiz-detail-text"></span></div>
-                        <div class="quiz-detail-row"><span class="quiz-detail-label">词形：</span><span id="quiz-detail-forms" class="quiz-detail-text"></span></div>
+                        <div class="quiz-detail-row" id="quiz-detail-forms-row">
+                            <span id="quiz-detail-forms" class="quiz-detail-text"></span>
+                        </div>
+                        <div class="quiz-detail-row" id="quiz-detail-synonyms-row">
+                            <span class="quiz-detail-label">同义词：</span>
+                            <span id="quiz-detail-synonyms" class="quiz-detail-text"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -749,7 +755,9 @@
                         <div class="quiz-detail-row"><span class="quiz-detail-label">中文释义：</span><span id="quiz-wrong-zh" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">英文释义：</span><span id="quiz-wrong-en" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">例句：</span><span id="quiz-wrong-example" class="quiz-detail-text"></span></div>
-                        <div class="quiz-detail-row"><span class="quiz-detail-label">词形：</span><span id="quiz-wrong-forms" class="quiz-detail-text"></span></div>
+                        <div class="quiz-detail-row" id="quiz-wrong-forms-row">
+                            <span id="quiz-wrong-forms" class="quiz-detail-text"></span>
+                        </div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">标签：</span><span id="quiz-wrong-tags" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">同义词：</span><span id="quiz-wrong-synonyms" class="quiz-detail-text"></span></div>
                         <div class="quiz-detail-row"><span class="quiz-detail-label">关联词组：</span><span id="quiz-wrong-related-phrases" class="quiz-detail-text"></span></div>
@@ -774,13 +782,49 @@
 <div id="toast-container"></div>
 
 <!-- 查询单词已存在确认弹窗 -->
-<div id="query-exists-modal" class="modal-overlay hidden">
-    <div class="modal">
-        <h3 class="modal-title">当前单词已经存在</h3>
-        <p class="delete-event-msg">当前单词已经存在，是否继续查询？</p>
-        <div class="modal-actions">
-            <button type="button" class="btn" id="btn-query-exists-close">关闭</button>
+<div id="query-exists-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="操作提示">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <div class="ui-modal-body-text">当前单词已经存在，是否继续查询？</div>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-query-exists-close">关闭</button>
             <button type="button" class="btn primary" id="btn-query-exists-continue">继续查询</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除词汇确认弹窗（英文单词本 / 中文词汇统一使用） -->
+<div id="vocab-delete-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="操作提示">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <div class="ui-modal-body-text" id="vocab-delete-confirm-text">是否确认删除「」</div>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-vocab-delete-cancel">取消</button>
+            <button type="button" class="btn primary" id="btn-vocab-delete-confirm">确认</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除标签确认弹窗（单词本标签管理） -->
+<div id="vocab-tag-delete-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="操作提示">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <div class="ui-modal-body-text" id="vocab-tag-delete-confirm-text">是否确认删除「」</div>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-vocab-tag-delete-cancel">取消</button>
+            <button type="button" class="btn primary" id="btn-vocab-tag-delete-confirm">确认</button>
         </div>
     </div>
 </div>
@@ -1116,11 +1160,7 @@
                     showToast("当前标签已被使用，不能删除。", "error");
                     return;
                 }
-                vocabTags.splice(idx, 1);
-                syncVocabToServer(getWordList());
-                refreshTagFilterOptions();
-                renderTagsTable();
-                showToast("标签已删除。");
+                requestDeleteTag(idx, name, scope);
             });
         });
     }
@@ -1827,11 +1867,22 @@
             const tagHtml = Array.isArray(item.tags) && item.tags.length
                 ? item.tags.map(t => `<span class="vocab-item-tag">${escapeHtml(t)}</span>`).join("")
                 : "";
+            const type = item.type || "english";
+            const pron = String(item.pronunciation || "");
+            const hasPron = !!pron;
             return `
             <div class="vocab-item" data-id="${escapeHtml(item.id || "")}">
                 <div class="vocab-item-content">
                     <div class="vocab-item-header">
                         <div class="vocab-item-word">${escapeHtml(item.word || "")}</div>
+                        ${hasPron ? `
+                        <button type="button"
+                                class="vocab-speak-btn vocab-item-speak"
+                                data-word="${escapeHtml(item.word || "")}"
+                                data-type="${escapeHtml(type)}"
+                                data-pron="${escapeHtml(pron)}"
+                                title="朗读"
+                                aria-label="朗读">🔊</button>` : ""}
                         <div class="vocab-item-labels">
                             ${typeText ? `<span class="vocab-item-type">${escapeHtml(typeText)}</span>` : ""}
                             ${tagHtml}
@@ -1842,13 +1893,22 @@
                 </div>
                 <div class="vocab-item-actions">
                     ${showEdit ? `<button type="button" class="btn vocab-item-edit" data-id="${escapeHtml(item.id || "")}">编辑</button>` : ""}
-                    <button type="button" class="btn vocab-item-delete" data-id="${escapeHtml(item.id || "")}">删除</button>
+                    <button type="button" class="btn vocab-item-delete" data-id="${escapeHtml(item.id || "")}" data-word="${escapeHtml(item.word || "")}">删除</button>
                 </div>
             </div>
             `;
         }).join("");
+        container.querySelectorAll(".vocab-item-speak").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const word = (btn.dataset.word || "").trim();
+                if (!word) return;
+                const type = btn.dataset.type || "english";
+                const pron = btn.dataset.pron || "";
+                speakWord(word, type, pron);
+            });
+        });
         container.querySelectorAll(".vocab-item-delete").forEach(btn => {
-            btn.addEventListener("click", () => deleteWord(btn.dataset.id));
+            btn.addEventListener("click", () => requestDeleteWord(btn.dataset.id, btn.dataset.word));
         });
         if (showEdit) {
             container.querySelectorAll(".vocab-item-edit").forEach(btn => {
@@ -2153,16 +2213,68 @@
         updateChinesePagination(total, pageChinese, totalPages);
     }
 
+    let pendingDeleteTagIndex = -1;
+    let pendingDeleteTagName = "";
+    let pendingDeleteTagScope = "english";
+
+    function requestDeleteTag(idx, name, scope) {
+        pendingDeleteTagIndex = typeof idx === "number" ? idx : Number(idx || "-1");
+        pendingDeleteTagName = String(name || "");
+        pendingDeleteTagScope = scope === "chinese" ? "chinese" : "english";
+        const modal = document.getElementById("vocab-tag-delete-confirm-modal");
+        const textEl = document.getElementById("vocab-tag-delete-confirm-text");
+        if (textEl) {
+            const safe = escapeHtml(pendingDeleteTagName || "");
+            textEl.innerHTML = `是否确认删除「<span class="ui-modal-dynamic">${safe}</span>」`;
+        }
+        if (modal) modal.classList.remove("hidden");
+    }
+
+    function deleteTagNow() {
+        const idx = pendingDeleteTagIndex;
+        if (idx < 0 || !vocabTags[idx]) return;
+        // 再保险：确认当前标签仍未被使用
+        const tag = vocabTags[idx];
+        const name = tag.name || "";
+        const scope = tag.scope === "chinese" ? "chinese" : "english";
+        const count = getTagUsageCount(name, scope);
+        if (count > 0) {
+            showToast("当前标签已被使用，不能删除。", "error");
+            return;
+        }
+        vocabTags.splice(idx, 1);
+        // 同步到服务器：沿用原有约定，传入最新词汇列表
+        syncVocabToServer(getWordList());
+        refreshTagFilterOptions();
+        renderTagsTable();
+        showToast("标签已删除。");
+    }
+
     /**
      * 删除词汇
      * @param {string} id - 词汇 id
      */
-    function deleteWord(id) {
+    function deleteWordNow(id) {
         const list = getWordList().filter(item => item.id !== id);
         saveWordList(list);
         showToast("已删除");
         renderEnglishList();
         renderChineseList();
+    }
+
+    let pendingDeleteWordId = "";
+    let pendingDeleteWordName = "";
+
+    function requestDeleteWord(id, word) {
+        pendingDeleteWordId = String(id || "");
+        pendingDeleteWordName = String(word || "");
+        const modal = document.getElementById("vocab-delete-confirm-modal");
+        const textEl = document.getElementById("vocab-delete-confirm-text");
+        if (textEl) {
+            const safe = escapeHtml(pendingDeleteWordName || "");
+            textEl.innerHTML = `是否确认删除「<span class="ui-modal-dynamic">${safe}</span>」`;
+        }
+        if (modal) modal.classList.remove("hidden");
     }
 
     let drawerQuillZh = null;
@@ -2329,7 +2441,12 @@
         if (autoField) autoField.style.display = (editingVocabType === "english" ? "" : "none");
         if (autoTextarea) autoTextarea.value = "";
         const pronField = document.getElementById("drawer-pronunciation-field");
-        if (pronField) pronField.style.display = (editingVocabType === "phrase" ? "none" : "");
+        // 发音：英文单词 / 英文词组 / 中文词汇 都显示
+        if (pronField) {
+            const btn = document.getElementById("btn-drawer-speak");
+            const hasPron = !!(document.getElementById("drawer-pronunciation")?.value || "").trim();
+            if (btn) btn.style.display = hasPron ? "" : "none";
+        }
         const enField = document.getElementById("drawer-meaning-en-field");
         // 英文释义：英文单词和英文词组都显示
         if (enField) enField.style.display = (editingVocabType === "english" || editingVocabType === "phrase" ? "" : "none");
@@ -2379,7 +2496,12 @@
         if (autoTextarea) autoTextarea.value = "";
 
         const pronField = document.getElementById("drawer-pronunciation-field");
-        if (pronField) pronField.style.display = (editingVocabType === "phrase" ? "none" : "");
+        // 发音：英文单词 / 英文词组 / 中文词汇 都显示
+        if (pronField) {
+            const btn = document.getElementById("btn-drawer-speak");
+            const hasPron = !!(document.getElementById("drawer-pronunciation")?.value || "").trim();
+            if (btn) btn.style.display = hasPron ? "" : "none";
+        }
         const enField = document.getElementById("drawer-meaning-en-field");
         // 英文释义：英文单词和英文词组都显示（与添加到单词本词组类型一致）
         if (enField) enField.style.display = (editingVocabType === "english" || editingVocabType === "phrase" ? "" : "none");
@@ -2524,16 +2646,19 @@
     let quizInProgress = false;
     let quizWrongWords = [];
     let quizWrongPage = 1;
-    const QUIZ_WRONG_PAGE_SIZE = 10;
+    const QUIZ_WRONG_PAGE_SIZE = 20;
 
     function updateQuizSummary() {
         const list = getWordList().map(normalizeItem);
         const englishWords = list.filter(item => item.type === "english");
+        const phrases = list.filter(item => item.type === "phrase");
         const today = formatDateYMD(new Date());
-        // 今日复习单词数：今日有答题记录的英文单词数量（按单词去重）
-        const todayQuizCount = englishWords.filter(item => item.quizLastDate === today).length;
-        // 正确率：排除 quizCount 为 0 的单词后，sum(quizCorrect) / sum(quizCount)
-        const answered = englishWords.filter(item => (item.quizCount || 0) > 0);
+        // 今日复习单词数：今日有答题记录的英文单词 + 英文词组数量（按词条去重）
+        const todayQuizCount =
+            englishWords.filter(item => item.quizLastDate === today).length +
+            phrases.filter(item => item.quizLastDate === today).length;
+        // 正确率：排除 quizCount 为 0 的词条后，sum(quizCorrect) / sum(quizCount)，包含英文单词和英文词组
+        const answered = [...englishWords, ...phrases].filter(item => (item.quizCount || 0) > 0);
         let accuracy = 0;
         if (answered.length > 0) {
             const totalCount = answered.reduce((sum, it) => sum + (it.quizCount || 0), 0);
@@ -2545,7 +2670,7 @@
         const totalEl = document.getElementById("quiz-total-english");
         const todayEl = document.getElementById("quiz-today-count");
         const accEl = document.getElementById("quiz-accuracy");
-        if (totalEl) totalEl.textContent = String(englishWords.length);
+        if (totalEl) totalEl.textContent = String(englishWords.length + phrases.length);
         if (todayEl) todayEl.textContent = String(todayQuizCount);
         if (accEl) accEl.textContent = String(accuracy) + "%";
     }
@@ -2702,19 +2827,42 @@
         const zhEl = document.getElementById("quiz-detail-zh");
         const enEl = document.getElementById("quiz-detail-en");
         const formsEl = document.getElementById("quiz-detail-forms");
+        const formsRowEl = document.getElementById("quiz-detail-forms-row");
+        const synEl = document.getElementById("quiz-detail-synonyms");
+        const synRowEl = synEl ? synEl.closest(".quiz-detail-row") : null;
+        const speakBtn = document.getElementById("btn-quiz-detail-speak");
         if (wordEl) wordEl.textContent = item.word || "";
         if (zhEl) zhEl.textContent = stripHtmlToText(item.meaningZh || item.meaning || "");
         if (enEl) enEl.textContent = stripHtmlToText(item.meaningEn || "");
         if (formsEl) {
-            const parts = [];
-            if (item.pastTense) parts.push(`过去式: ${item.pastTense}`);
-            if (item.pastParticiple) parts.push(`过去分词: ${item.pastParticiple}`);
-            if (item.presentParticiple) parts.push(`现在分词: ${item.presentParticiple}`);
-            if (item.thirdPersonSingular) parts.push(`三单: ${item.thirdPersonSingular}`);
-            if (item.comparative) parts.push(`比较级: ${item.comparative}`);
-            if (item.superlative) parts.push(`最高级: ${item.superlative}`);
-            if (item.plural) parts.push(`复数: ${item.plural}`);
-            formsEl.textContent = parts.join("；");
+            const fields = [];
+            if (item.pastTense) fields.push({ label: "过去式", value: item.pastTense });
+            if (item.pastParticiple) fields.push({ label: "过去分词", value: item.pastParticiple });
+            if (item.presentParticiple) fields.push({ label: "现在分词", value: item.presentParticiple });
+            if (item.thirdPersonSingular) fields.push({ label: "三单", value: item.thirdPersonSingular });
+            if (item.comparative) fields.push({ label: "比较级", value: item.comparative });
+            if (item.superlative) fields.push({ label: "最高级", value: item.superlative });
+            if (item.plural) fields.push({ label: "复数", value: item.plural });
+
+            if (!fields.length) {
+                formsEl.innerHTML = "";
+                if (formsRowEl) formsRowEl.style.display = "none";
+            } else {
+                const html = fields
+                    .map(f => `<span class="quiz-form-item"><span class="quiz-form-label">${f.label}：</span><span>${escapeHtml(String(f.value || ""))}</span></span>`)
+                    .join("");
+                formsEl.innerHTML = html;
+                if (formsRowEl) formsRowEl.style.display = "";
+            }
+        }
+        if (synEl) {
+            const v = Array.isArray(item.synonyms) && item.synonyms.length ? item.synonyms.join("，") : "";
+            synEl.textContent = v;
+            if (synRowEl) synRowEl.style.display = v ? "" : "none";
+        }
+        if (speakBtn) {
+            const hasPron = !!String(item.pronunciation || "").trim();
+            speakBtn.style.display = hasPron ? "" : "none";
         }
     }
 
@@ -2732,31 +2880,78 @@
         const synEl = document.getElementById("quiz-wrong-synonyms");
         const relPhrasesEl = document.getElementById("quiz-wrong-related-phrases");
         const relSynEl = document.getElementById("quiz-wrong-related-synonyms");
+        const speakBtn = document.getElementById("btn-quiz-wrong-speak");
+        const formsRowEl = document.getElementById("quiz-wrong-forms-row");
+        const zhRowEl = zhEl ? zhEl.closest(".quiz-detail-row") : null;
+        const enRowEl = enEl ? enEl.closest(".quiz-detail-row") : null;
+        const exRowEl = exEl ? exEl.closest(".quiz-detail-row") : null;
+        const tagsRowEl = tagsEl ? tagsEl.closest(".quiz-detail-row") : null;
+        const synRowEl = synEl ? synEl.closest(".quiz-detail-row") : null;
+        const relPhrasesRowEl = relPhrasesEl ? relPhrasesEl.closest(".quiz-detail-row") : null;
+        const relSynRowEl = relSynEl ? relSynEl.closest(".quiz-detail-row") : null;
         if (wordEl) wordEl.textContent = item.word || "";
         if (pronEl) pronEl.textContent = item.pronunciation || "";
-        if (zhEl) zhEl.textContent = stripHtmlToText(item.meaningZh || item.meaning || "");
-        if (enEl) enEl.textContent = stripHtmlToText(item.meaningEn || "");
-        if (exEl) exEl.textContent = (item.example || "");
-        if (formsEl) {
-            const parts = [];
-            if (item.pastTense) parts.push(`过去式: ${item.pastTense}`);
-            if (item.pastParticiple) parts.push(`过去分词: ${item.pastParticiple}`);
-            if (item.presentParticiple) parts.push(`现在分词: ${item.presentParticiple}`);
-            if (item.thirdPersonSingular) parts.push(`三单: ${item.thirdPersonSingular}`);
-            if (item.comparative) parts.push(`比较级: ${item.comparative}`);
-            if (item.superlative) parts.push(`最高级: ${item.superlative}`);
-            if (item.plural) parts.push(`复数: ${item.plural}`);
-            formsEl.textContent = parts.join("；");
+        if (zhEl) {
+            const v = stripHtmlToText(item.meaningZh || item.meaning || "");
+            zhEl.textContent = v;
+            if (zhRowEl) zhRowEl.style.display = v ? "" : "none";
         }
-        if (tagsEl) tagsEl.textContent = Array.isArray(item.tags) && item.tags.length ? item.tags.join("，") : "";
-        if (synEl) synEl.textContent = Array.isArray(item.synonyms) && item.synonyms.length ? item.synonyms.join("，") : "";
+        if (enEl) {
+            const v = stripHtmlToText(item.meaningEn || "");
+            enEl.textContent = v;
+            if (enRowEl) enRowEl.style.display = v ? "" : "none";
+        }
+        if (exEl) {
+            const v = item.example || "";
+            exEl.textContent = v;
+            if (exRowEl) exRowEl.style.display = v ? "" : "none";
+        }
+        if (formsEl) {
+            const fields = [];
+            if (item.pastTense) fields.push({ label: "过去式", value: item.pastTense });
+            if (item.pastParticiple) fields.push({ label: "过去分词", value: item.pastParticiple });
+            if (item.presentParticiple) fields.push({ label: "现在分词", value: item.presentParticiple });
+            if (item.thirdPersonSingular) fields.push({ label: "三单", value: item.thirdPersonSingular });
+            if (item.comparative) fields.push({ label: "比较级", value: item.comparative });
+            if (item.superlative) fields.push({ label: "最高级", value: item.superlative });
+            if (item.plural) fields.push({ label: "复数", value: item.plural });
+
+            if (!fields.length) {
+                formsEl.innerHTML = "";
+                if (formsRowEl) formsRowEl.style.display = "none";
+            } else {
+                const html = fields
+                    .map(f => `<span class="quiz-form-item"><span class="quiz-form-label">${f.label}：</span><span>${escapeHtml(String(f.value || ""))}</span></span>`)
+                    .join("");
+                formsEl.innerHTML = html;
+                if (formsRowEl) formsRowEl.style.display = "";
+            }
+        }
+        if (tagsEl) {
+            const v = Array.isArray(item.tags) && item.tags.length ? item.tags.join("，") : "";
+            tagsEl.textContent = v;
+            if (tagsRowEl) tagsRowEl.style.display = v ? "" : "none";
+        }
+        if (synEl) {
+            const v = Array.isArray(item.synonyms) && item.synonyms.length ? item.synonyms.join("，") : "";
+            synEl.textContent = v;
+            if (synRowEl) synRowEl.style.display = v ? "" : "none";
+        }
         if (relPhrasesEl) {
             const relatedPhrases = getRelatedPhrasesForWord(item.word || "");
-            relPhrasesEl.textContent = relatedPhrases.map(p => p.word || "").join("，");
+            const v = relatedPhrases.map(p => p.word || "").join("，");
+            relPhrasesEl.textContent = v;
+            if (relPhrasesRowEl) relPhrasesRowEl.style.display = v ? "" : "none";
         }
         if (relSynEl) {
             const relatedSyn = getRelatedSynonymsForWord(item.word || "", item.id);
-            relSynEl.textContent = relatedSyn.join("，");
+            const v = relatedSyn.join("，");
+            relSynEl.textContent = v;
+            if (relSynRowEl) relSynRowEl.style.display = v ? "" : "none";
+        }
+        if (speakBtn) {
+            const hasPron = !!String(item.pronunciation || "").trim();
+            speakBtn.style.display = hasPron ? "" : "none";
         }
     }
 
@@ -2916,7 +3111,10 @@
                 }
                 const list = getWordList().map(normalizeItem);
                 quizWrongWords = list
-                    .filter(item => item.type === "english" && (item.quizCount || 0) > (item.quizCorrect || 0))
+                    .filter(item =>
+                        (item.type === "english" || item.type === "phrase") &&
+                        (item.quizCount || 0) > (item.quizCorrect || 0)
+                    )
                     .sort((a, b) => String(a.word || "").toLowerCase().localeCompare(String(b.word || "").toLowerCase()));
                 quizWrongPage = 1;
                 const area = document.getElementById("quiz-area");
@@ -3117,6 +3315,17 @@
             });
         }
 
+        // 发音输入变化时，动态控制编辑抽屉里的朗读 icon 显隐
+        const drawerPronInput = document.getElementById("drawer-pronunciation");
+        if (drawerPronInput && btnDrawerSpeak) {
+            const syncDrawerSpeakVisibility = () => {
+                const hasPron = !!drawerPronInput.value.trim();
+                btnDrawerSpeak.style.display = hasPron ? "" : "none";
+            };
+            drawerPronInput.addEventListener("input", syncDrawerSpeakVisibility);
+            syncDrawerSpeakVisibility();
+        }
+
         // 英文复习：当前题右侧单词信息朗读
         const btnQuizDetailSpeak = document.getElementById("btn-quiz-detail-speak");
         if (btnQuizDetailSpeak) {
@@ -3156,6 +3365,68 @@
                 pendingQueryText = "";
                 queryExistsModal.classList.add("hidden");
                 if (text) doQueryInternal(text);
+            });
+        }
+
+        // 词汇删除确认弹窗：英文单词本 / 中文词汇统一
+        const vocabDeleteModal = document.getElementById("vocab-delete-confirm-modal");
+        const btnVocabDeleteCancel = document.getElementById("btn-vocab-delete-cancel");
+        const btnVocabDeleteConfirm = document.getElementById("btn-vocab-delete-confirm");
+        if (btnVocabDeleteCancel && vocabDeleteModal) {
+            btnVocabDeleteCancel.addEventListener("click", () => {
+                vocabDeleteModal.classList.add("hidden");
+                pendingDeleteWordId = "";
+                pendingDeleteWordName = "";
+            });
+        }
+        if (btnVocabDeleteConfirm && vocabDeleteModal) {
+            btnVocabDeleteConfirm.addEventListener("click", () => {
+                const id = pendingDeleteWordId;
+                vocabDeleteModal.classList.add("hidden");
+                pendingDeleteWordId = "";
+                pendingDeleteWordName = "";
+                if (id) deleteWordNow(id);
+            });
+        }
+        if (vocabDeleteModal) {
+            vocabDeleteModal.addEventListener("click", (e) => {
+                if (e && e.target === vocabDeleteModal) {
+                    vocabDeleteModal.classList.add("hidden");
+                    pendingDeleteWordId = "";
+                    pendingDeleteWordName = "";
+                }
+            });
+        }
+
+        // 标签删除确认弹窗（标签管理）
+        const vocabTagDeleteModal = document.getElementById("vocab-tag-delete-confirm-modal");
+        const btnVocabTagDeleteCancel = document.getElementById("btn-vocab-tag-delete-cancel");
+        const btnVocabTagDeleteConfirm = document.getElementById("btn-vocab-tag-delete-confirm");
+        if (btnVocabTagDeleteCancel && vocabTagDeleteModal) {
+            btnVocabTagDeleteCancel.addEventListener("click", () => {
+                vocabTagDeleteModal.classList.add("hidden");
+                pendingDeleteTagIndex = -1;
+                pendingDeleteTagName = "";
+                pendingDeleteTagScope = "english";
+            });
+        }
+        if (btnVocabTagDeleteConfirm && vocabTagDeleteModal) {
+            btnVocabTagDeleteConfirm.addEventListener("click", () => {
+                vocabTagDeleteModal.classList.add("hidden");
+                deleteTagNow();
+                pendingDeleteTagIndex = -1;
+                pendingDeleteTagName = "";
+                pendingDeleteTagScope = "english";
+            });
+        }
+        if (vocabTagDeleteModal) {
+            vocabTagDeleteModal.addEventListener("click", (e) => {
+                if (e && e.target === vocabTagDeleteModal) {
+                    vocabTagDeleteModal.classList.add("hidden");
+                    pendingDeleteTagIndex = -1;
+                    pendingDeleteTagName = "";
+                    pendingDeleteTagScope = "english";
+                }
             });
         }
         document.getElementById("btn-add-vocab").addEventListener("click", saveWord);

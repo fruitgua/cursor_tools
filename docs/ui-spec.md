@@ -226,7 +226,7 @@ font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFa
 - **窗体尺寸**：宽度固定 320px；确认/提示弹窗默认最小高度 180px；loading 弹窗高度固定 200px。
 - **标题栏**：固定高度 40px，标题文字 14px 加粗，左对齐且左边距 20px，固定标题“操作提示”。
 - **内容区**：上/左/右 padding 20px，提示文字 13px；底部与按钮区域间距同样为 20px。
-- **操作区**：默认右对齐，右边距 20px，按钮间距 20px；确认按钮使用主按钮 `.btn.primary`，取消/我知道了使用幽灵按钮 `.btn.btn-ghost`。
+- **操作区**：默认右对齐，右边距 20px，按钮间距 8px；确认按钮使用主按钮 `.btn.primary`，取消/我知道了使用幽灵按钮 `.btn.btn-ghost`；弹窗内按钮高度统一 32px。
 - **动态取值高亮**：弹窗内容里若包含动态变量（如分类名、笔记标题等），使用 `<span class="ui-modal-dynamic">动态值</span>` 包裹，颜色使用当前主题的主色（primary）。
 
 建议 DOM 结构：
@@ -241,6 +241,41 @@ font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFa
       <p class="ui-modal-body-text">确定要删除分类「<span class="ui-modal-dynamic">AI</span>」吗？</p>
     </div>
     <div class="ui-modal-actions">
+      <button class="btn btn-ghost">取消</button>
+      <button class="btn primary">确认</button>
+    </div>
+  </div>
+</div>
+```
+
+### 5.4 输入弹窗（Input Modal）
+
+用于需要用户输入表单字段后再确认的弹窗。项目统一使用 `static/style.css` 中的 `.ui-input-modal-overlay` / `.ui-input-modal` 相关样式。
+
+- **窗体尺寸**：宽度固定 480px；最大高度 600px；超过最大高度时，仅内容区滚动（`overflow: auto`）。
+- **层级**：输入弹窗必须位于页面弹层中 **仅次于确认/提示弹窗**（即 `z-index` 低于 `.ui-modal-overlay` 一层）。
+- **标题栏**：固定高度 40px；标题 14px 加粗；左对齐且左边距 20px；标题文本按具体操作设置。
+- **内容区**：padding 20px（上/右/下/左均为 20px）；字段名与字段内容统一 13px；内容区底部与按钮区域间距 20px。
+- **操作区**：默认右对齐，右边距 20px；按钮间距 8px；确认按钮 `.btn.primary`，取消按钮 `.btn.btn-ghost`；按钮高度固定 32px。
+- **下拉单选面板高度**：在输入弹窗内（`.ui-input-modal`）的下拉单选面板（`.select-panel`）默认 `max-height: 120px`，超出显示滚动条。
+
+建议 DOM 结构：
+
+```html
+<div class="ui-input-modal-overlay hidden">
+  <div class="ui-input-modal">
+    <div class="ui-input-modal-header">
+      <div class="ui-input-modal-title">标题</div>
+    </div>
+    <div class="ui-input-modal-body">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:13px;color:#374151;">字段名称</div>
+          <input class="field-control" />
+        </div>
+      </div>
+    </div>
+    <div class="ui-input-modal-actions">
       <button class="btn btn-ghost">取消</button>
       <button class="btn primary">确认</button>
     </div>

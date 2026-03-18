@@ -166,7 +166,11 @@ function loadBookmarks(callback) {
             if (data.success) {
                 allBookmarks = data.items || [];
                 const cats = getCategoriesWithCounts();
-                currentCategory = cats.length > 0 ? cats[0].key : "";
+                // 如果当前分类还存在于最新分类列表中，则保持不变；否则退回到第一个分类
+                const keys = cats.map((c) => c.key);
+                if (!keys.includes(currentCategory)) {
+                    currentCategory = cats.length > 0 ? cats[0].key : "";
+                }
                 renderCategoryList();
                 updateCategoryDatalist();
                 renderBookmarks();
@@ -294,9 +298,18 @@ function exportBookmarksToHtml() {
     showToast("导出成功");
 }
 
-function deleteBookmark(id) {
-    if (!confirm("确定要删除这条书签吗？")) return;
+let pendingDeleteBookmarkId = null;
 
+function deleteBookmark(id) {
+    pendingDeleteBookmarkId = id;
+    const modal = document.getElementById("bookmarks-confirm-modal");
+    if (modal) modal.classList.remove("hidden");
+}
+
+function confirmDeleteBookmark() {
+    const id = pendingDeleteBookmarkId;
+    if (id == null) return;
+    pendingDeleteBookmarkId = null;
     fetch("/api/bookmarks/" + id, { method: "DELETE" })
         .then((r) => r.json())
         .then((data) => {
@@ -380,6 +393,22 @@ function initBookmarks() {
 
     document.getElementById("btn-add").onclick = addBookmark;
     document.getElementById("btn-export").onclick = exportBookmarksToHtml;
+
+    const confirmModal = document.getElementById("bookmarks-confirm-modal");
+    const btnCancel = document.getElementById("btn-bookmarks-delete-cancel");
+    const btnConfirm = document.getElementById("btn-bookmarks-delete-confirm");
+    if (btnCancel && confirmModal) {
+        btnCancel.onclick = () => {
+            confirmModal.classList.add("hidden");
+            pendingDeleteBookmarkId = null;
+        };
+    }
+    if (btnConfirm && confirmModal) {
+        btnConfirm.onclick = () => {
+            confirmModal.classList.add("hidden");
+            confirmDeleteBookmark();
+        };
+    }
 
     loadBookmarks(bindCategoryEvents);
 }

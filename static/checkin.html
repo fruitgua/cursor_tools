@@ -310,7 +310,6 @@
                     <div class="event-form-field-actions-btns">
                         <button type="button" class="btn primary" id="btn-add-label">添加</button>
                         <button type="button" class="btn btn-ghost" id="btn-fetch-holidays">获取中国节假日</button>
-                        <span id="holiday-fetch-status" class="holiday-status"></span>
                     </div>
                 </div>
             </div>
@@ -443,14 +442,33 @@
     </div>
 </div>
 
-<!-- Modal: Delete Event -->
-<div id="delete-event-modal" class="modal-overlay hidden">
-    <div class="modal">
-        <h3 class="modal-title">确认删除</h3>
-        <p class="delete-event-msg" id="delete-event-msg"></p>
-        <div class="modal-actions">
+<!-- Modal: Delete Event / Label（全局确认弹窗样式） -->
+<div id="delete-event-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="操作提示">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <div class="ui-modal-body-text delete-event-msg" id="delete-event-msg"></div>
+        </div>
+        <div class="ui-modal-actions">
             <button type="button" class="btn btn-ghost" id="btn-delete-cancel">取消</button>
-            <button type="button" class="btn btn-edit-event" id="btn-delete-confirm">确认删除</button>
+            <button type="button" class="btn primary" id="btn-delete-confirm">确认删除</button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal: Fetch China Holidays（全局 Loading 弹窗样式） -->
+<div id="holiday-loading-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="操作提示">
+    <div class="ui-modal ui-modal--loading">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <div class="ui-modal-body-row">
+                <div class="ui-modal-spinner" aria-hidden="true"></div>
+                <div class="ui-modal-body-text">正在获取中国节假日，请稍候…</div>
+            </div>
         </div>
     </div>
 </div>

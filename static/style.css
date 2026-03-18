@@ -371,11 +371,11 @@ body.notes-page {
     padding: 0 20px 20px 20px;
     display: flex;
     justify-content: flex-end;
-    gap: 20px;
+    gap: 8px;
     flex-shrink: 0;
 }
 .ui-modal-actions .btn {
-    height: 36px;
+    height: 32px;
     box-sizing: border-box;
 }
 
@@ -393,6 +393,73 @@ body.notes-page {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* =========================
+   UI 规范：输入弹窗（Input Modal）
+   - 用于带表单字段的输入确认
+   - 层级仅低于确认/提示弹窗一层
+   ========================= */
+.ui-input-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2990; /* 仅比 .ui-modal-overlay(3000) 低一层 */
+}
+.ui-input-modal-overlay.hidden {
+    display: none;
+}
+.ui-input-modal {
+    width: 480px;
+    max-width: calc(100vw - 40px);
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 600px; /* 超出时内容区滚动 */
+}
+.ui-input-modal-header {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+.ui-input-modal-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+.ui-input-modal-body {
+    padding: 20px;
+    font-size: 13px;
+    color: #374151;
+    flex: 1;
+    overflow: auto; /* 超过 600px 时在内容区滚动 */
+}
+.ui-input-modal-actions {
+    padding: 0 20px 20px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px; /* 按钮间距 8px */
+    flex-shrink: 0;
+}
+.ui-input-modal-actions .btn {
+    height: 32px; /* 按钮高度 32px */
+    box-sizing: border-box;
+}
+
+/* 输入弹窗内的下拉单选面板默认高度（max-height） */
+.ui-input-modal .select-panel {
+    max-height: 120px;
 }
 
 .selected-dir {
@@ -1550,5 +1617,27 @@ body.home-page .app-container {
 
 .sync-notes-evernote-btns .btn {
     width: 100%;
+}
+
+/* 英文复习 - 词形字段一行显示两个条目（开始复习 / 复习错题） */
+#quiz-wrong-forms,
+#quiz-detail-forms {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 16px;
+    row-gap: 4px;
+}
+#quiz-wrong-forms .quiz-form-item,
+#quiz-detail-forms .quiz-form-item {
+    flex: 0 0 calc(50% - 8px);
+    font-size: 13px;
+    color: #4b5563;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+#quiz-wrong-forms .quiz-form-label,
+#quiz-detail-forms .quiz-form-label {
+    color: #6b7280;
 }
 

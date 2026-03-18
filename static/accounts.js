@@ -186,9 +186,18 @@ function moveUpAccount(id) {
         });
 }
 
-function deleteAccount(id) {
-    if (!confirm("确定要删除这条记录吗？")) return;
+let pendingDeleteAccountId = null;
 
+function deleteAccount(id) {
+    pendingDeleteAccountId = id;
+    const modal = document.getElementById("accounts-confirm-modal");
+    if (modal) modal.classList.remove("hidden");
+}
+
+function confirmDeleteAccount() {
+    const id = pendingDeleteAccountId;
+    if (id == null) return;
+    pendingDeleteAccountId = null;
     fetch("/api/accounts/" + id, { method: "DELETE" })
         .then((r) => r.json())
         .then((data) => {
@@ -258,6 +267,22 @@ function initAccounts() {
     };
 
     document.getElementById("btn-add").onclick = addAccount;
+
+    const confirmModal = document.getElementById("accounts-confirm-modal");
+    const btnCancel = document.getElementById("btn-accounts-delete-cancel");
+    const btnConfirm = document.getElementById("btn-accounts-delete-confirm");
+    if (btnCancel && confirmModal) {
+        btnCancel.onclick = () => {
+            confirmModal.classList.add("hidden");
+            pendingDeleteAccountId = null;
+        };
+    }
+    if (btnConfirm && confirmModal) {
+        btnConfirm.onclick = () => {
+            confirmModal.classList.add("hidden");
+            confirmDeleteAccount();
+        };
+    }
 
     loadAccounts(bindRowEvents);
 }

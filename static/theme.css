@@ -462,6 +462,22 @@ html[data-theme="dark"] .ui-modal-spinner {
 html[data-theme="dark"] .ui-modal-dynamic {
     color: #4A9EFF !important; /* dark 主题 primary */
 }
+html[data-theme="dark"] .ui-input-modal-overlay {
+    background: rgba(0, 0, 0, 0.55) !important;
+}
+html[data-theme="dark"] .ui-input-modal {
+    background-color: #1E2228 !important;
+    border-color: #2A3038 !important;
+}
+html[data-theme="dark"] .ui-input-modal-title {
+    color: rgba(255, 255, 255, 0.87) !important;
+}
+html[data-theme="dark"] .ui-input-modal-body {
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+html[data-theme="dark"] .ui-input-modal-header {
+    border-bottom-color: #2A3038 !important;
+}
 html[data-theme="dark"] .app .add-event-form input,
 html[data-theme="dark"] .app .add-event-form input[type="text"],
 html[data-theme="dark"] .app .add-event-form input[type="date"],

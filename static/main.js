@@ -93,7 +93,8 @@ async function scanDirectory() {
         return;
     }
 
-    setStatus("正在扫描，请稍候...", "info");
+    const loadingModal = document.getElementById("scan-loading-modal");
+    if (loadingModal) loadingModal.classList.remove("hidden");
 
     try {
         const resp = await fetch("/api/scan", {
@@ -124,6 +125,8 @@ async function scanDirectory() {
     } catch (err) {
         console.error(err);
         setStatus("扫描失败，请检查控制台日志。", "error");
+    } finally {
+        if (loadingModal) loadingModal.classList.add("hidden");
     }
 }
 
@@ -310,10 +313,18 @@ async function saveRemark(fullPath, remark) {
  * Delete a file via backend API.
  * @param {string} fullPath - Absolute file path.
  */
+let pendingDeleteFilePath = null;
+
 async function deleteFile(fullPath) {
-    if (!window.confirm("确定要删除该文件（移动到废纸篓）吗？")) {
-        return;
-    }
+    pendingDeleteFilePath = fullPath;
+    const modal = document.getElementById("file-delete-confirm-modal");
+    if (modal) modal.classList.remove("hidden");
+}
+
+async function confirmDeleteFile() {
+    const fullPath = pendingDeleteFilePath;
+    if (!fullPath) return;
+    pendingDeleteFilePath = null;
     try {
         const resp = await fetch("/api/file/delete", {
             method: "POST",
@@ -468,6 +479,23 @@ function initEvents() {
                 openFile(fullPath);
             }
         });
+
+    // 删除文件确认弹窗按钮
+    const deleteModal = document.getElementById("file-delete-confirm-modal");
+    const btnDeleteCancel = document.getElementById("btn-file-delete-cancel");
+    const btnDeleteConfirm = document.getElementById("btn-file-delete-confirm");
+    if (btnDeleteCancel && deleteModal) {
+        btnDeleteCancel.addEventListener("click", () => {
+            deleteModal.classList.add("hidden");
+            pendingDeleteFilePath = null;
+        });
+    }
+    if (btnDeleteConfirm && deleteModal) {
+        btnDeleteConfirm.addEventListener("click", async () => {
+            deleteModal.classList.add("hidden");
+            await confirmDeleteFile();
+        });
+    }
 }
 
 document.addEventListener("DOMContentLoaded", function () {

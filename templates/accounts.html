@@ -61,6 +61,22 @@
 
 <div id="toast-container"></div>
 
+<!-- 全局确认弹窗：删除常用账号 -->
+<div id="accounts-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="操作提示">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <div class="ui-modal-body-text">是否确认删除当前数据？</div>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="btn-accounts-delete-cancel">取消</button>
+            <button type="button" class="btn primary" id="btn-accounts-delete-confirm">确认</button>
+        </div>
+    </div>
+</div>
+
 <script src="/static/theme-switcher.js"></script>
 <script src="/static/accounts.js"></script>
 </body>

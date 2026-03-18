@@ -59,6 +59,7 @@
             margin-bottom: 8px;
             min-height: 44px; /* 统一左右标题行高度 */
             padding-left: 12px; /* 左侧与列表内容对齐 */
+            padding-right: 12px; /* 右侧与列表内容右边框对齐 */
             box-sizing: border-box;
         }
 
@@ -250,97 +251,38 @@
             color: #9ca3af;
         }
 
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.45);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-        }
+        /* 编辑弹窗已升级为全局输入弹窗样式（.ui-input-modal*），旧样式不再使用 */
 
-        .modal-overlay.open {
-            display: flex;
-        }
-
-        .modal {
-            background: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
-            padding: 20px 24px 18px;
-            max-width: 480px;
-            width: 100%;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .modal-title {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #6b7280;
-        }
-
-        .modal-close:hover {
-            color: #111827;
-        }
-
-        .modal-body {
-            margin-bottom: 14px;
-        }
-
-        .modal-row {
+        /* 编辑待办输入弹窗内部布局（遵循全局输入弹窗间距规范） */
+        .todo-edit-grid {
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            margin-bottom: 10px;
+            gap: 12px;
         }
-
-        .modal-row label {
+        .todo-edit-row-two {
+            display: flex;
+            gap: 8px; /* 字段间距 8px */
+            align-items: flex-start;
+        }
+        .todo-edit-field {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .todo-edit-field label {
             font-size: 13px;
             color: #374151;
         }
-
-        .modal-row input,
-        .modal-row textarea,
-        .modal-row select {
+        .todo-edit-field .field-control {
             width: 100%;
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            font-size: 14px;
-            background-color: #ffffff;
+            height: 36px; /* UI 规范 */
+            box-sizing: border-box;
         }
-
-        .modal-row textarea {
+        #edit-content.field-control {
+            height: 160px; /* 内容输入框高度 */
             resize: vertical;
-            min-height: 60px;
-        }
-
-        .modal-row input:focus,
-        .modal-row textarea:focus,
-        .modal-row select:focus {
-            outline: 2px solid #2563eb33;
-            outline-offset: 1px;
-            border-color: #2563eb;
-        }
-
-        .modal-footer {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
         }
 
         .btn-danger {
@@ -364,7 +306,7 @@
         /* 完成列表分类筛选靠右对齐 */
         .todo-filter-group {
             margin-left: auto;
-            padding-right: 0; /* 右侧紧贴列边界 */
+            padding-right: 0;
         }
 
         @media (max-width: 900px) {
@@ -499,42 +441,61 @@
     </div>
 </div>
 
-<!-- 编辑弹窗 -->
-<div id="edit-modal-overlay" class="modal-overlay">
-    <div class="modal">
-        <div class="modal-header">
-            <div class="modal-title">编辑待办事项</div>
-            <button class="modal-close" id="edit-modal-close">&times;</button>
+<!-- 编辑弹窗（全局输入弹窗样式） -->
+<div id="edit-modal-overlay" class="ui-input-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <div class="ui-input-modal">
+        <div class="ui-input-modal-header">
+            <div class="ui-input-modal-title" id="edit-modal-title">编辑待办</div>
         </div>
-        <div class="modal-body">
-            <div class="modal-row">
-                <label for="edit-category">分类</label>
-                <select id="edit-category" data-ui-select="single">
-                    <option value="work">工作</option>
-                    <option value="study">学习</option>
-                    <option value="organize">整理</option>
-                    <option value="life">生活</option>
-                    <option value="shopping">购物</option>
-                    <option value="other">其他</option>
-                </select>
-            </div>
-            <div class="modal-row">
-                <label for="edit-content">内容</label>
-                <textarea id="edit-content"></textarea>
-            </div>
-            <div class="modal-row">
-                <label for="edit-due">预计完成时间</label>
-                <input type="datetime-local" id="edit-due" />
+        <div class="ui-input-modal-body">
+            <div class="todo-edit-grid">
+                <div class="todo-edit-row-two">
+                    <div class="todo-edit-field">
+                        <label for="edit-category">分类</label>
+                        <select id="edit-category" class="field-control" data-ui-select="single">
+                            <option value="work">工作</option>
+                            <option value="study">学习</option>
+                            <option value="organize">整理</option>
+                            <option value="life">生活</option>
+                            <option value="shopping">购物</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                    <div class="todo-edit-field">
+                        <label for="edit-due">预计完成时间</label>
+                        <input type="datetime-local" id="edit-due" class="field-control" />
+                    </div>
+                </div>
+                <div class="todo-edit-field">
+                    <label for="edit-content">内容</label>
+                    <textarea id="edit-content" class="field-control"></textarea>
+                </div>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn" id="edit-modal-cancel">取消</button>
+        <div class="ui-input-modal-actions">
+            <button class="btn btn-ghost" id="edit-modal-cancel">取消</button>
             <button class="btn primary" id="edit-modal-save">保存</button>
         </div>
     </div>
 </div>
 
 <div id="toast-container"></div>
+
+<!-- UI 规范：确认弹窗（删除待办确认） -->
+<div id="todos-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="todos-confirm-title">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title" id="todos-confirm-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <p class="ui-modal-body-text" id="todos-confirm-text"></p>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="todos-confirm-cancel">取消</button>
+            <button type="button" class="btn primary" id="todos-confirm-ok">确认</button>
+        </div>
+    </div>
+</div>
 
 <script src="/static/theme-switcher.js"></script>
 <script src="/static/ui-select.js"></script>
