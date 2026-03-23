@@ -63,24 +63,18 @@
 
     <!-- Page: Stats -->
     <div id="page-stats" class="page">
-        <div class="stats-grid">
-            <div class="stats-card">
-                <div class="stats-circle">
-                    <span class="stats-circle-inner" id="stats-monthly-rate">0</span>
+        <div class="stats-layout">
+            <div class="card stats-left-card">
+                <h3 class="card-title">打卡事件</h3>
+                <div class="stats-event-list" id="stats-event-list">
+                    <p class="empty-state">暂无打卡事件，请先在事件管理中添加</p>
                 </div>
-                <div class="stats-card-label">本月完成率 %</div>
             </div>
-            <div class="stats-card">
-                <div class="stats-circle">
-                    <span class="stats-circle-inner" id="stats-streak">0</span>
+            <div class="card stats-right-card">
+                <h3 class="card-title">统计详情</h3>
+                <div class="stats-detail" id="stats-detail">
+                    <p class="empty-state">请选择左侧打卡事件</p>
                 </div>
-                <div class="stats-card-label">连续打卡天数</div>
-            </div>
-        </div>
-        <div class="card">
-            <h3 class="card-title">各任务完成率</h3>
-            <div class="stats-task-list" id="stats-task-list">
-                <p class="empty-state">暂无任务，请先在事件管理中添加</p>
             </div>
         </div>
     </div>

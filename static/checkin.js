@@ -293,6 +293,7 @@
         selectedDate: formatDate(new Date()),
         editingId: null,
         editingIds: new Set(),
+        statsSelectedEventId: null,
         deleteEventId: null,
         deleteLabelTarget: null,
         editingLabelKeys: new Set(),
@@ -1373,30 +1374,112 @@
     }
 
     function renderStats() {
-        const rateEl = document.getElementById("stats-monthly-rate");
-        const streakEl = document.getElementById("stats-streak");
-        const taskListEl = document.getElementById("stats-task-list");
-        if (rateEl) rateEl.textContent = getStats().monthlyRate;
-        if (streakEl) streakEl.textContent = getStats().streak;
+        const listEl = document.getElementById("stats-event-list");
+        const detailEl = document.getElementById("stats-detail");
+        if (!listEl || !detailEl) return;
 
-        const { taskRates } = getStats();
-        if (!taskListEl) return;
+        const events = getCheckinEvents().slice().sort((a, b) => {
+            const aEnd = a.dateEnd || "";
+            const bEnd = b.dateEnd || "";
+            return bEnd.localeCompare(aEnd);
+        });
 
-        if (taskRates.length === 0) {
-            taskListEl.innerHTML = '<p class="empty-state">暂无任务，请先在事件管理中添加</p>';
+        if (events.length === 0) {
+            state.statsSelectedEventId = null;
+            listEl.innerHTML = '<p class="empty-state">暂无打卡事件，请先在事件管理中添加</p>';
+            detailEl.innerHTML = '<p class="empty-state">请选择左侧打卡事件</p>';
             return;
         }
 
-        taskListEl.innerHTML = taskRates.map(({ evt, pct }) => `
-            <div class="stats-task-item">
-                <span class="dot" style="background:${evt.color};width:10px;height:10px;border-radius:50%;flex-shrink:0"></span>
-                <span style="flex:1">${evt.name}</span>
-                <div class="stats-task-bar-wrap" style="flex:1;max-width:120px">
-                    <div class="stats-task-bar" style="width:${pct}%;background:${evt.color}"></div>
-                </div>
-                <span class="stats-task-pct">${pct}%</span>
-            </div>
+        if (!events.some(e => e.id === state.statsSelectedEventId)) {
+            state.statsSelectedEventId = events[0].id;
+        }
+        const selected = events.find(e => e.id === state.statsSelectedEventId) || events[0];
+        state.statsSelectedEventId = selected.id;
+
+        listEl.innerHTML = events.map((evt) => `
+            <button type="button" class="stats-event-item ${evt.id === selected.id ? "active" : ""}" data-event-id="${evt.id}">
+                <span class="dot" style="background:${escapeHtml(evt.color || "#4CAF50")}"></span>
+                <span class="stats-event-item-name">${escapeHtml(evt.name || "")}</span>
+            </button>
         `).join("");
+
+        const start = selected.dateStart || "";
+        const end = selected.dateEnd || "";
+        const validRange = !!(start && end && start <= end);
+        const recordsSet = new Set(
+            getCheckinRecords()
+                .filter(r => r.eventId === selected.id)
+                .map(r => r.date)
+        );
+
+        const missingDates = [];
+        let totalDays = 0; // 遗漏统计口径：开始日期 ~ min(结束日期, 昨天)
+        let fullTotalDays = 0; // 总天数口径：开始日期 ~ 结束日期
+        if (validRange) {
+            // 1) 完整区间总天数（用于“总天数/完成率”）
+            {
+                const curAll = new Date(start);
+                const endAll = new Date(end);
+                while (curAll <= endAll) {
+                    fullTotalDays += 1;
+                    curAll.setDate(curAll.getDate() + 1);
+                }
+            }
+
+            // 2) 遗漏日期统计区间（仅到昨天）
+            const cur = new Date(start);
+            const capEnd = new Date(end);
+            const yesterday = new Date();
+            yesterday.setHours(0, 0, 0, 0);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const statEnd = capEnd < yesterday ? capEnd : yesterday;
+            while (cur <= statEnd) {
+                const d = formatDate(cur);
+                totalDays += 1;
+                if (!recordsSet.has(d)) missingDates.push(d);
+                cur.setDate(cur.getDate() + 1);
+            }
+        }
+        const checkedDays = validRange
+            ? Array.from(recordsSet).filter(d => d >= start && d <= end).length
+            : 0;
+        const pct = fullTotalDays > 0 ? ((checkedDays / fullTotalDays) * 100).toFixed(1) : "0.0";
+
+        const missingCards = missingDates.length
+            ? missingDates.map(d => `<div class="stats-miss-item">${d}</div>`).join("")
+            : '<p class="empty-state">无遗漏日期</p>';
+
+        detailEl.innerHTML = `
+            <div class="stats-range">${validRange ? `${start} ~ ${end}` : "未设置有效日期范围"}</div>
+            <div class="stats-metrics">
+                <div class="stats-metric-card">
+                    <div class="stats-metric-value">${checkedDays}</div>
+                    <div class="stats-metric-label">已打卡天数</div>
+                </div>
+                <div class="stats-metric-card">
+                    <div class="stats-metric-value">${fullTotalDays}</div>
+                    <div class="stats-metric-label">总天数</div>
+                </div>
+                <div class="stats-metric-card">
+                    <div class="stats-metric-value">${pct}%</div>
+                    <div class="stats-metric-label">完成率</div>
+                </div>
+            </div>
+            <div class="stats-miss-title">遗漏日期 <span>+${missingDates.length} 天</span></div>
+            <div class="stats-miss-grid">${missingCards}</div>
+        `;
+    }
+
+    function scheduleStatsMidnightRefresh() {
+        const now = new Date();
+        const next = new Date(now);
+        next.setHours(24, 0, 0, 0);
+        const delay = Math.max(1000, next.getTime() - now.getTime() + 50);
+        setTimeout(() => {
+            if (state.activePage === "stats") renderStats();
+            scheduleStatsMidnightRefresh();
+        }, delay);
     }
 
     function getDefaultDateStart() {
@@ -1705,6 +1788,15 @@
             if (day && day.dataset.date) showDetailPanel(day.dataset.date);
         });
 
+        document.getElementById("stats-event-list")?.addEventListener("click", (e) => {
+            const btn = e.target.closest(".stats-event-item");
+            if (!btn) return;
+            const id = btn.dataset.eventId;
+            if (!id) return;
+            state.statsSelectedEventId = id;
+            renderStats();
+        });
+
         document.getElementById("event-list")?.addEventListener("click", (e) => {
             const editLabelBtn = e.target.closest("[data-action=edit-label]");
             if (editLabelBtn) {
@@ -1928,6 +2020,7 @@
         showDetailPanel(state.selectedDate);
         renderEventList();
         renderStats();
+        scheduleStatsMidnightRefresh();
 
         // 从服务端同步；优先服务端有效快照；若服务端为空但本机 localStorage 仍有数据则恢复并回写服务端
         (async () => {
