@@ -55,6 +55,11 @@
         if (spec) spec.style.display = type === "specific" ? "" : "none";
         if (ann) ann.style.display = type === "annual" ? "" : "none";
         if (annRange) annRange.style.display = type === "annual" ? "" : "none";
+        requestAnimationFrame(() => {
+            if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+                window.refreshUiSelectComboboxVisibility();
+            }
+        });
     }
 
     function initCustomSelects(root) {
@@ -101,6 +106,18 @@
     const DEFAULT_MONTHLY_END = "2028-12-31";
     const DEFAULT_LABEL_ANNUAL_START = "1900-01-01";
     const DEFAULT_LABEL_ANNUAL_END = "2099-12-31";
+
+    /** 与后端 _checkin_state_snapshot_has_data 一致：是否有事件/记录/有效日期标签 */
+    function hasCheckinDataSnapshot(data) {
+        if (!data || typeof data !== "object") return false;
+        const ev = data.events || [];
+        const rec = data.records || [];
+        if (ev.length > 0 || rec.length > 0) return true;
+        const dl = data.dateLabels || {};
+        const spec = dl.specific || {};
+        const ann = dl.annual || {};
+        return Object.keys(spec).length > 0 || Object.keys(ann).length > 0;
+    }
 
     function loadData() {
         try {
@@ -975,10 +992,23 @@
         saveData(state.data);
         document.getElementById("label-name").value = "";
         document.getElementById("label-date").value = "";
-        document.getElementById("label-month").value = "";
-        document.getElementById("label-day").value = "";
+        const lm = document.getElementById("label-month");
+        const ld = document.getElementById("label-day");
+        if (lm) {
+            lm.value = "";
+            lm.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        if (ld) {
+            ld.value = "";
+            ld.dispatchEvent(new Event("change", { bubbles: true }));
+        }
         document.getElementById("label-annual-start").value = "";
         document.getElementById("label-annual-end").value = "";
+        requestAnimationFrame(() => {
+            if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+                window.refreshUiSelectComboboxVisibility();
+            }
+        });
         toast("添加成功", "success");
         renderEventList();
         renderCalendar();
@@ -1640,6 +1670,11 @@
         if (page === "events") {
             initCheckinFormDefaults();
             renderEventList();
+            requestAnimationFrame(() => {
+                if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+                    window.refreshUiSelectComboboxVisibility();
+                }
+            });
         }
     }
 
@@ -1741,11 +1776,23 @@
                 state.eventTypeTab = tab.dataset.type;
                 document.querySelectorAll(".event-type-tab").forEach(t => t.classList.remove("active"));
                 tab.classList.add("active");
+                const isCaldav = state.eventTypeTab === "caldav";
+
                 document.getElementById("event-form-checkin").style.display = state.eventTypeTab === "checkin" ? "" : "none";
                 document.getElementById("event-form-reminder").style.display = state.eventTypeTab === "reminder" ? "" : "none";
                 document.getElementById("event-form-labels").style.display = state.eventTypeTab === "labels" ? "" : "none";
+                const eventListCardEl = document.getElementById("event-list-card");
+                if (eventListCardEl) eventListCardEl.style.display = isCaldav ? "none" : "";
+                const eventSyncPanelEl = document.getElementById("event-sync-panel");
+                if (eventSyncPanelEl) eventSyncPanelEl.style.display = isCaldav ? "" : "none";
+
                 if (state.eventTypeTab === "labels") updateLabelDateFields();
-                renderEventList();
+                if (!isCaldav) renderEventList();
+                requestAnimationFrame(() => {
+                    if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+                        window.refreshUiSelectComboboxVisibility();
+                    }
+                });
             });
         });
 
@@ -1775,6 +1822,86 @@
         updateReminderFormByType();
         updateLabelDateFields();
 
+        // CalDAV sync panel
+        (async () => {
+            try {
+                const res = await fetch("/api/calendar/caldav/config");
+                if (!res || !res.ok) return;
+                const json = await res.json().catch(() => ({}));
+                if (!json || !json.success) return;
+                const cfg = json.config || {};
+                const elUrl = document.getElementById("caldav-url");
+                const elCalUrl = document.getElementById("caldav-calendar-url");
+                const elUser = document.getElementById("caldav-username");
+                const elPwd = document.getElementById("caldav-password");
+                if (elUrl) elUrl.value = cfg.caldav_url || "";
+                if (elCalUrl) elCalUrl.value = cfg.calendar_url || "";
+                if (elUser) elUser.value = cfg.username || "";
+                // Password may be omitted by some clients; keep blank if empty
+                if (elPwd && cfg.password) elPwd.value = cfg.password || "";
+            } catch (e) {
+                console.warn("load caldav config failed", e);
+            }
+        })();
+
+        async function saveCaldavConfigFromUI() {
+            const caldavUrl = (document.getElementById("caldav-url")?.value || "").trim();
+            const calendarUrl = (document.getElementById("caldav-calendar-url")?.value || "").trim();
+            const username = (document.getElementById("caldav-username")?.value || "").trim();
+            const password = (document.getElementById("caldav-password")?.value || "");
+            const payload = {
+                caldav_url: caldavUrl,
+                calendar_url: calendarUrl,
+                username,
+                password
+            };
+            const res = await fetch("/api/calendar/caldav/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json || !json.success) {
+                const msg = (json && json.message) ? json.message : "保存 CalDAV 配置失败";
+                throw new Error(msg);
+            }
+        }
+
+        async function syncCaldavNow() {
+            const modal = document.getElementById("caldav-sync-loading-modal");
+            if (modal) modal.classList.remove("hidden");
+            try {
+                const res = await fetch("/api/calendar/caldav/sync", { method: "POST" });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || !json || !json.success) {
+                    toast((json && json.message) ? json.message : "同步失败", "info");
+                    return;
+                }
+                const okMsg = `同步完成：更新 ${json.created_or_updated || 0} / 删除 ${json.deleted || 0}`;
+                toast(okMsg, "success");
+            } catch (e) {
+                console.warn("caldav sync error", e);
+                toast("同步失败，请检查控制台日志", "info");
+            } finally {
+                if (modal) modal.classList.add("hidden");
+            }
+        }
+
+        document.getElementById("btn-caldav-save-sync")?.addEventListener("click", async () => {
+            try {
+                await saveCaldavConfigFromUI();
+                toast("CalDAV 配置已保存，开始同步…", "success");
+                await syncCaldavNow();
+            } catch (e) {
+                console.warn(e);
+                toast(e && e.message ? e.message : "保存失败", "info");
+            }
+        });
+
+        document.getElementById("btn-caldav-sync-now")?.addEventListener("click", async () => {
+            await syncCaldavNow();
+        });
+
         document.getElementById("checkin-color-hex")?.addEventListener("input", (e) => {
             const hex = parseColorToHex(e.target.value);
             const preview = document.getElementById("checkin-color-preview");
@@ -1802,26 +1929,28 @@
         renderEventList();
         renderStats();
 
-        // 尝试从服务端加载最新的打卡数据并覆盖本地状态，
-        // 同时将历史日期统一补全为“已完成”
+        // 从服务端同步；优先服务端有效快照；若服务端为空但本机 localStorage 仍有数据则恢复并回写服务端
         (async () => {
             try {
                 const res = await fetch("/api/checkin/state");
+                let serverData = null;
                 if (res && res.ok) {
                     const json = await res.json();
-                    if (json && json.success && json.data) {
-                        state.data = json.data;
-                    }
+                    if (json && json.success && json.data) serverData = json.data;
                 }
-                const markRes = await fetch("/api/checkin/mark-history-complete", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                });
-                if (markRes && markRes.ok) {
-                    const markJson = await markRes.json();
-                    if (markJson && markJson.success && markJson.data) {
-                        state.data = markJson.data;
-                    }
+                const localSnapshot = loadData();
+                if (serverData && hasCheckinDataSnapshot(serverData)) {
+                    state.data = serverData;
+                    saveData(state.data);
+                } else if (hasCheckinDataSnapshot(localSnapshot)) {
+                    state.data = localSnapshot;
+                    await saveDataToServer(state.data);
+                    toast("已从本机缓存恢复打卡数据并同步到服务端", "success");
+                } else if (serverData) {
+                    state.data = serverData;
+                    saveData(state.data);
+                } else {
+                    state.data = localSnapshot;
                 }
                 renderCalendar();
                 showDetailPanel(state.selectedDate);

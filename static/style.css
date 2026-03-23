@@ -189,6 +189,13 @@ body.notes-page {
     user-select: none;
     background: #fff;
 }
+
+/* trigger 同时带 .field-control 时会继承 min-width:180px，窄组合框内会溢出盖住相邻控件 */
+.select-combobox > .select-trigger.field-control {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
 .select-trigger-text {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1009,6 +1016,7 @@ body.home-page .app-container {
 }
 
 /* select-trigger 复用了 .field-control，会带默认 min-width:180px；这里必须覆盖为 100px */
+.notes-filter-row .select-combobox > .select-trigger.field-control,
 .notes-filter-row .select-trigger {
     min-width: 100px;
 }

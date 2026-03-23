@@ -2,7 +2,7 @@
  * Service Worker for 每日打卡 PWA
  * 支持离线使用
  */
-const CACHE_NAME = "checkin-v1";
+const CACHE_NAME = "checkin-v2";
 const urlsToCache = [
   "/static/checkin.html",
   "/static/checkin-manifest.json",

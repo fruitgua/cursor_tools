@@ -685,6 +685,18 @@
     overflow: visible; /* 确保内部下拉面板不会被卡片边框裁剪 */
 }
 
+/* 仅“新增提醒/新增日期标签”卡片做紧凑化，减少视觉高度 */
+#event-form-reminder.card,
+#event-form-labels.card {
+    padding: 12px 12px 10px;
+    margin-bottom: 12px;
+}
+
+#event-form-reminder .card-title,
+#event-form-labels .card-title {
+    margin-bottom: 8px;
+}
+
 .event-form-labels-row {
     gap: 10px; /* 字段间距 10px，与新增打卡区保持一致 */
     flex-wrap: nowrap; /* 新增日期标签区：一行显示 */
@@ -1359,6 +1371,387 @@
     background: #dc2626;
 }
 
+/* Events add forms: keep fields on same line (row), width 400px */
+#event-form-checkin .event-form-checkin-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+/* 新增打卡：按控件精确宽度覆盖默认 400px */
+#event-form-checkin .event-form-checkin-row .event-form-field {
+    width: auto;
+    max-width: 100%;
+}
+
+#event-form-checkin #checkin-name {
+    width: 200px;
+    min-width: 200px;
+}
+
+/* 颜色：以颜色 HEX 输入框为准 */
+#event-form-checkin #checkin-color-hex {
+    width: 80px;
+    min-width: 80px;
+}
+
+#event-form-checkin #checkin-date-start {
+    width: 160px;
+    min-width: 160px;
+}
+
+#event-form-checkin #checkin-date-end {
+    width: 160px;
+    min-width: 160px;
+}
+
+#event-form-checkin #btn-add-checkin {
+    width: 80px;
+}
+
+/* 强制单行：使用 flex + nowrap，超出时横向滚动 */
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: nowrap !important;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+    overflow-x: visible;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-bottom: 0;
+}
+
+/* 新增提醒：各字段外层不占 400px，保证同一行排布 */
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row .event-form-field,
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row .event-form-field-group {
+    width: auto !important;
+    max-width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+#event-form-labels .event-form-checkin-row.event-form-labels-row {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: nowrap !important;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    overflow-x: visible;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-bottom: 0;
+}
+
+#event-form-labels .event-form-checkin-row.event-form-labels-row > .event-form-field,
+#event-form-labels .event-form-checkin-row.event-form-labels-row > .event-form-field-group {
+    flex: 0 0 auto;
+    align-self: flex-start;
+}
+
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row > .event-form-field,
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row > .event-form-field-group {
+    align-self: flex-start;
+}
+
+/* 兜底：若 ui-select 在同一字段被重复增强，隐藏第 2 个及之后的组合框（避免高度叠成“3行”观感） */
+#event-form-reminder .event-form-field > .select-combobox ~ .select-combobox,
+#event-form-labels .event-form-field > .select-combobox ~ .select-combobox {
+    display: none !important;
+}
+
+/* 仅打卡表单使用 400px 字段宽；日期标签另用下方精确宽度，避免每块 400px 把 flex 撑换行 */
+#event-form-checkin .event-form-field {
+    width: 400px;
+    max-width: 100%;
+}
+
+#event-form-checkin .event-form-field input[type="text"],
+#event-form-checkin .event-form-field input[type="date"] {
+    width: 400px;
+    max-width: 100%;
+}
+
+/* 新增提醒：控件宽度（不与上方 400px 通用规则混用，避免撑爆换行） */
+#event-form-reminder .event-form-field input[type="text"],
+#event-form-reminder .event-form-field input[type="date"],
+#event-form-reminder .event-form-field select.event-form-select {
+    width: 160px;
+    min-width: 120px;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#event-form-reminder #reminder-type,
+#event-form-reminder #reminder-date-type {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+}
+
+/* Color inputs: keep preview + make hex input fill the remaining width */
+#event-form-checkin .event-form-color-inputs {
+    width: 100%;
+}
+
+#event-form-checkin #checkin-color-hex {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+}
+
+/* Nested groups (specific fields / monthly / annual) stack vertically */
+#event-form-reminder .event-form-field-group {
+    width: auto;
+    max-width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    flex-shrink: 0;
+    gap: 12px;
+}
+
+#event-form-labels .event-form-field-group {
+    width: auto;
+    max-width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    flex-shrink: 0;
+    gap: 10px;
+}
+
+/* Unit fields: input should expand to fill the 400px field */
+#event-form-reminder #reminder-day-of-month {
+    width: 80px;
+    min-width: 80px;
+}
+
+/* 新增提醒：类型 + 图标同一行，不占满整行宽度 */
+#event-form-reminder .event-form-type-with-icon {
+    width: auto;
+    max-width: 100%;
+    flex-shrink: 0;
+}
+
+#event-form-reminder .event-form-type-with-icon select.event-form-select {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    flex: 0 0 120px;
+}
+
+/* 新增日期标签：月/日 与类型字段一致使用 ui-select，宽度 80px */
+#event-form-labels .event-form-field-label-md > .select-combobox {
+    width: 80px !important;
+    min-width: 80px !important;
+    max-width: 80px !important;
+    flex: 0 0 80px;
+    box-sizing: border-box;
+}
+
+/* CalDAV inputs in events page */
+#page-events #caldav-url,
+#page-events #caldav-calendar-url,
+#page-events #caldav-username,
+#page-events #caldav-password {
+    width: 400px;
+    max-width: 100%;
+}
+
+/* Operation buttons: 40px height, 120px width */
+#page-events #btn-add-checkin,
+#page-events #btn-add-reminder,
+#page-events #btn-add-label,
+#page-events #btn-fetch-holidays,
+#page-events #btn-caldav-save-sync,
+#page-events #btn-caldav-sync-now,
+#edit-event-modal .modal-actions .btn,
+#edit-reminder-modal .modal-actions .btn,
+#delete-event-modal .ui-modal-actions .btn {
+    height: 40px;
+    width: 120px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* New checkin: Add button width 80px (override default 120px) */
+#page-events #btn-add-checkin {
+    width: 80px;
+}
+
+/* =========================
+   Add date labels (事件管理-新增日期标签) sizing
+   ========================= */
+/* 关键：让新增日期标签每个字段外层不再占用 400px，避免“控件宽度正确但外层仍然很宽” */
+#event-form-labels .event-form-checkin-row.event-form-labels-row .event-form-field {
+    width: auto !important;
+    max-width: 100%;
+}
+
+#event-form-labels #label-type {
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+}
+
+#event-form-labels #label-month,
+#event-form-labels #label-day {
+    width: 80px !important;
+    min-width: 80px !important;
+    max-width: 80px !important;
+    box-sizing: border-box;
+}
+
+/* 指定日期 */
+#event-form-labels #label-date {
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+}
+
+/* 标签名称 */
+#event-form-labels #label-name {
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+}
+
+/* 每年固定日期：生效开始/结束，宽度与「指定日期」一致 */
+#event-form-labels #label-annual-start,
+#event-form-labels #label-annual-end {
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+}
+
+/* 操作区与按钮并排不换行 */
+#event-form-labels .event-form-field.event-form-field-actions {
+    flex-shrink: 0;
+}
+#event-form-labels .event-form-field-actions-btns {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+/* 新增日期标签：添加 80px，获取中国节假日 120px */
+#page-events #btn-add-label {
+    width: 80px !important;
+}
+#page-events #btn-fetch-holidays {
+    width: 120px !important;
+    min-width: 120px;
+    max-width: 120px;
+    box-sizing: border-box;
+}
+
+/* Events page: unify controls/button height to 40px */
+#page-events input[type="text"],
+#page-events input[type="date"],
+#page-events input[type="number"],
+#page-events input[type="password"],
+#page-events select.event-form-select,
+#page-events .field-control,
+#page-events .custom-select-trigger {
+    height: 40px !important;
+    box-sizing: border-box;
+}
+
+/* Keep custom select trigger content vertically centered */
+#page-events .custom-select-trigger {
+    padding: 8px 12px;
+}
+
+/* ui-select 下拉面板在事件管理卡片内叠在其它控件之上，避免被遮挡 */
+#page-events .select-combobox {
+    position: relative;
+    z-index: 1;
+    min-width: 0; /* flex 子项默认 min-width:auto，配合子元素 min-width 会无法收缩 */
+    /* 不可 overflow:hidden：.select-panel 为 absolute 在组合框下方，会被裁成不可见（Firefox/Chrome 均如此） */
+    overflow: visible;
+}
+#page-events .select-panel {
+    z-index: 400;
+}
+
+/* 触摸端减少 300ms 延迟；min-width 溢出已由全局 .select-combobox > .select-trigger.field-control 处理 */
+#page-events .select-combobox .select-trigger {
+    touch-action: manipulation;
+}
+
+/*
+ * ui-select.js 中 .select-combobox 默认 width:100%。在 flex 行内（如 .event-form-type-with-icon）
+ * 父级宽度由内容决定时，百分比常解析为 0，组合框无点击区域 → “点击无响应”。
+ * 与原生 select 的 120px 规则对齐。
+ */
+#event-form-reminder .event-form-type-with-icon > .select-combobox,
+#event-form-reminder .event-form-field > .select-combobox {
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    flex: 0 0 120px;
+    box-sizing: border-box;
+    height: 40px;
+    min-height: 40px;
+    overflow: visible;
+}
+
+#event-form-labels .event-form-field > .select-combobox {
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    flex: 0 0 120px;
+    box-sizing: border-box;
+    height: 40px;
+    min-height: 40px;
+    overflow: visible;
+}
+
+/* 月/日窄下拉同样锁定容器高度，避免把 annual-fields 组撑高 */
+#event-form-labels .event-form-field-label-md > .select-combobox {
+    height: 40px;
+    min-height: 40px;
+    overflow: visible;
+}
+
+/* 编辑提醒弹窗内同样存在 flex + width:100% 解析为 0 的问题 */
+#edit-reminder-modal .event-form-type-with-icon > .select-combobox,
+#edit-reminder-modal .form-row > .select-combobox {
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    flex: 0 0 120px;
+    box-sizing: border-box;
+}
+
+/* Force 40px height for date-label card buttons */
+#event-form-labels .event-form-field-actions .btn {
+    height: 40px !important;
+    box-sizing: border-box;
+}
+
+/* Keep color preview/trigger blocks aligned with 40px controls */
+#page-events .color-swatch-preview,
+#page-events .color-swatch-trigger {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+}
+
 /* Page visibility */
 .page {
     display: none;
@@ -1386,7 +1779,8 @@
 
 #page-events .event-type-tabs-wrap,
 #page-events .event-form-checkin,
-#page-events .event-form-reminder {
+#page-events .event-form-reminder,
+#page-events .event-form-labels {
     flex-shrink: 0;
 }
 
@@ -1396,4 +1790,147 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+#event-sync-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* CalDAV sync fields: vertical gap 10px */
+#event-sync-panel .event-form-field-group {
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* =========================================================
+   FINAL OVERRIDE: 事件管理-新增提醒/新增日期标签 单行 + 紧凑高度
+   说明：上方历史规则较多，这里统一兜底，避免互相覆盖导致“看似三行高度”
+   ========================================================= */
+#event-form-reminder.card,
+#event-form-labels.card {
+    padding: 16px !important;
+    margin-bottom: 10px !important;
+}
+
+#event-form-reminder .card-title,
+#event-form-labels .card-title {
+    margin: 0 0 16px !important;
+}
+
+/* 两个区域内统一使用 12px 间距（与新增打卡一致） */
+#event-form-reminder .event-form-type-with-icon {
+    gap: 12px !important;
+}
+
+#event-form-reminder .event-form-field-actions-btns,
+#event-form-labels .event-form-field-actions-btns {
+    gap: 12px !important;
+}
+
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row,
+#event-form-labels .event-form-checkin-row.event-form-labels-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0 !important;
+    column-gap: 0 !important;
+    row-gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    min-height: 40px !important;
+    height: 40px !important;
+}
+
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row > .event-form-field,
+#event-form-labels .event-form-checkin-row.event-form-labels-row > .event-form-field {
+    display: flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    align-self: center !important;
+    min-height: 40px !important;
+    height: 40px !important;
+    margin-top: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+}
+
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row > .event-form-field-group,
+#event-form-labels .event-form-checkin-row.event-form-labels-row > .event-form-field-group {
+    /* 不覆盖 display，保留 JS 对 specific/annual 字段组的 show/hide 控制 */
+    flex: 0 0 auto !important;
+    align-self: center !important;
+    min-height: 40px !important;
+    height: 40px !important;
+    margin-top: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+}
+
+/* 日期标签：类型与月/日组统一贴齐同一顶线，避免“月/日跑到上一行” */
+#event-form-labels .event-form-checkin-row.event-form-labels-row {
+    align-items: flex-start !important;
+}
+
+#event-form-labels .event-form-checkin-row.event-form-labels-row > .event-form-field,
+#event-form-labels .event-form-checkin-row.event-form-labels-row > .event-form-field-group {
+    align-self: flex-start !important;
+}
+
+/* 覆盖通用 .event-form-field 的 column 布局，避免单控件块出现垂直偏移 */
+#event-form-labels .event-form-checkin-row.event-form-labels-row > .event-form-field,
+#event-form-labels #label-annual-fields > .event-form-field {
+    flex-direction: row !important;
+    gap: 12px !important;
+}
+
+#event-form-labels #label-annual-fields {
+    display: flex !important;
+    align-items: flex-start !important;
+}
+
+/* 组内字段保持同高，避免任一组撑高整行 */
+#event-form-reminder .event-form-field-group,
+#event-form-labels .event-form-field-group,
+#event-form-reminder .event-form-field-actions-btns,
+#event-form-labels .event-form-field-actions-btns {
+    height: 40px !important;
+    min-height: 40px !important;
+    align-items: center !important;
+    gap: 12px !important;
+    column-gap: 12px !important;
+    row-gap: 12px !important;
+}
+
+/* ui-select 容器只占 40px 高，下拉面板不参与占高 */
+#event-form-reminder .select-combobox,
+#event-form-labels .select-combobox {
+    height: 40px !important;
+    min-height: 40px !important;
+}
+
+/* 清理控件默认外边距，避免视觉上仍像 8px */
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row :is(input, select, .select-combobox, .btn),
+#event-form-labels .event-form-checkin-row.event-form-labels-row :is(input, select, .select-combobox, .btn) {
+    margin: 0 !important;
+}
+
+/* 块级字段之间统一 12px（以 sibling margin 为准，避免 gap 被覆盖失效） */
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row > * + *,
+#event-form-labels .event-form-checkin-row.event-form-labels-row > * + * {
+    margin-left: 12px !important;
+}
+
+/* 新增提醒：再做一层显式约束，确保脚本实测间距为 10px */
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row > * {
+    margin-left: 0 !important;
+}
+#event-form-reminder .event-form-checkin-row.event-form-reminder-row > *:not(:first-child) {
+    margin-left: 12px !important;
 }

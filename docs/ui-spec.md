@@ -586,6 +586,14 @@ font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFa
 }
 ```
 
+### 6.3.1 打卡页事件管理（新增提醒 / 新增日期标签）
+
+- 适用范围：`#event-form-reminder`、`#event-form-labels`
+- 字段控件横向间距：`12px`
+- 卡片内边距：`16px`
+- 标题与字段行间距：`16px`
+- 字段行保持单行展示（必要时优先通过布局约束处理，不改变上述间距基线）
+
 ### 6.4 页面宽度统一
 
 - 所有页面（含词汇本、复习模式）均使用 **同一页面宽度**：由 `.app-container` 控制，`max-width: 1400px`，`margin: 0 auto`，水平 `padding: 24px`。

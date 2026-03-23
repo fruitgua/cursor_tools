@@ -40,6 +40,7 @@ from database import (
     set_calendar_state,
 )
 from utils import scan_directory, validate_directory_path
+from caldav_sync import sync_checkin_to_caldav
 
 
 app = Flask(__name__)
@@ -56,6 +57,8 @@ DEFAULT_CHECKIN_STATE: Dict[str, Any] = {
     "records": [],
     "dateLabels": {"specific": {}, "annual": {}},
 }
+
+CALDAV_CONFIG_KEY = "caldav_config"
 
 VOCAB_STATE_KEY = "vocab_data"
 DEFAULT_VOCAB_STATE: Dict[str, Any] = {
@@ -916,40 +919,76 @@ def api_file_open() -> Any:
         return jsonify({"success": False, "message": f"打开文件失败：{exc}"}), 500
 
 
+def _checkin_state_snapshot_has_data(data: Dict[str, Any]) -> bool:
+    """
+    判断打卡快照是否包含有效业务数据（events / records / 非空 dateLabels）。
+
+    注意：即使 calendar_events 表为空，get_calendar_events() 也会返回
+    dateLabels = { "specific": {}, "annual": {} }，外层 dict 在 Python 中为真值；
+    必须用「具体键是否有内容」判断，否则会误判为“有数据”。
+    """
+    if not data or not isinstance(data, dict):
+        return False
+    if data.get("events"):
+        return True
+    if data.get("records"):
+        return True
+    dl = data.get("dateLabels") or {}
+    if not isinstance(dl, dict):
+        return False
+    spec = dl.get("specific") or {}
+    ann = dl.get("annual") or {}
+    return bool(spec) or bool(ann)
+
+
 @app.route("/api/checkin/state", methods=["GET"])
 def api_checkin_get_state() -> Any:
     """
-    Get persisted checkin state (events, records, dateLabels) from the server.
+    获取打卡状态（events, records, dateLabels）。
+
+    完整快照以 app_state.checkin_data 为准：POST /api/checkin/state 写入此处，
+    events/records 不会写入 calendar_events 表（该表目前主要承载部分 dateLabels）。
+
+    若优先读 calendar_events，会在「仅有标签写入表、事件仍在 app_state」时丢失事件，
+    因此必须先读 app_state，再在无有效快照时回退 calendar_events。
     """
-    # 优先从 calendar_events 表读取；若数据库尚未初始化数据，则回退到历史 app_state 存储
-    try:
-        data = get_calendar_events()
-    except Exception as exc:  # pylint: disable=broad-except
-        return jsonify({"success": False, "message": f"读取打卡数据失败：{exc}"}), 500
-
-    if data and isinstance(data, dict) and (
-        data.get("events") or data.get("records") or data.get("dateLabels")
-    ):
-        return jsonify({"success": True, "data": data})
-
     try:
         raw = get_app_state(CHECKIN_STATE_KEY)
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": f"读取打卡数据失败：{exc}"}), 500
 
-    if not raw:
-        return jsonify({"success": True, "data": DEFAULT_CHECKIN_STATE})
+    data_from_app: Optional[Dict[str, Any]] = None
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                data_from_app = parsed
+        except Exception:
+            data_from_app = None
+
+    if data_from_app is not None:
+        data_from_app.setdefault("events", [])
+        data_from_app.setdefault("records", [])
+        data_from_app.setdefault("dateLabels", {"specific": {}, "annual": {}})
+        if _checkin_state_snapshot_has_data(data_from_app):
+            return jsonify({"success": True, "data": data_from_app})
+
     try:
-        data = json.loads(raw)
-    except Exception:
-        data = DEFAULT_CHECKIN_STATE
-    # Ensure required keys exist
-    if not isinstance(data, dict):
-        data = DEFAULT_CHECKIN_STATE
-    data.setdefault("events", [])
-    data.setdefault("records", [])
-    data.setdefault("dateLabels", {"specific": {}, "annual": {}})
-    return jsonify({"success": True, "data": data})
+        cal = get_calendar_events()
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取打卡数据失败：{exc}"}), 500
+
+    if isinstance(cal, dict):
+        cal.setdefault("events", [])
+        cal.setdefault("records", [])
+        cal.setdefault("dateLabels", {"specific": {}, "annual": {}})
+        if _checkin_state_snapshot_has_data(cal):
+            return jsonify({"success": True, "data": cal})
+
+    if data_from_app is not None:
+        return jsonify({"success": True, "data": data_from_app})
+
+    return jsonify({"success": True, "data": DEFAULT_CHECKIN_STATE.copy()})
 
 
 @app.route("/api/checkin/state", methods=["POST"])
@@ -988,12 +1027,10 @@ def api_checkin_set_state() -> Any:
 @app.route("/api/checkin/mark-history-complete", methods=["POST"])
 def api_checkin_mark_history_complete() -> Any:
     """
-    将每个打卡事件在“今天”之前的历史日期统一标记为“已完成”，并写回服务端。
+    兼容旧客户端：不再自动将历史日期补全为「已完成」。
 
-    规则：
-    - 仅处理 type == "checkin" 的事件。
-    - 必须有合法的 dateStart；dateEnd 若不存在，则视为“今天前一天”。
-    - 对于每个事件，在 [dateStart, min(dateEnd, 今天前一天)] 区间内的每一天都补齐记录。
+    打卡完成状态仅由用户在日历中手动勾选产生（写入 records）。
+    此接口仅返回当前打卡状态，不新增、不修改 records，不写库。
     """
     try:
         raw = get_app_state(CHECKIN_STATE_KEY)
@@ -1011,76 +1048,141 @@ def api_checkin_mark_history_complete() -> Any:
     if not isinstance(data, dict):
         data = DEFAULT_CHECKIN_STATE.copy()
 
-    events = list(data.get("events") or [])
-    records = list(data.get("records") or [])
-    date_labels = data.get("dateLabels") or {"specific": {}, "annual": {}}
+    return jsonify({"success": True, "added": 0, "data": data})
 
-    # 已有记录索引，避免重复
-    existing = {
-        f"{r.get('eventId')}|{r.get('date')}"
-        for r in records
-        if r.get("eventId") and r.get("date")
+
+def _load_checkin_state_from_app_state() -> Dict[str, Any]:
+    raw = None
+    try:
+        raw = get_app_state(CHECKIN_STATE_KEY)
+    except Exception:
+        raw = None
+    if not raw:
+        return DEFAULT_CHECKIN_STATE.copy()
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = DEFAULT_CHECKIN_STATE.copy()
+    if not isinstance(data, dict):
+        data = DEFAULT_CHECKIN_STATE.copy()
+    data.setdefault("events", [])
+    data.setdefault("records", [])
+    data.setdefault("dateLabels", {"specific": {}, "annual": {}})
+    return data
+
+
+def _load_caldav_config() -> Dict[str, Any]:
+    raw = None
+    try:
+        raw = get_app_state(CALDAV_CONFIG_KEY)
+    except Exception:
+        raw = None
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _save_caldav_config(config: Dict[str, Any]) -> None:
+    payload = json.dumps(config, ensure_ascii=False)
+    set_app_state(CALDAV_CONFIG_KEY, payload)
+
+
+@app.route("/api/calendar/caldav/config", methods=["GET"])
+def api_calendar_caldav_config_get() -> Any:
+    try:
+        cfg = _load_caldav_config()
+        # Do not expose password back to the browser.
+        if isinstance(cfg, dict) and "password" in cfg:
+            cfg.pop("password", None)
+        return jsonify({"success": True, "config": cfg})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取 CalDAV 配置失败：{exc}"}), 500
+
+
+@app.route("/api/calendar/caldav/config", methods=["POST"])
+def api_calendar_caldav_config_set() -> Any:
+    body = request.get_json(silent=True) or {}
+    config: Dict[str, Any] = {
+        "caldav_url": str(body.get("caldav_url") or "").strip(),
+        "calendar_url": str(body.get("calendar_url") or "").strip(),
+        "username": str(body.get("username") or "").strip(),
+        "password": str(body.get("password") or ""),
     }
-
-    today = date.today()
-    yesterday = today - timedelta(days=1)
-
-    added = 0
-    for evt in events:
-        if not isinstance(evt, dict):
-            continue
-        if evt.get("type", "checkin") != "checkin":
-            continue
-        event_id = evt.get("id") or evt.get("eventId")
-        if not event_id:
-            continue
-        date_start_str = evt.get("dateStart") or ""
-        date_end_str = evt.get("dateEnd") or ""
-        if not date_start_str:
-            continue
-        try:
-            start_dt = datetime.strptime(date_start_str.split("T")[0], "%Y-%m-%d").date()
-        except ValueError:
-            continue
-
-        if date_end_str:
-            try:
-                end_dt = datetime.strptime(date_end_str.split("T")[0], "%Y-%m-%d").date()
-            except ValueError:
-                end_dt = yesterday
-        else:
-            end_dt = yesterday
-
-        # 只处理“今天之前”的日期
-        if end_dt >= yesterday:
-            end_dt = yesterday
-
-        if end_dt < start_dt:
-            continue
-
-        cur = start_dt
-        while cur <= end_dt:
-            date_str = cur.strftime("%Y-%m-%d")
-            key = f"{event_id}|{date_str}"
-            if key not in existing:
-                records.append({"eventId": event_id, "date": date_str})
-                existing.add(key)
-                added += 1
-            cur += timedelta(days=1)
-
-    data_out = {
-        "events": events,
-        "records": records,
-        "dateLabels": date_labels,
-    }
+    # Minimal validation
+    if not config["caldav_url"] or not config["calendar_url"] or not config["username"]:
+        return jsonify({"success": False, "message": "CalDAV 配置不完整"}), 400
 
     try:
-        payload = json.dumps(data_out, ensure_ascii=False)
-        set_app_state(CHECKIN_STATE_KEY, payload)
+        _save_caldav_config(config)
     except Exception as exc:  # pylint: disable=broad-except
-        return jsonify({"success": False, "message": f"保存打卡数据失败：{exc}"}), 500
+        return jsonify({"success": False, "message": f"保存 CalDAV 配置失败：{exc}"}), 500
 
-    return jsonify({"success": True, "added": added, "data": data_out})
+    return jsonify({"success": True})
+
+
+@app.route("/api/calendar/caldav/sync", methods=["POST"])
+def api_calendar_caldav_sync() -> Any:
+    config = _load_caldav_config()
+    if not config:
+        return jsonify({"success": False, "message": "尚未配置 CalDAV"}), 400
+
+    try:
+        checkin_data = _load_checkin_state_from_app_state()
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取打卡数据失败：{exc}"}), 500
+
+    # default 90 days window (matches the earlier selection B)
+    window_days = int((request.get_json(silent=True) or {}).get("window_days") or 90)
+    if window_days < 1:
+        window_days = 90
+
+    try:
+        result = sync_checkin_to_caldav(config, checkin_data, window_days=window_days)
+        code = 200 if result.get("success") else 500
+        return jsonify(result), code
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"CalDAV 同步失败：{exc}"}), 500
+
+
+_CALDAV_SYNC_LOCKED = False
+
+
+def _start_caldav_scheduler() -> None:
+    """
+    Simple background scheduler: run sync every hour if CalDAV config exists.
+    Note: Flask debug mode uses reloader; caller should only invoke in the main reloader process.
+    """
+    import threading
+    import time
+
+    def job_loop() -> None:
+        global _CALDAV_SYNC_LOCKED
+        while True:
+            try:
+                if _CALDAV_SYNC_LOCKED:
+                    time.sleep(60)
+                    continue
+                cfg = _load_caldav_config()
+                if cfg:
+                    _CALDAV_SYNC_LOCKED = True
+                    data = _load_checkin_state_from_app_state()
+                    # ignore result details, keep it best-effort
+                    sync_checkin_to_caldav(cfg, data, window_days=90)
+                _CALDAV_SYNC_LOCKED = False
+            except Exception:
+                # best-effort background job: ignore errors
+                _CALDAV_SYNC_LOCKED = False
+            finally:
+                time.sleep(3600)
+
+    t = threading.Thread(target=job_loop, daemon=True)
+    t.start()
 
 
 @app.route("/api/vocab/state", methods=["GET"])
@@ -1399,6 +1501,10 @@ def main() -> None:
     - 手机访问：确保手机与电脑在同一 WiFi，浏览器输入 http://<电脑IP>:5001 ，例如 http://192.168.1.100:5001
     """
     port = int(os.environ.get("PORT", 5001))
+    # Start CalDAV hourly sync scheduler only in the reloader "main" process.
+    # Flask debug mode may spawn multiple processes due to reloader, so guard to avoid duplicates.
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        _start_caldav_scheduler()
     app.run(host="0.0.0.0", port=port, debug=True)
 
 

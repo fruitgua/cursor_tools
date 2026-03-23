@@ -11,9 +11,9 @@
     <link rel="icon" type="image/png" href="/static/frog.png">
     <link rel="manifest" href="/static/checkin-manifest.json">
     <link rel="apple-touch-icon" href="/static/checkin-icon.svg">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/theme.css">
-    <link rel="stylesheet" href="/static/checkin.css">
+    <link rel="stylesheet" href="/static/style.css?v=20260323142431">
+    <link rel="stylesheet" href="/static/theme.css?v=20260323142431">
+    <link rel="stylesheet" href="/static/checkin.css?v=20260323142431">
 </head>
 <body>
 <div id="app" class="app">
@@ -92,6 +92,7 @@
                 <button type="button" class="event-type-tab active" data-type="checkin">打卡</button>
                 <button type="button" class="event-type-tab" data-type="reminder">提醒</button>
                 <button type="button" class="event-type-tab" data-type="labels">日期标签</button>
+                <button type="button" class="event-type-tab" data-type="caldav">同步配置</button>
             </div>
         </div>
 
@@ -186,113 +187,58 @@
                     </div>
                 </div>
                 <div id="label-annual-fields" class="event-form-field-group">
-                    <div class="event-form-field">
-                        <div class="custom-select-wrap">
-                            <div class="custom-select-trigger" id="label-month-trigger" data-target="label-month" tabindex="0">月</div>
-                            <div class="custom-select-dropdown" id="label-month-dropdown">
-                                <div class="custom-select-option" data-value="">月</div>
-                                <div class="custom-select-option" data-value="1">1</div>
-                                <div class="custom-select-option" data-value="2">2</div>
-                                <div class="custom-select-option" data-value="3">3</div>
-                                <div class="custom-select-option" data-value="4">4</div>
-                                <div class="custom-select-option" data-value="5">5</div>
-                                <div class="custom-select-option" data-value="6">6</div>
-                                <div class="custom-select-option" data-value="7">7</div>
-                                <div class="custom-select-option" data-value="8">8</div>
-                                <div class="custom-select-option" data-value="9">9</div>
-                                <div class="custom-select-option" data-value="10">10</div>
-                                <div class="custom-select-option" data-value="11">11</div>
-                                <div class="custom-select-option" data-value="12">12</div>
-                            </div>
-                            <select id="label-month" class="event-form-select custom-select-hidden" aria-hidden="true">
-                                <option value="">月</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                                <option value="9">9</option>
-                                <option value="10">10</option>
-                                <option value="11">11</option>
-                                <option value="12">12</option>
-                            </select>
-                        </div>
+                    <div class="event-form-field event-form-field-label-md">
+                        <select id="label-month" class="event-form-select" data-ui-select="single" aria-label="月">
+                            <option value="">月</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                        </select>
                     </div>
-                    <div class="event-form-field">
-                        <div class="custom-select-wrap">
-                            <div class="custom-select-trigger" id="label-day-trigger" data-target="label-day" tabindex="0">日</div>
-                            <div class="custom-select-dropdown" id="label-day-dropdown">
-                                <div class="custom-select-option" data-value="">日</div>
-                                <div class="custom-select-option" data-value="1">1</div>
-                                <div class="custom-select-option" data-value="2">2</div>
-                                <div class="custom-select-option" data-value="3">3</div>
-                                <div class="custom-select-option" data-value="4">4</div>
-                                <div class="custom-select-option" data-value="5">5</div>
-                                <div class="custom-select-option" data-value="6">6</div>
-                                <div class="custom-select-option" data-value="7">7</div>
-                                <div class="custom-select-option" data-value="8">8</div>
-                                <div class="custom-select-option" data-value="9">9</div>
-                                <div class="custom-select-option" data-value="10">10</div>
-                                <div class="custom-select-option" data-value="11">11</div>
-                                <div class="custom-select-option" data-value="12">12</div>
-                                <div class="custom-select-option" data-value="13">13</div>
-                                <div class="custom-select-option" data-value="14">14</div>
-                                <div class="custom-select-option" data-value="15">15</div>
-                                <div class="custom-select-option" data-value="16">16</div>
-                                <div class="custom-select-option" data-value="17">17</div>
-                                <div class="custom-select-option" data-value="18">18</div>
-                                <div class="custom-select-option" data-value="19">19</div>
-                                <div class="custom-select-option" data-value="20">20</div>
-                                <div class="custom-select-option" data-value="21">21</div>
-                                <div class="custom-select-option" data-value="22">22</div>
-                                <div class="custom-select-option" data-value="23">23</div>
-                                <div class="custom-select-option" data-value="24">24</div>
-                                <div class="custom-select-option" data-value="25">25</div>
-                                <div class="custom-select-option" data-value="26">26</div>
-                                <div class="custom-select-option" data-value="27">27</div>
-                                <div class="custom-select-option" data-value="28">28</div>
-                                <div class="custom-select-option" data-value="29">29</div>
-                                <div class="custom-select-option" data-value="30">30</div>
-                                <div class="custom-select-option" data-value="31">31</div>
-                            </div>
-                            <select id="label-day" class="event-form-select custom-select-hidden" aria-hidden="true">
-                                <option value="">日</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                                <option value="9">9</option>
-                                <option value="10">10</option>
-                                <option value="11">11</option>
-                                <option value="12">12</option>
-                                <option value="13">13</option>
-                                <option value="14">14</option>
-                                <option value="15">15</option>
-                                <option value="16">16</option>
-                                <option value="17">17</option>
-                                <option value="18">18</option>
-                                <option value="19">19</option>
-                                <option value="20">20</option>
-                                <option value="21">21</option>
-                                <option value="22">22</option>
-                                <option value="23">23</option>
-                                <option value="24">24</option>
-                                <option value="25">25</option>
-                                <option value="26">26</option>
-                                <option value="27">27</option>
-                                <option value="28">28</option>
-                                <option value="29">29</option>
-                                <option value="30">30</option>
-                                <option value="31">31</option>
-                            </select>
-                        </div>
+                    <div class="event-form-field event-form-field-label-md">
+                        <select id="label-day" class="event-form-select" data-ui-select="single" aria-label="日">
+                            <option value="">日</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                            <option value="17">17</option>
+                            <option value="18">18</option>
+                            <option value="19">19</option>
+                            <option value="20">20</option>
+                            <option value="21">21</option>
+                            <option value="22">22</option>
+                            <option value="23">23</option>
+                            <option value="24">24</option>
+                            <option value="25">25</option>
+                            <option value="26">26</option>
+                            <option value="27">27</option>
+                            <option value="28">28</option>
+                            <option value="29">29</option>
+                            <option value="30">30</option>
+                            <option value="31">31</option>
+                        </select>
                     </div>
                 </div>
                 <div class="event-form-field">
@@ -315,7 +261,7 @@
             </div>
         </div>
 
-        <div class="card event-list-card">
+        <div class="card event-list-card" id="event-list-card">
             <div class="event-list-header">
                 <h3 class="card-title" id="event-list-title">打卡列表</h3>
                 <div class="event-list-filters inline-fields-gap">
@@ -342,6 +288,34 @@
             <div class="event-list" id="event-list">
                 <p class="empty-state">暂无打卡事件，请先添加</p>
             </div>
+        </div>
+
+        <!-- CalDAV Sync Panel -->
+        <div id="event-sync-panel" class="card" style="margin-top:16px; display:none;">
+            <h3 class="card-title">日历同步（CalDAV）</h3>
+            <div class="event-form-field-group" style="display:block; margin-top:12px;">
+                <div class="event-form-field">
+                    <input type="text" id="caldav-url" class="field-control" placeholder="CalDAV 根地址（DAV URL）" />
+                </div>
+                <div class="event-form-field">
+                    <input type="text" id="caldav-calendar-url" class="field-control" placeholder="目标日历集合 URL（Calendar Collection）" />
+                </div>
+                <div class="event-form-field" style="display:flex; gap:12px;">
+                    <input type="text" id="caldav-username" class="field-control" placeholder="用户名" />
+                </div>
+                <div class="event-form-field">
+                    <input type="password" id="caldav-password" class="field-control" placeholder="密码 / 应用密码" />
+                </div>
+            </div>
+            <div class="event-form-field event-form-field-actions" style="margin-top:12px;">
+                <div class="event-form-field-actions-btns">
+                    <button type="button" class="btn primary" id="btn-caldav-save-sync">保存并同步</button>
+                    <button type="button" class="btn btn-ghost" id="btn-caldav-sync-now">立即同步</button>
+                </div>
+            </div>
+            <p class="add-event-hint" style="margin-top:8px; margin-bottom:0;">
+                同步间隔：每小时（单向写入）。需要先配置 CalDAV。
+            </p>
         </div>
     </div>
 </div>
@@ -473,10 +447,25 @@
     </div>
 </div>
 
+<!-- Loading Modal: CalDAV Sync -->
+<div id="caldav-sync-loading-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="操作提示">
+    <div class="ui-modal ui-modal--loading">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <div class="ui-modal-body-row">
+                <div class="ui-modal-spinner" aria-hidden="true"></div>
+                <div class="ui-modal-body-text">正在同步到日历，请稍候…</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="toast" class="toast-info"></div>
 
-<script src="/static/theme-switcher.js"></script>
-<script src="/static/ui-select.js"></script>
-<script src="/static/checkin.js"></script>
+<script src="/static/theme-switcher.js?v=20260323142431"></script>
+<script src="/static/ui-select.js?v=20260323142431"></script>
+<script src="/static/checkin.js?v=20260323142431"></script>
 </body>
 </html>
