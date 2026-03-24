@@ -592,7 +592,7 @@
                 <div class="vocab-type-filter">
                     <select id="type-filter-english" class="field-control" data-ui-select="single">
                         <option value="">全部</option>
-                        <option value="english">english</option>
+                        <option value="english">英文单词</option>
                         <option value="phrase">英文词组</option>
                     </select>
                 </div>
@@ -1838,7 +1838,7 @@
         saveWordList(list);
     }
 
-    const typeLabels = { english: "English", chinese: "中文词语", phrase: "英文词组" };
+    const typeLabels = { english: "英文单词", chinese: "中文词语", phrase: "英文词组" };
 
     /** 格式化释义用于展示：优先中文释义，其次英文释义 */
     function formatMeaningDisplay(item) {
@@ -3806,6 +3806,12 @@
                 tab.classList.add("active");
                 const id = "section-" + tab.dataset.tab;
                 document.getElementById(id).classList.add("active");
+                requestAnimationFrame(() => {
+                    // 某些下拉在 hidden section 内初始化，切换到可见后需手动刷新可见性
+                    if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+                        window.refreshUiSelectComboboxVisibility();
+                    }
+                });
                 if (tab.dataset.tab === "english") renderEnglishList();
                 else if (tab.dataset.tab === "chinese") renderChineseList();
                 else if (tab.dataset.tab === "review") {

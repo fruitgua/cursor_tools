@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import json
+from datetime import datetime
 from typing import Optional, List, Dict, Tuple
 
 
@@ -169,6 +170,7 @@ def init_db() -> None:
                 content TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
                 due_time TEXT NOT NULL DEFAULT '',
+                complete_date TEXT NOT NULL DEFAULT '',
                 category TEXT NOT NULL DEFAULT '',
                 remind_time TEXT NOT NULL DEFAULT '',
                 created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
@@ -176,6 +178,13 @@ def init_db() -> None:
             )
             """
         )
+        conn.commit()
+        # 兼容旧版 todos 表：补充 complete_date 字段
+        try:
+            conn.execute("ALTER TABLE todos ADD COLUMN complete_date TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS calendar_events (
@@ -547,6 +556,7 @@ def get_all_todos() -> List[Dict]:
                 content,
                 status,
                 due_time,
+                complete_date,
                 category,
                 remind_time,
                 created_at,
@@ -558,12 +568,22 @@ def get_all_todos() -> List[Dict]:
         rows = cur.fetchall()
         items: List[Dict] = []
         for row in rows:
+            complete_date = row["complete_date"] or ""
+            # 兼容历史数据：旧版未持久化 complete_date，done 状态时回退到 updated_at 日期
+            if not complete_date and (row["status"] or "") == "done" and row["updated_at"]:
+                try:
+                    ts = float(row["updated_at"])
+                    dt = datetime.fromtimestamp(ts)
+                    complete_date = dt.strftime("%Y/%m/%d")
+                except Exception:
+                    complete_date = ""
             items.append(
                 {
                     "id": row["id"],
                     "content": row["content"] or "",
                     "status": row["status"] or "pending",
                     "dueTime": row["due_time"] or "",
+                    "completeDate": complete_date,
                     "category": row["category"] or "",
                     "remindTime": row["remind_time"] or "",
                 }
@@ -591,6 +611,7 @@ def set_todos_state(items: List[Dict]) -> None:
                 continue
             status = str(it.get("status") or "pending").strip() or "pending"
             due_time = str(it.get("dueTime") or it.get("due_time") or "").strip()
+            complete_date = str(it.get("completeDate") or it.get("complete_date") or "").strip()
             category = str(it.get("category") or "").strip()
             remind_time = str(it.get("remindTime") or it.get("remind_time") or "").strip()
 
@@ -601,22 +622,24 @@ def set_todos_state(items: List[Dict]) -> None:
                     content,
                     status,
                     due_time,
+                    complete_date,
                     category,
                     remind_time,
                     created_at,
                     updated_at
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
+                    ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'), strftime('%s', 'now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
                     content = excluded.content,
                     status = excluded.status,
                     due_time = excluded.due_time,
+                    complete_date = excluded.complete_date,
                     category = excluded.category,
                     remind_time = excluded.remind_time,
                     updated_at = excluded.updated_at
                 """,
-                (tid, content, status, due_time, category, remind_time),
+                (tid, content, status, due_time, complete_date, category, remind_time),
             )
 
         conn.commit()

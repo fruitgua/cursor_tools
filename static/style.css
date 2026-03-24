@@ -552,6 +552,71 @@ body.notes-page {
     overflow-x: hidden;
 }
 
+.tab-section {
+    margin-top: 8px;
+}
+
+.tab-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.tab-btn {
+    padding: 8px 4px;
+    border: none;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #374151;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+    transition: color 0.15s, border-bottom-color 0.15s;
+}
+
+.tab-btn:hover {
+    color: #2563eb;
+}
+
+.tab-btn.active {
+    color: #2563eb;
+    font-weight: 500;
+    border-bottom-color: #2563eb;
+}
+
+.tab-panel.hidden {
+    display: none;
+}
+
+#panel-files:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+#panel-similar:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+#panel-files .table-section {
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+#panel-files .pagination-section {
+    flex-shrink: 0;
+    margin-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 10px;
+}
+
 .file-table {
     width: 100%;
     border-collapse: collapse;
@@ -812,6 +877,58 @@ body.notes-page {
 
 .pagination-page-detail {
     color: #374151;
+}
+
+.similar-groups-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 2px;
+}
+
+.similar-group-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    padding: 10px 10px 8px;
+}
+
+.similar-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 2px;
+}
+
+.similar-group-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.similar-table-section {
+    margin-top: 0;
+    box-shadow: none;
+    border: 1px solid #e5e7eb;
+}
+
+.similar-pagination-section {
+    margin-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 10px;
+}
+
+.similar-pagination-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
 }
 
 .app-footer {
@@ -1236,34 +1353,101 @@ body.home-page .app-container {
 }
 
 .notes-form-row-title-category {
-    display: flex;
-    gap: 24px;
-    align-items: flex-end;
+    width: 1000px;
+    max-width: 100%;
 }
 
-.notes-form-row-title-category .notes-form-group:first-child {
-    flex: 1;
-    min-width: 0;
+/* 第一行：字段名称 */
+.notes-form-label-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px;
+    column-gap: 12px;
+    align-items: center;
+    margin-bottom: 6px;
 }
 
-.notes-form-row-title-category .notes-form-group:first-child .notes-form-input {
-    max-width: 1500px;
+/* 第二行：字段控件 */
+.notes-form-control-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px;
+    column-gap: 12px;
+    align-items: center;
 }
 
-.notes-form-row-title-category .notes-form-input,
-.notes-form-row-title-category .notes-form-select {
+.notes-form-control-row #note-title {
+    width: 100%;
+    max-width: 100%;
+    min-width: 180px; /* 标准控件最小宽度 */
     height: 36px;
     min-height: 36px;
 }
 
-.notes-form-group-category {
-    margin-left: auto;
+.notes-form-control-row #note-category {
+    width: 120px;
+    min-width: 120px;
+    height: 36px;
+    min-height: 36px;
+    background-color: #fff;
 }
 
-.notes-form-group-category .notes-form-select {
-    width: 140px;
-    min-width: 140px;
-    background-color: #fff;
+/* ui-select 生成的分类组合框：控件与面板同宽 120px */
+.notes-form-control-row .select-combobox,
+.notes-form-control-row .select-combobox > .select-trigger {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    height: 36px;
+    min-height: 36px;
+    box-sizing: border-box;
+}
+
+.notes-form-control-row .select-combobox > .select-trigger.field-control {
+    min-width: 120px;
+}
+
+/* 分类面板遵循 ui 规范：固定最大高度，超出滚动，且不被编辑区遮挡 */
+.notes-form-control-row .select-combobox {
+    position: relative;
+    z-index: 2;
+}
+
+.notes-form-control-row .select-panel {
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 500;
+}
+
+/* 与内容区右边栏对齐 */
+.notes-form-content-row {
+    width: 1000px;
+    max-width: 100%;
+}
+
+/* 响应式：窄屏下标题/分类区域改为上下布局，避免控件挤压或错位 */
+@media (max-width: 900px) {
+    .notes-form-row-title-category {
+        width: 100%;
+    }
+    .notes-form-label-row,
+    .notes-form-control-row {
+        grid-template-columns: minmax(0, 1fr) 120px;
+        column-gap: 12px;
+    }
+}
+
+@media (max-width: 700px) {
+    .notes-form-label-row,
+    .notes-form-control-row {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 10px;
+    }
+    .notes-form-control-row #note-category,
+    .notes-form-control-row .select-combobox,
+    .notes-form-control-row .select-combobox > .select-trigger {
+        width: 120px;
+        min-width: 120px;
+        max-width: 120px;
+    }
 }
 
 .notes-form-label {

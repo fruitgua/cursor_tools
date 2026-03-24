@@ -83,6 +83,18 @@ function refreshCategorySelects() {
     const formEl = document.getElementById("note-category");
     setSelectOptions(filterEl, categories, "all");
     setSelectOptions(formEl, categories, "placeholder");
+    refreshNotesSelectUi();
+}
+
+function refreshNotesSelectUi() {
+    // note-category 所在区域初始是 display:none，需在显示后刷新 ui-select 可见性与面板内容
+    requestAnimationFrame(() => {
+        const formEl = document.getElementById("note-category");
+        if (formEl) formEl.dispatchEvent(new Event("change", { bubbles: true }));
+        if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+            window.refreshUiSelectComboboxVisibility();
+        }
+    });
 }
 
 function loadCategories(callback) {
@@ -362,6 +374,7 @@ function showAddForm() {
     // 初始填充完成后再允许自动保存
     saveEnabled = true;
     lastSavedSnapshot = null;
+    refreshNotesSelectUi();
 }
 
 function showEditForm(note) {
@@ -408,6 +421,7 @@ function showEditForm(note) {
     };
     setLastUpdatedLabel(parseDbTimeToDate(note.updated_at) || parseDbTimeToDate(note.created_at) || new Date());
     startAutoSaveTimer();
+    refreshNotesSelectUi();
 }
 
 function openCatsDrawer() {

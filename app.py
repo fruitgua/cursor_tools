@@ -1,6 +1,8 @@
 import os
 import json
 import ssl
+import re
+import difflib
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -198,6 +200,143 @@ def filter_items(
         ]
 
     return filtered
+
+
+def normalize_file_title(name: str) -> str:
+    """
+    Normalize filename text for similarity matching:
+    - remove extension
+    - lowercase
+    - remove non-alphanumeric / non-Chinese chars
+    """
+    base = os.path.splitext(str(name or ""))[0].lower()
+    return re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff]+", "", base)
+
+
+def _name_similarity_ratio(a: str, b: str) -> float:
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def build_similar_file_groups(
+    items: List[Dict[str, Any]],
+    ratio_threshold: float = 0.9,
+    size_diff_limit_bytes: int = 102400,
+) -> List[Dict[str, Any]]:
+    """
+    Build connected-component groups for near-duplicate files.
+    Rule:
+    - normalized title similarity >= ratio_threshold
+    - absolute size diff <= size_diff_limit_bytes
+    """
+    candidates: List[Dict[str, Any]] = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        size_bytes = it.get("size_bytes")
+        name = it.get("name")
+        file_type_key = str(it.get("file_type_key") or "").strip().lower()
+        if size_bytes is None or not name:
+            continue
+        try:
+            sz = int(size_bytes)
+        except Exception:
+            continue
+        normalized = normalize_file_title(str(name))
+        if not normalized:
+            continue
+        candidates.append(
+            {
+                "item": it,
+                "name_norm": normalized,
+                "size_bytes": sz,
+                "file_type_key": file_type_key,
+            }
+        )
+
+    n = len(candidates)
+    if n < 2:
+        return []
+
+    parent = list(range(n))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for i in range(n):
+        a = candidates[i]
+        for j in range(i + 1, n):
+            b = candidates[j]
+            # 新规则：必须是同一工具类型（如 word 组里可包含 doc/docx）
+            if a["file_type_key"] != b["file_type_key"]:
+                continue
+            if abs(a["size_bytes"] - b["size_bytes"]) > size_diff_limit_bytes:
+                continue
+            if _name_similarity_ratio(a["name_norm"], b["name_norm"]) >= ratio_threshold:
+                union(i, j)
+
+    buckets: Dict[int, List[Dict[str, Any]]] = {}
+    for idx, c in enumerate(candidates):
+        root = find(idx)
+        buckets.setdefault(root, []).append(c["item"])
+
+    groups: List[Dict[str, Any]] = []
+    seq = 1
+    for _, grouped_items in buckets.items():
+        if len(grouped_items) < 2:
+            continue
+        def _item_created_ts(it: Dict[str, Any]) -> float:
+            raw_ts = it.get("created_at_ts")
+            try:
+                return float(raw_ts)
+            except Exception:
+                pass
+            raw_text = str(it.get("created_at") or "").strip()
+            if raw_text:
+                try:
+                    return datetime.strptime(raw_text, "%Y-%m-%d %H:%M:%S").timestamp()
+                except Exception:
+                    pass
+            return 0.0
+
+        earliest_created_ts = min(_item_created_ts(x) for x in grouped_items)
+        items_sorted = sorted(
+            grouped_items,
+            key=lambda x: (
+                str(x.get("modified_at") or ""),
+                int(x.get("size_bytes") or 0),
+            ),
+            reverse=True,
+        )
+        groups.append(
+            {
+                "group_id": f"sim_{seq:04d}",
+                "count": len(items_sorted),
+                "representative_full_path": str(items_sorted[0].get("full_path") or ""),
+                "earliest_created_ts": earliest_created_ts,
+                "items": items_sorted,
+            }
+        )
+        seq += 1
+
+    # 按组内最早文件时间升序排列；时间相同再按组内文件数降序
+    groups.sort(
+        key=lambda g: (
+            float(g.get("earliest_created_ts") or 0.0),
+            -int(g.get("count") or 0),
+            str(g.get("group_id") or ""),
+        )
+    )
+    for idx, g in enumerate(groups, start=1):
+        g["group_id"] = f"sim_{idx:04d}"
+    return groups
 
 
 @app.route("/")
@@ -748,6 +887,67 @@ def api_files() -> Any:
             "per_page": per_page,
             "total": len(filtered_items),
             "total_pages": total_pages,
+        }
+    )
+
+
+@app.route("/api/files/similar", methods=["GET"])
+def api_files_similar() -> Any:
+    """
+    Return paginated near-duplicate file groups based on last scan.
+    Rules (default):
+    - filename similarity >= 0.9
+    - file size difference <= 100KB
+    """
+    if not SCAN_RESULTS:
+        return jsonify({"success": False, "message": "请先扫描文件后再进行疑似同文件分析。"}), 400
+
+    try:
+        page = int(request.args.get("page", "1"))
+    except ValueError:
+        page = 1
+    try:
+        per_page = int(request.args.get("per_page", "10"))
+    except ValueError:
+        per_page = 10
+
+    try:
+        ratio = float(request.args.get("name_ratio", "0.9"))
+    except ValueError:
+        ratio = 0.9
+    try:
+        size_diff_kb = int(request.args.get("size_diff_kb", "100"))
+    except ValueError:
+        size_diff_kb = 100
+    ratio = max(0.0, min(1.0, ratio))
+    size_diff_bytes = max(0, size_diff_kb * 1024)
+
+    groups = build_similar_file_groups(
+        SCAN_RESULTS,
+        ratio_threshold=ratio,
+        size_diff_limit_bytes=size_diff_bytes,
+    )
+    total_groups = len(groups)
+    if per_page <= 0:
+        per_page = 10
+    total_pages = (total_groups + per_page - 1) // per_page if total_groups > 0 else 1
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_groups = groups[start:end]
+    total_files = sum(int(g.get("count") or 0) for g in groups)
+    return jsonify(
+        {
+            "success": True,
+            "groups": page_groups,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "total_groups": total_groups,
+            "total_files": total_files,
         }
     )
 

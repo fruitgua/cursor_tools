@@ -7,6 +7,10 @@ let currentSortBy = "name";
 let currentSortOrder = "asc";
 let currentFileType = "";
 let currentSearchKeyword = "";
+let currentTab = "files";
+let similarPage = 1;
+let similarTotalPages = 1;
+const similarPerPage = 10;
 
 /**
  * Set status message or show toast.
@@ -117,10 +121,20 @@ async function scanDirectory() {
             setStatus("扫描完成，没有符合条件的查询结果。", "success");
             document.getElementById("file-table-body").innerHTML =
                 '<tr><td colspan="8" class="placeholder">没有符合条件的查询结果。</td></tr>';
+            const similarContainer = document.getElementById("similar-groups-container");
+            if (similarContainer) {
+                similarContainer.innerHTML =
+                    '<div class="placeholder">没有符合条件的疑似同文件分组。</div>';
+            }
         } else {
             setStatus("扫描完成，共找到 " + data.total + " 个文件。", "success");
             currentPage = 1;
-            await loadFiles();
+            similarPage = 1;
+            if (currentTab === "similar") {
+                await loadSimilarGroups(1);
+            } else {
+                await loadFiles();
+            }
         }
     } catch (err) {
         console.error(err);
@@ -166,6 +180,75 @@ async function loadFiles(page) {
     }
 }
 
+async function loadSimilarGroups(page) {
+    if (typeof page === "number") {
+        similarPage = page;
+    }
+    const params = new URLSearchParams();
+    params.set("page", String(similarPage));
+    params.set("per_page", String(similarPerPage));
+    params.set("name_ratio", "0.9");
+    params.set("size_diff_kb", "100");
+
+    try {
+        const resp = await fetch("/api/files/similar?" + params.toString());
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            const msg = data.message || "获取疑似同文件分组失败。";
+            setStatus(msg, "error");
+            renderSimilarGroups([]);
+            updateSimilarPagination({
+                page: 1,
+                total_pages: 1,
+                total_groups: 0,
+                total_files: 0,
+            });
+            return;
+        }
+        renderSimilarGroups(data.groups || []);
+        updateSimilarPagination(data);
+    } catch (err) {
+        console.error(err);
+        setStatus("获取疑似同文件分组失败，请检查控制台日志。", "error");
+    }
+}
+
+function renderFileRow(item) {
+    const hiddenClass = item.is_hidden ? "hidden-file" : "";
+    const typeDisplay = escapeHtml(item.extension + (item.is_hidden ? "（隐藏）" : ""));
+    const nameDisplay = escapeHtml(item.name);
+    const sizeDisplay = escapeHtml(item.size_display);
+
+    const createdParts = (item.created_at || "").split(" ");
+    const createdDate = escapeHtml(createdParts[0] || "");
+    const createdTime = escapeHtml(createdParts[1] || "");
+    const createdAt = createdTime ? `${createdDate}<br>${createdTime}` : createdDate;
+
+    const modifiedParts = (item.modified_at || "").split(" ");
+    const modifiedDate = escapeHtml(modifiedParts[0] || "");
+    const modifiedTime = escapeHtml(modifiedParts[1] || "");
+    const modifiedAt = modifiedTime ? `${modifiedDate}<br>${modifiedTime}` : modifiedDate;
+    const folderPath = escapeHtml(item.folder_path);
+    const remark = escapeHtml(item.remark || "");
+    const fullPath = escapeHtml(item.full_path);
+
+    return (
+        `<tr data-full-path="${fullPath}">` +
+        `<td class="${hiddenClass}">${nameDisplay}<button class="rename-icon" title="编辑文件名">✎</button></td>` +
+        `<td>${sizeDisplay}</td>` +
+        `<td>${typeDisplay}</td>` +
+        `<td><input class="remark-input" type="text" value="${remark}" data-full-path="${fullPath}" /></td>` +
+        `<td>${createdAt}</td>` +
+        `<td>${modifiedAt}</td>` +
+        `<td title="${folderPath}">${folderPath}</td>` +
+        `<td>` +
+        `<button class="btn operation-btn open-btn">打开</button>` +
+        `<button class="btn operation-btn delete-btn">删除</button>` +
+        `</td>` +
+        `</tr>`
+    );
+}
+
 /**
  * Render file table body with given items.
  * @param {Array<Object>} items - File items.
@@ -178,45 +261,40 @@ function renderTable(items) {
         return;
     }
 
-    const rows = items
-        .map((item) => {
-            const hiddenClass = item.is_hidden ? "hidden-file" : "";
-            const typeDisplay = escapeHtml(item.extension + (item.is_hidden ? "（隐藏）" : ""));
-            const nameDisplay = escapeHtml(item.name);
-            const sizeDisplay = escapeHtml(item.size_display);
+    const rows = items.map((item) => renderFileRow(item)).join("");
 
-            const createdParts = (item.created_at || "").split(" ");
-            const createdDate = escapeHtml(createdParts[0] || "");
-            const createdTime = escapeHtml(createdParts[1] || "");
-            const createdAt = createdTime ? `${createdDate}<br>${createdTime}` : createdDate;
+    tbody.innerHTML = rows;
+}
 
-            const modifiedParts = (item.modified_at || "").split(" ");
-            const modifiedDate = escapeHtml(modifiedParts[0] || "");
-            const modifiedTime = escapeHtml(modifiedParts[1] || "");
-            const modifiedAt = modifiedTime ? `${modifiedDate}<br>${modifiedTime}` : modifiedDate;
-            const folderPath = escapeHtml(item.folder_path);
-            const remark = escapeHtml(item.remark || "");
-            const fullPath = escapeHtml(item.full_path);
+function renderSimilarGroups(groups) {
+    const container = document.getElementById("similar-groups-container");
+    if (!container) return;
+    if (!groups.length) {
+        container.innerHTML = '<div class="placeholder">没有符合条件的疑似同文件分组。</div>';
+        return;
+    }
 
+    const content = groups
+        .map((group, idx) => {
+            const groupTitle = `第 ${((similarPage - 1) * similarPerPage) + idx + 1} 组`;
+            const rows = (group.items || []).map((item) => renderFileRow(item)).join("");
             return (
-                `<tr data-full-path="${fullPath}">` +
-                `<td class="${hiddenClass}">${nameDisplay}<button class="rename-icon" title="编辑文件名">✎</button></td>` +
-                `<td>${sizeDisplay}</td>` +
-                `<td>${typeDisplay}</td>` +
-                `<td><input class="remark-input" type="text" value="${remark}" data-full-path="${fullPath}" /></td>` +
-                `<td>${createdAt}</td>` +
-                `<td>${modifiedAt}</td>` +
-                `<td title="${folderPath}">${folderPath}</td>` +
-                `<td>` +
-                `<button class="btn operation-btn open-btn">打开</button>` +
-                `<button class="btn operation-btn delete-btn">删除</button>` +
-                `</td>` +
-                `</tr>`
+                `<article class="similar-group-card">` +
+                `<div class="similar-group-header">` +
+                `<div class="similar-group-title">${groupTitle}（${group.count || 0} 个文件）</div>` +
+                `</div>` +
+                `<div class="table-section similar-table-section">` +
+                `<table class="file-table">` +
+                `<thead><tr>` +
+                `<th>文件名称</th><th>文件大小</th><th>扩展名</th><th>备注 (输入后回车即可保存)</th>` +
+                `<th>创建时间</th><th>最后修改时间</th><th>文件夹地址</th><th>操作</th>` +
+                `</tr></thead>` +
+                `<tbody>${rows}</tbody>` +
+                `</table></div></article>`
             );
         })
         .join("");
-
-    tbody.innerHTML = rows;
+    container.innerHTML = content;
 }
 
 /**
@@ -249,6 +327,55 @@ function updatePagination(page, totalPageCount, totalItems) {
 
     prevBtn.disabled = page <= 1;
     nextBtn.disabled = page >= totalPageCount;
+}
+
+function updateSimilarPagination(data) {
+    similarPage = Number(data.page || 1);
+    similarTotalPages = Number(data.total_pages || 1);
+    const totalGroups = Number(data.total_groups || 0);
+    const totalFiles = Number(data.total_files || 0);
+
+    const summary = document.getElementById("similar-summary");
+    if (summary) {
+        summary.textContent = `共 ${totalGroups} 组，${totalFiles} 个文件，当前第 ${similarPage} / ${similarTotalPages} 页`;
+    }
+
+    const info = document.getElementById("similar-pagination-info");
+    if (info) {
+        info.textContent = "";
+    }
+    const detail = document.getElementById("similar-pagination-page-detail");
+    if (detail) {
+        detail.textContent = `第 ${similarPage} / ${similarTotalPages} 页`;
+    }
+    const prevBtn = document.getElementById("btn-similar-prev-page");
+    const nextBtn = document.getElementById("btn-similar-next-page");
+    if (prevBtn) prevBtn.disabled = similarPage <= 1;
+    if (nextBtn) nextBtn.disabled = similarPage >= similarTotalPages;
+}
+
+function switchTab(tab) {
+    currentTab = tab === "similar" ? "similar" : "files";
+    const tabFiles = document.getElementById("tab-files");
+    const tabSimilar = document.getElementById("tab-similar");
+    const panelFiles = document.getElementById("panel-files");
+    const panelSimilar = document.getElementById("panel-similar");
+    if (tabFiles) tabFiles.classList.toggle("active", currentTab === "files");
+    if (tabSimilar) tabSimilar.classList.toggle("active", currentTab === "similar");
+    if (panelFiles) panelFiles.classList.toggle("hidden", currentTab !== "files");
+    if (panelSimilar) panelSimilar.classList.toggle("hidden", currentTab !== "similar");
+
+    if (currentTab === "similar") {
+        loadSimilarGroups(1);
+    }
+}
+
+async function refreshCurrentTab() {
+    if (currentTab === "similar") {
+        await loadSimilarGroups(similarPage);
+    } else {
+        await loadFiles(currentPage);
+    }
 }
 
 /**
@@ -338,7 +465,7 @@ async function confirmDeleteFile() {
             setStatus(data.message || "删除文件失败。", "error");
         } else {
             setStatus("文件已移动到废纸篓。", "success");
-            await loadFiles(currentPage);
+            await refreshCurrentTab();
         }
     } catch (err) {
         console.error(err);
@@ -394,7 +521,7 @@ async function renameFile(fullPath) {
             setStatus(data.message || "重命名失败。", "error");
         } else {
             setStatus("重命名成功。", "success");
-            await loadFiles(currentPage);
+            await refreshCurrentTab();
         }
     } catch (err) {
         console.error(err);
@@ -431,6 +558,15 @@ function initEvents() {
             }
         });
 
+    const tabFiles = document.getElementById("tab-files");
+    const tabSimilar = document.getElementById("tab-similar");
+    if (tabFiles) {
+        tabFiles.addEventListener("click", () => switchTab("files"));
+    }
+    if (tabSimilar) {
+        tabSimilar.addEventListener("click", () => switchTab("similar"));
+    }
+
     document
         .getElementById("btn-prev-page")
         .addEventListener("click", function () {
@@ -446,6 +582,23 @@ function initEvents() {
                 loadFiles(currentPage + 1);
             }
         });
+
+    const similarPrev = document.getElementById("btn-similar-prev-page");
+    const similarNext = document.getElementById("btn-similar-next-page");
+    if (similarPrev) {
+        similarPrev.addEventListener("click", function () {
+            if (similarPage > 1) {
+                loadSimilarGroups(similarPage - 1);
+            }
+        });
+    }
+    if (similarNext) {
+        similarNext.addEventListener("click", function () {
+            if (similarPage < similarTotalPages) {
+                loadSimilarGroups(similarPage + 1);
+            }
+        });
+    }
 
     // Column sort
     document
@@ -464,6 +617,16 @@ function initEvents() {
         });
 
     document
+        .getElementById("similar-groups-container")
+        .addEventListener("change", function (e) {
+            if (e.target.classList.contains("remark-input")) {
+                const fullPath = e.target.getAttribute("data-full-path");
+                const remark = e.target.value;
+                saveRemark(fullPath, remark);
+            }
+        });
+
+    document
         .getElementById("file-table-body")
         .addEventListener("click", function (e) {
             const row = e.target.closest("tr");
@@ -471,6 +634,22 @@ function initEvents() {
             const fullPath = row.getAttribute("data-full-path");
             if (!fullPath) return;
 
+            if (e.target.classList.contains("delete-btn")) {
+                deleteFile(fullPath);
+            } else if (e.target.classList.contains("rename-icon")) {
+                renameFile(fullPath);
+            } else if (e.target.classList.contains("open-btn")) {
+                openFile(fullPath);
+            }
+        });
+
+    document
+        .getElementById("similar-groups-container")
+        .addEventListener("click", function (e) {
+            const row = e.target.closest("tr");
+            if (!row) return;
+            const fullPath = row.getAttribute("data-full-path");
+            if (!fullPath) return;
             if (e.target.classList.contains("delete-btn")) {
                 deleteFile(fullPath);
             } else if (e.target.classList.contains("rename-icon")) {

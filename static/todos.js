@@ -414,6 +414,15 @@
             : "";
 
         overlay.classList.remove("hidden");
+        // edit-modal 初始为 hidden，显示后需要刷新 ui-select 可见性
+        requestAnimationFrame(() => {
+            try {
+                catEl.dispatchEvent(new Event("change", { bubbles: true }));
+            } catch (_) {}
+            if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+                window.refreshUiSelectComboboxVisibility();
+            }
+        });
     }
 
     function closeEditModal() {

@@ -12,7 +12,6 @@
     <header class="app-header app-header-with-action">
         <div class="app-header-left">
             <h1>本地文件管理工具</h1>
-            <p class="subtitle">扫描本地文件夹，按类型分类展示与管理</p>
         </div>
         <div class="header-actions">
             <div id="theme-switcher-container"></div>
@@ -50,35 +49,61 @@
         </div>
     </section>
 
-    <section class="table-section">
-        <table class="file-table">
-            <thead>
-            <tr>
-                <th data-sort="name">文件名称<span class="sort-indicator"></span></th>
-                <th data-sort="size">文件大小<span class="sort-indicator"></span></th>
-                <th data-sort="extension">扩展名<span class="sort-indicator"></span></th>
-                <th>备注 (输入后回车即可保存)</th>
-                <th data-sort="created_at">创建时间<span class="sort-indicator"></span></th>
-                <th data-sort="modified_at">最后修改时间<span class="sort-indicator"></span></th>
-                <th>文件夹地址</th>
-                <th>操作</th>
-            </tr>
-            </thead>
-            <tbody id="file-table-body">
-            <tr>
-                <td colspan="8" class="placeholder">请先选择目录并点击"扫描文件"。</td>
-            </tr>
-            </tbody>
-        </table>
+    <section class="tab-section">
+        <div class="tab-row">
+            <button id="tab-files" class="tab-btn active" type="button" data-tab="files">文件列表</button>
+            <button id="tab-similar" class="tab-btn" type="button" data-tab="similar">疑似同文件处理</button>
+        </div>
     </section>
 
-    <section class="pagination-section">
-        <div id="pagination-info" class="pagination-info"></div>
-        <div class="pagination-controls">
-            <button id="btn-prev-page" class="btn" disabled>上一页</button>
-            <span id="pagination-page-detail"></span>
-            <button id="btn-next-page" class="btn" disabled>下一页</button>
-        </div>
+    <section id="panel-files" class="tab-panel active">
+        <section class="table-section">
+            <table class="file-table">
+                <thead>
+                <tr>
+                    <th data-sort="name">文件名称<span class="sort-indicator"></span></th>
+                    <th data-sort="size">文件大小<span class="sort-indicator"></span></th>
+                    <th data-sort="extension">扩展名<span class="sort-indicator"></span></th>
+                    <th>备注 (输入后回车即可保存)</th>
+                    <th data-sort="created_at">创建时间<span class="sort-indicator"></span></th>
+                    <th data-sort="modified_at">最后修改时间<span class="sort-indicator"></span></th>
+                    <th>文件夹地址</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="file-table-body">
+                <tr>
+                    <td colspan="8" class="placeholder">请先选择目录并点击"扫描文件"。</td>
+                </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="pagination-section">
+            <div id="pagination-info" class="pagination-info"></div>
+            <div class="pagination-controls">
+                <button id="btn-prev-page" class="btn" disabled>上一页</button>
+                <span id="pagination-page-detail"></span>
+                <button id="btn-next-page" class="btn" disabled>下一页</button>
+            </div>
+        </section>
+    </section>
+
+    <section id="panel-similar" class="tab-panel hidden">
+        <section id="similar-groups-container" class="similar-groups-container">
+            <div class="placeholder">请先扫描文件，然后切换到“疑似同文件处理”查看结果。</div>
+        </section>
+        <section class="pagination-section similar-pagination-section">
+            <div class="similar-pagination-left">
+                <div id="similar-summary" class="pagination-info">共 0 组，0 个文件</div>
+                <div id="similar-pagination-info" class="pagination-info"></div>
+            </div>
+            <div class="pagination-controls">
+                <button id="btn-similar-prev-page" class="btn" disabled>上一页</button>
+                <span id="similar-pagination-page-detail"></span>
+                <button id="btn-similar-next-page" class="btn" disabled>下一页</button>
+            </div>
+        </section>
     </section>
 
     <footer class="app-footer">
