@@ -60,6 +60,7 @@ def init_db() -> None:
             """
             CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_type TEXT NOT NULL DEFAULT 'system',
                 system TEXT NOT NULL DEFAULT '',
                 url TEXT NOT NULL DEFAULT '',
                 account_info TEXT NOT NULL DEFAULT '',
@@ -73,6 +74,22 @@ def init_db() -> None:
             conn.execute("ALTER TABLE accounts ADD COLUMN description TEXT NOT NULL DEFAULT ''")
             conn.commit()
         except sqlite3.OperationalError:
+            pass
+        # 兼容旧版 accounts 表：补充 account_type 字段，并回填历史数据为 system
+        try:
+            conn.execute("ALTER TABLE accounts ADD COLUMN account_type TEXT NOT NULL DEFAULT 'system'")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute(
+                """
+                UPDATE accounts SET account_type = 'system'
+                WHERE account_type IS NULL OR account_type = ''
+                """
+            )
+            conn.commit()
+        except Exception:
             pass
         conn.execute(
             """
@@ -196,6 +213,16 @@ def init_db() -> None:
                 meta TEXT NOT NULL DEFAULT '',
                 created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
                 updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ip_access_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT NOT NULL,
+                ip TEXT NOT NULL,
+                path TEXT NOT NULL
             )
             """
         )
@@ -779,17 +806,18 @@ def get_all_accounts() -> list:
     """
     Retrieve all accounts ordered by creation time (id).
 
-    :return: List of dicts with id, system, url, account_info, description.
+    :return: List of dicts with id, account_type, system, url, account_info, description.
     """
     conn = get_connection()
     try:
         cur = conn.execute(
-            "SELECT id, system, url, account_info, description FROM accounts ORDER BY id ASC"
+            "SELECT id, account_type, system, url, account_info, description FROM accounts ORDER BY id ASC"
         )
         rows = cur.fetchall()
         return [
             {
                 "id": row["id"],
+                "account_type": row["account_type"] or "system",
                 "system": row["system"] or "",
                 "url": row["url"] or "",
                 "account_info": row["account_info"] or "",
@@ -801,7 +829,7 @@ def get_all_accounts() -> list:
         conn.close()
 
 
-def add_account(system: str, url: str, account_info: str, description: str = "") -> int:
+def add_account(account_type: str, system: str, url: str, account_info: str, description: str = "") -> int:
     """
     Insert a new account record.
 
@@ -814,8 +842,8 @@ def add_account(system: str, url: str, account_info: str, description: str = "")
     conn = get_connection()
     try:
         cur = conn.execute(
-            "INSERT INTO accounts (system, url, account_info, description) VALUES (?, ?, ?, ?)",
-            (system or "", url or "", account_info or "", description or ""),
+            "INSERT INTO accounts (account_type, system, url, account_info, description) VALUES (?, ?, ?, ?, ?)",
+            (account_type or "system", system or "", url or "", account_info or "", description or ""),
         )
         conn.commit()
         return cur.lastrowid
@@ -824,7 +852,7 @@ def add_account(system: str, url: str, account_info: str, description: str = "")
 
 
 def update_account(
-    account_id: int, system: str, url: str, account_info: str, description: str = ""
+    account_id: int, account_type: str, system: str, url: str, account_info: str, description: str = ""
 ) -> bool:
     """
     Update an existing account by id.
@@ -840,10 +868,10 @@ def update_account(
     try:
         cur = conn.execute(
             """
-            UPDATE accounts SET system = ?, url = ?, account_info = ?, description = ?
+            UPDATE accounts SET account_type = ?, system = ?, url = ?, account_info = ?, description = ?
             WHERE id = ?
             """,
-            (system or "", url or "", account_info or "", description or "", account_id),
+            (account_type or "system", system or "", url or "", account_info or "", description or "", account_id),
         )
         conn.commit()
         return cur.rowcount > 0
@@ -862,7 +890,7 @@ def swap_accounts(account_id1: int, account_id2: int) -> bool:
     conn = get_connection()
     try:
         cur = conn.execute(
-            "SELECT id, system, url, account_info, description FROM accounts WHERE id IN (?, ?)",
+            "SELECT id, account_type, system, url, account_info, description FROM accounts WHERE id IN (?, ?)",
             (account_id1, account_id2),
         )
         rows = cur.fetchall()
@@ -870,6 +898,7 @@ def swap_accounts(account_id1: int, account_id2: int) -> bool:
             return False
         data = {
             row["id"]: {
+                "account_type": row["account_type"] or "system",
                 "system": row["system"] or "",
                 "url": row["url"] or "",
                 "account_info": row["account_info"] or "",
@@ -883,17 +912,17 @@ def swap_accounts(account_id1: int, account_id2: int) -> bool:
         d1, d2 = data[account_id1], data[account_id2]
         conn.execute(
             """
-            UPDATE accounts SET system = ?, url = ?, account_info = ?, description = ?
+            UPDATE accounts SET account_type = ?, system = ?, url = ?, account_info = ?, description = ?
             WHERE id = ?
             """,
-            (d2["system"], d2["url"], d2["account_info"], d2["description"], account_id1),
+            (d2["account_type"], d2["system"], d2["url"], d2["account_info"], d2["description"], account_id1),
         )
         conn.execute(
             """
-            UPDATE accounts SET system = ?, url = ?, account_info = ?, description = ?
+            UPDATE accounts SET account_type = ?, system = ?, url = ?, account_info = ?, description = ?
             WHERE id = ?
             """,
-            (d1["system"], d1["url"], d1["account_info"], d1["description"], account_id2),
+            (d1["account_type"], d1["system"], d1["url"], d1["account_info"], d1["description"], account_id2),
         )
         conn.commit()
         return True
@@ -1210,6 +1239,63 @@ def update_path(old_path: str, new_path: str) -> None:
             (new_path, old_path),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def add_ip_access_log(ts: str, ip: str, path: str) -> None:
+    """Append one access log row (ts is a formatted string)."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO ip_access_logs (ts, ip, path) VALUES (?, ?, ?)",
+            (ts or "", ip or "", path or ""),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def count_distinct_access_ips() -> int:
+    """Return distinct IP count from access logs."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("SELECT COUNT(DISTINCT ip) AS c FROM ip_access_logs")
+        row = cur.fetchone()
+        return int(row["c"] or 0) if row is not None else 0
+    finally:
+        conn.close()
+
+
+def count_ip_access_logs() -> int:
+    """Return total access log rows."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("SELECT COUNT(1) AS c FROM ip_access_logs")
+        row = cur.fetchone()
+        return int(row["c"] or 0) if row is not None else 0
+    finally:
+        conn.close()
+
+
+def get_ip_access_logs(limit: int = 20, offset: int = 0) -> List[Dict]:
+    """Get access logs ordered by newest first."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT id, ts, ip, path
+            FROM ip_access_logs
+            ORDER BY id DESC
+            LIMIT ? OFFSET ?
+            """,
+            (int(limit), int(offset)),
+        )
+        rows = cur.fetchall()
+        return [
+            {"id": row["id"], "ts": row["ts"] or "", "ip": row["ip"] or "", "path": row["path"] or ""}
+            for row in rows
+        ]
     finally:
         conn.close()
 

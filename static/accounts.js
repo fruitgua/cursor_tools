@@ -31,14 +31,23 @@ function renderAccounts(items) {
         return;
     }
 
+    const typeLabel = (t) => (String(t || "system") === "tool" ? "工具" : "系统");
+    const safeUrlHref = (u) => {
+        const raw = String(u || "").trim();
+        if (!raw) return "";
+        // 简单保护：仅允许 http(s) 链接，避免 javascript: 等
+        if (/^https?:\/\//i.test(raw)) return raw;
+        return "https://" + raw;
+    };
+
     tbody.innerHTML = items
         .map(
             (item, index) => `
         <tr data-id="${item.id}" data-index="${index}">
+            <td class="cell-type">${escapeHtml(typeLabel(item.account_type))}</td>
             <td class="cell-system">${escapeHtml(item.system)}</td>
-            <td class="cell-url">${escapeHtml(item.url)}</td>
+            <td class="cell-url"><a href="${escapeHtml(safeUrlHref(item.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a></td>
             <td class="cell-account-info">${escapeHtml(item.account_info)}</td>
-            <td class="cell-description">${escapeHtml(item.description || "")}</td>
             <td class="cell-actions">
                 <div class="actions-wrap">
                     ${index > 0 ? '<button class="btn operation-btn btn-move-up" data-id="' + item.id + '">上移</button>' : ''}
@@ -61,17 +70,29 @@ function escapeHtml(str) {
 
 function switchToEditMode(row) {
     const id = row.getAttribute("data-id");
+    const typeCell = row.querySelector(".cell-type");
     const systemCell = row.querySelector(".cell-system");
     const urlCell = row.querySelector(".cell-url");
     const accountInfoCell = row.querySelector(".cell-account-info");
-    const descCell = row.querySelector(".cell-description");
     const opCell = row.querySelector("td:last-child");
 
+    const typeVal = typeCell ? typeCell.textContent : "系统";
     const systemVal = systemCell.textContent;
-    const urlVal = urlCell.textContent;
+    const urlVal = (urlCell.querySelector("a")?.textContent || urlCell.textContent || "").trim();
     const accountInfoVal = accountInfoCell.textContent;
-    const descVal = descCell ? (descCell.querySelector(".desc-textarea")?.value ?? descCell.textContent ?? "") : "";
 
+    if (typeCell) {
+        const selected = typeVal.trim() === "工具" ? "tool" : "system";
+        typeCell.innerHTML =
+            '<select class="edit-input" data-field="account_type" data-ui-select="single">' +
+            '<option value="system"' +
+            (selected === "system" ? " selected" : "") +
+            ">系统</option>" +
+            '<option value="tool"' +
+            (selected === "tool" ? " selected" : "") +
+            ">工具</option>" +
+            "</select>";
+    }
     systemCell.innerHTML =
         '<input type="text" class="edit-input" data-field="system" value="' +
         escapeHtml(systemVal) +
@@ -84,12 +105,6 @@ function switchToEditMode(row) {
         '<input type="text" class="edit-input" data-field="account_info" value="' +
         escapeHtml(accountInfoVal) +
         '" />';
-    if (descCell) {
-        descCell.innerHTML =
-            '<textarea class="edit-input desc-textarea" data-field="description" rows="2">' +
-            escapeHtml(descVal) +
-            "</textarea>";
-    }
 
     opCell.innerHTML = `
         <div class="actions-wrap">
@@ -97,10 +112,20 @@ function switchToEditMode(row) {
             <button class="btn operation-btn btn-cancel" data-id="${id}">取消</button>
         </div>
     `;
+
+    // 编辑态下动态插入 select，需要补一次 ui-select 增强
+    try {
+        if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+            window.refreshUiSelectComboboxVisibility();
+        }
+    } catch (_) {}
 }
 
 function loadAccounts(callback) {
-    fetch("/api/accounts")
+    const filterEl = document.getElementById("accounts-filter-type");
+    const t = filterEl ? String(filterEl.value || "") : "";
+    const qs = t ? ("?type=" + encodeURIComponent(t)) : "";
+    fetch("/api/accounts" + qs)
         .then((r) => r.json())
         .then((data) => {
             if (data.success) {
@@ -116,23 +141,24 @@ function loadAccounts(callback) {
 }
 
 function addAccount() {
+    const accountTypeEl = document.getElementById("add-account-type");
+    const account_type = accountTypeEl ? String(accountTypeEl.value || "system") : "system";
     const system = document.getElementById("add-system").value.trim();
     const url = document.getElementById("add-url").value.trim();
     const accountInfo = document.getElementById("add-account-info").value.trim();
-    const description = document.getElementById("add-description").value;
 
     fetch("/api/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system, url, account_info: accountInfo, description }),
+        body: JSON.stringify({ account_type, system, url, account_info: accountInfo }),
     })
         .then((r) => r.json())
         .then((data) => {
             if (data.success) {
+                if (accountTypeEl) accountTypeEl.value = "system";
                 document.getElementById("add-system").value = "";
                 document.getElementById("add-url").value = "";
                 document.getElementById("add-account-info").value = "";
-                document.getElementById("add-description").value = "";
                 showToast("添加成功");
                 loadAccounts(bindRowEvents);
             } else {
@@ -144,16 +170,15 @@ function addAccount() {
         });
 }
 
-function updateAccount(id, system, url, accountInfo, description) {
-    if (description === undefined) description = "";
+function updateAccount(id, account_type, system, url, accountInfo) {
     fetch("/api/accounts/" + id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+            account_type,
             system,
             url,
             account_info: accountInfo,
-            description,
         }),
     })
         .then((r) => r.json())
@@ -245,12 +270,11 @@ function bindRowEvents() {
             const id = parseInt(btn.getAttribute("data-id"), 10);
             const row = tbody.querySelector('tr[data-id="' + id + '"]');
             if (!row) return;
+            const account_type = row.querySelector('[data-field="account_type"]')?.value || "system";
             const system = row.querySelector('[data-field="system"]')?.value || "";
             const url = row.querySelector('[data-field="url"]')?.value || "";
             const accountInfo = row.querySelector('[data-field="account_info"]')?.value || "";
-            const descInput = row.querySelector('[data-field="description"]');
-            const description = descInput ? descInput.value : "";
-            updateAccount(id, system, url, accountInfo, description);
+            updateAccount(id, account_type, system, url, accountInfo);
         };
     });
 
@@ -267,6 +291,10 @@ function initAccounts() {
     };
 
     document.getElementById("btn-add").onclick = addAccount;
+    const filterEl = document.getElementById("accounts-filter-type");
+    if (filterEl) {
+        filterEl.onchange = () => loadAccounts(bindRowEvents);
+    }
 
     const confirmModal = document.getElementById("accounts-confirm-modal");
     const btnCancel = document.getElementById("btn-accounts-delete-cancel");
@@ -285,6 +313,13 @@ function initAccounts() {
     }
 
     loadAccounts(bindRowEvents);
+
+    // 页面初始化后确保 ui-select 可见性同步
+    try {
+        if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+            window.refreshUiSelectComboboxVisibility();
+        }
+    } catch (_) {}
 }
 
 document.addEventListener("DOMContentLoaded", initAccounts);

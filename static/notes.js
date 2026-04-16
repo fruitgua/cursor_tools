@@ -15,6 +15,7 @@ let isSubmittingNewNote = false;
 let isDirty = false;
 let autoSaveTimer = null;
 let confirmModalOnOk = null;
+let draftSaveTimer = null;
 
 function getCurrentNoteSnapshot() {
     if (currentNoteId == null) return null;
@@ -283,6 +284,33 @@ function setLastUpdatedLabel(dateObj) {
     el.textContent = "上次更新时间：" + formatDateTimeToMinute(dateObj);
 }
 
+function setWordCountLabel(text) {
+    const el = document.getElementById("notes-word-count");
+    if (!el) return;
+    el.textContent = "总字数: " + (text || "-");
+}
+
+function getCurrentWordCount() {
+    if (!quill) return null;
+    try {
+        // Quill getText() 会包含尾部换行，这里统一去掉空白字符
+        const raw = quill.getText ? String(quill.getText() || "") : String(quill.root?.textContent || "");
+        const normalized = raw.replace(/\s+/g, "");
+        return normalized.length;
+    } catch (_) {
+        return null;
+    }
+}
+
+function refreshWordCount() {
+    const n = getCurrentWordCount();
+    if (n == null) {
+        setWordCountLabel("-");
+        return;
+    }
+    setWordCountLabel(String(n));
+}
+
 function parseDbTimeToDate(ts) {
     if (ts == null) return null;
     if (typeof ts === "number" && isFinite(ts)) {
@@ -347,6 +375,9 @@ function showPlaceholder() {
     document.getElementById("notes-detail-form").style.display = "none";
     document.getElementById("notes-actions").style.display = "none";
     setLastUpdatedLabel(null);
+    setWordCountLabel("-");
+    const exportBtn = document.getElementById("btn-export-html");
+    if (exportBtn) exportBtn.style.display = "none";
 }
 
 function showAddForm() {
@@ -357,17 +388,20 @@ function showAddForm() {
     document.getElementById("notes-detail-form").style.display = "block";
     document.getElementById("notes-actions").style.display = "block";
     document.getElementById("btn-clear").style.display = "inline-block";
+    document.getElementById("btn-export-html").style.display = "inline-block";
     document.getElementById("btn-submit").style.display = "inline-block";
     document.getElementById("btn-delete").style.display = "none";
     const saveNowBtn = document.getElementById("btn-save-now");
     if (saveNowBtn) saveNowBtn.style.display = "none";
     setLastUpdatedLabel(null);
+    setWordCountLabel("-");
 
     document.getElementById("note-title").value = "";
     document.getElementById("note-category").value = "";
 
     initQuillLazy();
     if (quill) quill.root.innerHTML = "";
+    refreshWordCount();
 
     document.querySelectorAll(".notes-list-item").forEach((el) => el.classList.remove("active"));
 
@@ -385,6 +419,7 @@ function showEditForm(note) {
     document.getElementById("notes-detail-form").style.display = "block";
     document.getElementById("notes-actions").style.display = "block";
     document.getElementById("btn-clear").style.display = "none";
+    document.getElementById("btn-export-html").style.display = "inline-block";
     document.getElementById("btn-submit").style.display = "none";
     document.getElementById("btn-delete").style.display = "inline-block";
     const saveNowBtn = document.getElementById("btn-save-now");
@@ -406,6 +441,7 @@ function showEditForm(note) {
 
     initQuillLazy();
     if (quill) quill.root.innerHTML = note.content || "";
+    refreshWordCount();
 
     document.querySelectorAll(".notes-list-item").forEach((el) => {
         el.classList.toggle("active", parseInt(el.getAttribute("data-id"), 10) === note.id);
@@ -420,6 +456,7 @@ function showEditForm(note) {
         content: note.content || "",
     };
     setLastUpdatedLabel(parseDbTimeToDate(note.updated_at) || parseDbTimeToDate(note.created_at) || new Date());
+    refreshWordCount();
     startAutoSaveTimer();
     refreshNotesSelectUi();
 }
@@ -654,6 +691,38 @@ function clearForm() {
     showToast("已清空");
 }
 
+function exportCurrentNoteAsHtml() {
+    const titleEl = document.getElementById("note-title");
+    const title = titleEl ? String(titleEl.value || "").trim() : "";
+    const contentHtml = quill ? String(quill.root.innerHTML || "") : "";
+    if (isContentEmpty(contentHtml)) {
+        showToast("暂无内容可导出", "error");
+        return;
+    }
+    const safeTitle = (title || "笔记").replace(/[\\/:*?"<>|]+/g, "_").slice(0, 60);
+    const doc = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(safeTitle)}</title>
+</head>
+<body>
+  <h1>${escapeHtml(title || "(无标题)")}</h1>
+  <div>${contentHtml}</div>
+</body>
+</html>`;
+    const blob = new Blob([doc], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = safeTitle + ".html";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function isContentEmpty(html) {
     if (!html || !html.trim()) return true;
     const div = document.createElement("div");
@@ -669,8 +738,9 @@ function submitNote() {
     const category = categoryEl ? categoryEl.value : "";
     const content = quill ? quill.root.innerHTML : "";
 
-    if (!title || !category || isContentEmpty(content)) {
-        showToast("×请填写必填项。", "error");
+    // 新增阶段：允许作为草稿保存，不再强制必填项
+    if (!title && !category && isContentEmpty(content)) {
+        showToast("×请填写内容。", "error");
         return;
     }
 
@@ -702,24 +772,43 @@ function submitNote() {
         });
 }
 
-function scheduleAutoSubmitNewNote() {
-    // 仅在“新增笔记”模式下自动提交（currentNoteId == null）
+function scheduleDraftAutoSave() {
+    // 仅在“新增笔记”模式下：有内容就创建草稿并防止刷新丢失
     if (currentNoteId != null) return;
     if (!saveEnabled) return;
     if (isSubmittingNewNote) return;
-    if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
-    autoSubmitTimer = setTimeout(() => {
-        autoSubmitTimer = null;
+    if (draftSaveTimer) clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(() => {
+        draftSaveTimer = null;
         if (currentNoteId != null) return;
         if (!saveEnabled || isSubmittingNewNote) return;
+
         const titleEl = document.getElementById("note-title");
         const catEl = document.getElementById("note-category");
         const title = titleEl ? String(titleEl.value || "").trim() : "";
         const category = catEl ? String(catEl.value || "").trim() : "";
-        const content = quill ? (quill.root.innerHTML || "") : "";
-        if (!title || !category || isContentEmpty(content)) return;
-        submitNote();
-    }, 300);
+        const content = quill ? String(quill.root.innerHTML || "") : "";
+
+        if (!title && !category && isContentEmpty(content)) return;
+
+        isSubmittingNewNote = true;
+        fetch("/api/notes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, category, content }),
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (data && data.success && data.id != null) {
+                    // 草稿创建成功后进入编辑态（后续由自动保存机制更新）
+                    loadNotesList(() => loadNote(data.id));
+                }
+            })
+            .catch(() => {})
+            .finally(() => {
+                isSubmittingNewNote = false;
+            });
+    }, 500);
 }
 
 function deleteNote() {
@@ -786,6 +875,8 @@ function bindEvents() {
     document.getElementById("btn-clear").onclick = clearForm;
     document.getElementById("btn-submit").onclick = submitNote;
     document.getElementById("btn-delete").onclick = deleteNote;
+    const exportBtn = document.getElementById("btn-export-html");
+    if (exportBtn) exportBtn.onclick = exportCurrentNoteAsHtml;
     const saveNowBtn = document.getElementById("btn-save-now");
     if (saveNowBtn) {
         saveNowBtn.onclick = () => {
@@ -805,12 +896,12 @@ function bindEvents() {
 
     document.getElementById("note-title").addEventListener("input", () => {
         debouncedSave();
-        scheduleAutoSubmitNewNote();
+        scheduleDraftAutoSave();
     });
     document.getElementById("note-title").addEventListener("blur", debouncedSave);
     document.getElementById("note-category").addEventListener("change", () => {
         debouncedSave();
-        scheduleAutoSubmitNewNote();
+        scheduleDraftAutoSave();
     });
 
     // UI 规范：确认弹窗（用于分类删除等确认）
@@ -866,7 +957,8 @@ function initQuillLazy() {
         initQuill();
         if (quill) {
             quill.on("text-change", debouncedSave);
-            quill.on("text-change", scheduleAutoSubmitNewNote);
+            quill.on("text-change", scheduleDraftAutoSave);
+            quill.on("text-change", refreshWordCount);
         } else {
             throw new Error("编辑器元素未找到");
         }

@@ -22,6 +22,12 @@
     <section class="control-panel accounts-add-panel">
         <div class="control-row accounts-add-row-1">
             <div class="field-group">
+                <select id="add-account-type" class="field-control accounts-type-select" data-ui-select="single">
+                    <option value="system" selected>系统</option>
+                    <option value="tool">工具</option>
+                </select>
+            </div>
+            <div class="field-group">
                 <input type="text" id="add-system" class="field-control" placeholder="如：GitHub" />
             </div>
             <div class="field-group">
@@ -32,9 +38,17 @@
             </div>
             <button id="btn-add" class="btn primary">添加</button>
         </div>
-        <div class="control-row accounts-add-row-2">
-            <div class="field-group field-group-full">
-                <textarea id="add-description" class="field-control desc-textarea" placeholder="请输入说明，支持回车换行"></textarea>
+    </section>
+
+    <section class="control-panel accounts-filter-panel">
+        <div class="control-row accounts-filter-row">
+            <div class="field-group">
+                <span class="field-label">类型</span>
+                <select id="accounts-filter-type" class="field-control accounts-type-select" data-ui-select="single">
+                    <option value="">全部</option>
+                    <option value="system" selected>系统</option>
+                    <option value="tool">工具</option>
+                </select>
             </div>
         </div>
     </section>
@@ -43,10 +57,10 @@
         <table class="file-table accounts-table">
             <thead>
             <tr>
+                <th>类型</th>
                 <th>系统</th>
                 <th>网址</th>
                 <th>账号信息</th>
-                <th>说明</th>
                 <th>操作</th>
             </tr>
             </thead>
@@ -78,6 +92,7 @@
 </div>
 
 <script src="/static/theme-switcher.js"></script>
+<script src="/static/ui-select.js"></script>
 <script src="/static/accounts.js"></script>
 </body>
 </html>

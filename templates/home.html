@@ -68,18 +68,21 @@
                 <div class="home-card-title">本地文件管理工具</div>
                 <div class="home-card-desc">扫描并分类展示本地文件夹，支持编辑和删除</div>
             </button>
-            <button class="home-card" data-key="atlas">
+            <button class="home-card" data-key="ledger">
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
-                <div class="home-card-icon">🖼️</div>
-                <div class="home-card-title">图鉴小能手</div>
-                <div class="home-card-desc">未来用于管理和浏览各类图鉴</div>
+                <div class="home-card-icon">💰</div>
+                <div class="home-card-title">记账本</div>
+                <div class="home-card-desc">记录日常收支（功能待开发）</div>
             </button>
         </section>
         </div>
     </main>
 
     <footer class="app-footer">
-        <p>提示：当前仅"本地文件管理工具"已实现，其余能力等待你来逐步完善。</p>
+        <p>
+            当前访问IP数：{{ ip_count | default(0) }} ，
+            <a href="/ip-monitor">查看访问记录</a>
+        </p>
     </footer>
 </div>
 

@@ -4,6 +4,7 @@ import ssl
 import re
 import difflib
 from datetime import datetime, date, timedelta
+from math import ceil
 from typing import List, Dict, Any, Optional, Tuple
 
 from flask import Flask, jsonify, render_template, request, Response, redirect, url_for
@@ -40,6 +41,10 @@ from database import (
     set_todos_state,
     get_calendar_events,
     set_calendar_state,
+    add_ip_access_log,
+    count_distinct_access_ips,
+    count_ip_access_logs,
+    get_ip_access_logs,
 )
 from utils import scan_directory, validate_directory_path
 from caldav_sync import sync_checkin_to_caldav
@@ -52,6 +57,34 @@ init_db()
 
 # In-memory cache for the last scan result
 SCAN_RESULTS: List[Dict[str, Any]] = []
+
+
+def _get_client_ip() -> str:
+    """
+    Best-effort client IP extraction for local networks / reverse proxies.
+    """
+    xff = (request.headers.get("X-Forwarded-For") or "").strip()
+    if xff:
+        return xff.split(",")[0].strip()
+    return (request.remote_addr or "").strip()
+
+
+@app.before_request
+def _log_ip_access() -> None:
+    """
+    Record each non-static request: timestamp (to seconds), ip, and page.
+    """
+    try:
+        path = request.full_path or request.path or ""
+        if path.endswith("?"):
+            path = path[:-1]
+        if request.path.startswith("/static/") or request.path in ("/favicon.ico",):
+            return
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ip = _get_client_ip()
+        add_ip_access_log(ts=ts, ip=ip, path=path)
+    except Exception:
+        return
 
 CHECKIN_STATE_KEY = "checkin_data"
 DEFAULT_CHECKIN_STATE: Dict[str, Any] = {
@@ -353,7 +386,46 @@ def home() -> str:
     Render the home page.
     :return: Rendered HTML content.
     """
-    return render_template("home.html")
+    ip_count = 0
+    try:
+        ip_count = count_distinct_access_ips()
+    except Exception:
+        ip_count = 0
+    return render_template("home.html", ip_count=ip_count)
+
+
+@app.route("/ip-monitor")
+def ip_monitor_page() -> str:
+    """IP monitoring page with pagination."""
+    page = int(request.args.get("page", 1) or 1)
+    per_page = 20
+    total = 0
+    try:
+        total = count_ip_access_logs()
+    except Exception:
+        total = 0
+    total_pages = max(1, int(ceil(total / float(per_page))) if per_page > 0 else 1)
+    page = max(1, min(page, total_pages))
+    offset = (page - 1) * per_page
+    logs: List[Dict[str, Any]] = []
+    try:
+        logs = get_ip_access_logs(limit=per_page, offset=offset)
+    except Exception:
+        logs = []
+    return render_template(
+        "ip_monitor.html",
+        logs=logs,
+        total=total,
+        page=page,
+        total_pages=total_pages,
+        per_page=per_page,
+    )
+
+
+@app.route("/ledger")
+def ledger_page() -> str:
+    """Ledger placeholder page."""
+    return render_template("ledger.html")
 
 
 @app.route("/files")
@@ -711,6 +783,9 @@ def api_accounts_list() -> Any:
     """
     try:
         items = get_all_accounts()
+        acc_type = (request.args.get("type") or "").strip().lower()
+        if acc_type in ("system", "tool"):
+            items = [x for x in items if (x.get("account_type") or "system") == acc_type]
         return jsonify({"success": True, "items": items})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": str(exc)}), 500
@@ -724,12 +799,15 @@ def api_accounts_add() -> Any:
     :return: JSON with new item id.
     """
     data = request.get_json(silent=True) or {}
+    account_type = (data.get("account_type") or "system").strip().lower()
+    if account_type not in ("system", "tool"):
+        account_type = "system"
     system = data.get("system", "")
     url = data.get("url", "")
     account_info = data.get("account_info", "")
     description = data.get("description", "")
     try:
-        row_id = add_account(system, url, account_info, description)
+        row_id = add_account(account_type, system, url, account_info, description)
         return jsonify({"success": True, "id": row_id})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": str(exc)}), 500
@@ -743,12 +821,15 @@ def api_accounts_update(account_id: int) -> Any:
     :return: JSON success status.
     """
     data = request.get_json(silent=True) or {}
+    account_type = (data.get("account_type") or "system").strip().lower()
+    if account_type not in ("system", "tool"):
+        account_type = "system"
     system = data.get("system", "")
     url = data.get("url", "")
     account_info = data.get("account_info", "")
     description = data.get("description", "")
     try:
-        ok = update_account(account_id, system, url, account_info, description)
+        ok = update_account(account_id, account_type, system, url, account_info, description)
         if not ok:
             return jsonify({"success": False, "message": "记录不存在"}), 404
         return jsonify({"success": True})
@@ -1495,6 +1576,81 @@ def api_vocab_set_state() -> Any:
         return jsonify({"success": False, "message": f"保存词汇数据失败：{exc}"}), 500
 
 
+def _vocab_input_is_chinese(text: str) -> bool:
+    """输入是否主要为中文（含汉字即按中文词条处理，与前端 detectLanguage 一致）。"""
+    s = (text or "").strip()
+    if not s:
+        return False
+    return bool(re.search(r"[\u4e00-\u9fff]", s))
+
+
+def _fetch_chinese_pinyin_from_dict(text: str) -> str:
+    """
+    从权威词典接口中获取拼音（带声调）。
+
+    约定：
+    - 单字：萌典 raw API
+    - 词语：有道 jsonapi_s
+
+    获取失败时返回空字符串；上层可据此决定是否报错。
+    """
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+
+    q = (text or "").strip()
+    if not q:
+        return ""
+
+    # 本地开发环境：关闭 SSL 证书校验，避免 macOS 上的 CA 配置问题
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    def _get_json(url: str) -> Dict[str, Any]:
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("User-Agent", "Mozilla/5.0")
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+            raw = resp.read().decode("utf-8")
+        obj = json.loads(raw)
+        return obj if isinstance(obj, dict) else {}
+
+    try:
+        if len(q) == 1:
+            # 萌典：https://www.moedict.tw/raw/<char>
+            url = "https://www.moedict.tw/raw/" + urllib.parse.quote(q)
+            data = _get_json(url)
+            heteronyms = data.get("heteronyms") or []
+            if isinstance(heteronyms, list):
+                for h in heteronyms:
+                    if not isinstance(h, dict):
+                        continue
+                    p = str(h.get("pinyin") or "").strip()
+                    if p:
+                        return p
+            return ""
+
+        # 有道：https://dict.youdao.com/jsonapi_s?doctype=json&jsonversion=4&q=<phrase>
+        url = "https://dict.youdao.com/jsonapi_s?doctype=json&jsonversion=4&q=" + urllib.parse.quote(q)
+        data = _get_json(url)
+        ce = data.get("ce") or data.get("ce_new") or {}
+        simple = ((data.get("simple") or {}).get("word") or [])
+        simple0 = simple[0] if isinstance(simple, list) and simple else {}
+        phone = ""
+        if isinstance(simple0, dict):
+            phone = str(simple0.get("phone") or "").strip()
+        if not phone:
+            word_obj = (ce.get("word") if isinstance(ce, dict) else None)
+            first = word_obj[0] if isinstance(word_obj, list) and word_obj else (word_obj if isinstance(word_obj, dict) else {})
+            if isinstance(first, dict):
+                phone = str(first.get("phone") or "").strip()
+            elif isinstance(word_obj, dict):
+                phone = str(word_obj.get("phone") or "").strip()
+        return phone
+    except Exception:
+        return ""
+
+
 def _call_llm_for_vocab(text: str) -> Dict[str, Any]:
     """
     调用大语言模型，将原始查询文本解析为结构化的单词信息。
@@ -1518,28 +1674,54 @@ def _call_llm_for_vocab(text: str) -> Dict[str, Any]:
     base_url = cfg["base_url"] or os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
     model = cfg["model"] or os.environ.get("OPENAI_VOCAB_MODEL", "gpt-4o-mini")
 
+    is_zh = _vocab_input_is_chinese(text)
+    pronunciation_comment = (
+        '  \"pronunciation\": string,     // 可为空：拼音由前端权威词典优先展示；若填写则仅作兜底，须为标准汉语拼音（带声调）\n'
+        if is_zh
+        else '  \"pronunciation\": string,     // 音标或发音描述，可为空\n'
+    )
+    meaning_zh_comment = (
+        '  \"meaning_zh\": string,        // 补充性中文说明：搭配、用法辨析、近义区分、英文对应说法等；标准义项以用户端词典为准，此处勿复述整本词典释义\n'
+        if is_zh
+        else '  \"meaning_zh\": string,        // 中文释义，要求每个义项前必须带有词性缩写（如 \"adj.\"、\"n.\"、\"v.\" 等），多义用分号或换行分隔，例如：\"adj. 优良的；能干的；……；n. 善；好事；……\"\n'
+    )
+    example_comment = (
+        '  \"example\": string            // 简短例句：优先给出用该词造的中文例句，可附英文翻译；若无合适例句可为空\n'
+        if is_zh
+        else '  \"example\": string            // 一个代表性英文例句，尽量简单，同时附带中文翻译，例如：\"I wear sweatpants at home. 在家时我穿运动休闲裤。\"\n'
+    )
+
     system_prompt = (
         "你是一个精确的英汉词典引擎，请根据用户输入的单词或短语，返回 ONLY JSON，不要包含任何多余文字。\n"
         "JSON 结构严格为：\n"
         "{\n"
-        '  \"word\": string,              // 标准单词形式\n'
-        '  \"pronunciation\": string,     // 音标或发音描述，可为空\n'
-        '  \"meaning_zh\": string,        // 中文释义，要求每个义项前必须带有词性缩写（如 \"adj.\"、\"n.\"、\"v.\" 等），多义用分号或换行分隔，例如：\"adj. 优良的；能干的；……；n. 善；好事；……\"\n'
-        '  \"meaning_en\": string,        // 英文释义，可为空\n'
-        '  \"synonyms\": string[],        // 同义词列表，只包含单词，不要解释\n'
-        '  \"past\": string,              // 过去式，可为空\n'
-        '  \"past_participle\": string,   // 过去分词，可为空\n'
-        '  \"present_participle\": string,// 现在分词，可为空\n'
-        '  \"third_person_singular\": string, // 第三人称单数，可为空\n'
-        '  \"comparative\": string,       // 比较级，可为空\n'
-        '  \"superlative\": string,       // 最高级，可为空\n'
-        '  \"plural\": string,            // 复数形式，可为空\n'
-        '  \"example\": string            // 一个代表性英文例句，尽量简单，同时附带中文翻译，例如：\"I wear sweatpants at home. 在家时我穿运动休闲裤。\"\n'
-        "}\n"
-        "确保 meaning_zh 中的每个义项都清晰标明词性（如 \"adj.\"、\"n.\"），并且始终返回合法 JSON。"
+        '  \"word\": string,              // 标准词条形式（中文输入则为规范汉字词语）\n'
+        + pronunciation_comment
+        + meaning_zh_comment
+        + '  \"meaning_en\": string,        // 英文释义，可为空\n'
+        + '  \"synonyms\": string[],        // 同义词列表，只包含单词，不要解释\n'
+        + '  \"past\": string,              // 过去式，可为空\n'
+        + '  \"past_participle\": string,   // 过去分词，可为空\n'
+        + '  \"present_participle\": string,// 现在分词，可为空\n'
+        + '  \"third_person_singular\": string, // 第三人称单数，可为空\n'
+        + '  \"comparative\": string,       // 比较级，可为空\n'
+        + '  \"superlative\": string,       // 最高级，可为空\n'
+        + '  \"plural\": string,            // 复数形式，可为空\n'
+        + example_comment
+        + "}\n"
+        + (
+            "对于中文词条：前端会合并权威词典的拼音与释义；请你把 meaning_zh 写成对标准释义的补充（用法、搭配、辨析等），"
+            "pronunciation 可留空；英文词形字段填空字符串即可。\n"
+            if is_zh
+            else "确保 meaning_zh 中的每个义项都清晰标明词性（如 \"adj.\"、\"n.\"），并且始终返回合法 JSON。\n"
+        )
     )
 
-    user_prompt = f"查询单词或短语：{text}"
+    user_prompt = (
+        f"查询中文词语：{text}\n请在 meaning_zh 中提供词典之外的补充说明（可含词性标注）；pronunciation 可留空。"
+        if is_zh
+        else f"查询单词或短语：{text}"
+    )
 
     payload = {
         "model": model,
@@ -1630,7 +1812,15 @@ def api_vocab_llm_query() -> Any:
         return jsonify({"success": False, "message": "请输入要查询的单词"}), 400
 
     try:
+        # 中文输入：强制要求词典能给出拼音，否则直接失败（契约：接口必带拼音）
+        if _vocab_input_is_chinese(text):
+            pinyin = _fetch_chinese_pinyin_from_dict(text)
+            if not pinyin:
+                return jsonify({"success": False, "message": "词典获取拼音失败，请稍后重试"}), 502
+
         data = _call_llm_for_vocab(text)
+        if _vocab_input_is_chinese(text):
+            data["pronunciation"] = pinyin
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": str(exc)}), 500
 

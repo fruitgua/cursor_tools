@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="/static/frog.png">
+    <title>IP监控</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        /* 复刻英文单词本的分页区域观感（局部实现，不影响其它页面） */
+        .vocab-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 12px;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+        }
+
+        .vocab-page-info {
+            color: #6b7280;
+            font-size: 13px;
+            white-space: nowrap;
+            margin-right: auto;
+        }
+
+        .vocab-page-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+        }
+
+        .vocab-page-status {
+            color: #6b7280;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .ip-page-select-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .ip-page-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            height: 38px;
+            padding: 0 38px 0 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fff;
+            font-size: 14px;
+            color: #111827;
+            cursor: pointer;
+        }
+
+        .ip-page-select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            border-color: #93c5fd;
+        }
+
+        .ip-page-select-wrap::after {
+            content: "";
+            position: absolute;
+            right: 14px;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 7px solid #6b7280;
+            pointer-events: none;
+        }
+
+        /* 三段式：顶部固定，表格内容滚动，底部分页固定 */
+        .ip-monitor-card {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            flex: 1;
+        }
+
+        .ip-table-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .ip-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .ip-table th,
+        .ip-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            text-align: left;
+            font-size: 13px;
+            vertical-align: top;
+            color: #111827;
+        }
+
+        .ip-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .ip-table td.mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            white-space: nowrap;
+        }
+
+        .ip-table td.path {
+            word-break: break-all;
+            color: #111827;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container" style="min-height: 100vh; display: flex; flex-direction: column;">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+            <h1>IP监控</h1>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+
+    <main style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+        <section class="ip-monitor-card">
+            <div class="ip-table-scroll">
+                <table class="ip-table" aria-label="访问记录">
+                    <thead>
+                    <tr>
+                        <th style="width: 190px;">日期时间</th>
+                        <th style="width: 160px;">IP地址</th>
+                        <th>访问页面</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% if logs and logs|length > 0 %}
+                        {% for row in logs %}
+                            <tr>
+                                <td class="mono">{{ row.ts }}</td>
+                                <td class="mono">{{ row.ip }}</td>
+                                <td class="path">{{ row.path }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="3" class="placeholder">暂无访问记录。</td>
+                        </tr>
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="vocab-pagination">
+                <span class="vocab-page-info">共 {{ total | default(0) }} 条（每页 {{ per_page | default(20) }} 条）</span>
+                <div class="vocab-page-actions">
+                    <a class="btn" href="/ip-monitor?page={{ 1 if (page|default(1)) <= 1 else (page-1) }}" {% if (page|default(1)) <= 1 %}aria-disabled="true" style="pointer-events:none;opacity:0.55;"{% endif %}>上一页</a>
+                    <span class="vocab-page-status">第 {{ page | default(1) }} / {{ total_pages | default(1) }} 页</span>
+                    <div class="ip-page-select-wrap" title="跳转页码">
+                        <select id="ip-page-select" class="ip-page-select" aria-label="跳转页码">
+                            {% for p in range(1, (total_pages | default(1)) + 1) %}
+                                <option value="{{ p }}" {% if p == (page | default(1)) %}selected{% endif %}>{{ p }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <a class="btn" href="/ip-monitor?page={{ (total_pages|default(1)) if (page|default(1)) >= (total_pages|default(1)) else (page+1) }}" {% if (page|default(1)) >= (total_pages|default(1)) %}aria-disabled="true" style="pointer-events:none;opacity:0.55;"{% endif %}>下一页</a>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="/static/theme-switcher.js"></script>
+<script>
+    document.getElementById("btn-go-home")?.addEventListener("click", () => {
+        window.location.href = "/home";
+    });
+
+    const pageSelect = document.getElementById("ip-page-select");
+    pageSelect?.addEventListener("change", (e) => {
+        const value = e?.target?.value;
+        if (!value) return;
+        window.location.href = "/ip-monitor?page=" + encodeURIComponent(value);
+    });
+</script>
+</body>
+</html>

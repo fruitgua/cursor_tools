@@ -2004,3 +2004,17 @@
 #event-form-reminder .event-form-checkin-row.event-form-reminder-row > *:not(:first-child) {
     margin-left: 12px !important;
 }
+
+/* JS 控制 show/hide 必须最高优先级：避免 layout 强覆盖导致指定日期仍显示月/日 */
+#event-form-labels #label-specific-fields[style*="display:none"],
+#event-form-labels #label-specific-fields[style*="display: none"],
+#event-form-labels #label-annual-fields[style*="display:none"],
+#event-form-labels #label-annual-fields[style*="display: none"],
+#event-form-labels #label-annual-range-fields[style*="display:none"],
+#event-form-labels #label-annual-range-fields[style*="display: none"],
+#event-form-reminder #reminder-specific-fields[style*="display:none"],
+#event-form-reminder #reminder-specific-fields[style*="display: none"],
+#event-form-reminder #reminder-monthly-fields[style*="display:none"],
+#event-form-reminder #reminder-monthly-fields[style*="display: none"] {
+    display: none !important;
+}

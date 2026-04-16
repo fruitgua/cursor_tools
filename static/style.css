@@ -608,6 +608,8 @@ body.notes-page {
 #panel-files .table-section {
     min-height: 0;
     flex: 1 1 auto;
+    position: relative;
+    isolation: isolate; /* 避免滚动内容与粘性表头层叠错乱 */
 }
 
 #panel-files .pagination-section {
@@ -615,6 +617,29 @@ body.notes-page {
     margin-top: 8px;
     border-top: 1px solid #e5e7eb;
     padding-top: 10px;
+}
+
+/* 文件列表 TAB：sticky 表头在部分浏览器下与 collapse 会出现覆盖错位，改为 separate 以稳定渲染 */
+#panel-files .file-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#panel-files .file-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+}
+
+#panel-files .file-table thead th {
+    position: static;
+    background-color: #f9fafb;
+    background-clip: padding-box;
+}
+
+#panel-files .file-table tbody td {
+    position: relative;
+    z-index: 1;
 }
 
 .file-table {
@@ -697,17 +722,17 @@ body.notes-page {
     color: #9ca3af;
 }
 
-/* 常用账号表格列宽 1:2:1:2:1 */
+/* 常用账号表格列宽 1:1:3:3:2 （总和 10） */
 .accounts-table th:nth-child(1),
-.accounts-table td:nth-child(1) { width: 14.3%; }
+.accounts-table td:nth-child(1) { width: 10.0%; }
 .accounts-table th:nth-child(2),
-.accounts-table td:nth-child(2) { width: 28.6%; }
+.accounts-table td:nth-child(2) { width: 10.0%; }
 .accounts-table th:nth-child(3),
-.accounts-table td:nth-child(3) { width: 14.3%; }
+.accounts-table td:nth-child(3) { width: 30.0%; }
 .accounts-table th:nth-child(4),
-.accounts-table td:nth-child(4) { width: 28.6%; }
+.accounts-table td:nth-child(4) { width: 30.0%; }
 .accounts-table th:nth-child(5),
-.accounts-table td:nth-child(5) { width: 14.2%; }
+.accounts-table td:nth-child(5) { width: 20.0%; }
 
 .accounts-table th:nth-child(5),
 .accounts-table td:nth-child(5) {
@@ -756,7 +781,16 @@ body.notes-page {
 
 /* 常用账号添加区域 */
 .accounts-add-panel .accounts-add-row-1 .field-control {
-    min-width: 280px;
+    min-width: 240px;
+}
+
+.accounts-type-select {
+    min-width: 120px !important;
+}
+
+/* 新增行：缩短系统字段宽度，确保新增行仍为一排 */
+.accounts-add-panel #add-system.field-control {
+    min-width: 200px;
 }
 
 .accounts-add-panel .accounts-add-row-1 .btn {
@@ -1532,6 +1566,7 @@ body.home-page .app-container {
 .notes-actions-left {
     display: flex;
     align-items: center;
+    gap: 20px;
     min-width: 0;
 }
 

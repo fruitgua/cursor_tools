@@ -187,6 +187,8 @@
      * 但 MutationObserver 只监听 select 自身属性，不会触发）。
      */
     function refreshUiSelectComboboxVisibility() {
+        // 先增强动态插入的新 select（例如编辑态行内下拉）
+        init();
         document.querySelectorAll("select[data-ui-select-enhanced=\"1\"]").forEach((sel) => {
             if (typeof sel._uiSelectSyncVisibility === "function") {
                 sel._uiSelectSyncVisibility();

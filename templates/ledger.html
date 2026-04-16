@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="/static/frog.png">
+    <title>记账本</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+<div class="app-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+            <h1>记账本</h1>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+
+    <main style="padding: 16px;">
+        <div class="placeholder">（占位）记账本功能后续开发。</div>
+    </main>
+</div>
+
+<script src="/static/theme-switcher.js"></script>
+<script>
+    document.getElementById("btn-go-home")?.addEventListener("click", () => {
+        window.location.href = "/home";
+    });
+</script>
+</body>
+</html>

@@ -43,6 +43,8 @@ function initHome() {
                 window.location.href = "/static/vocabulary.html";
             } else if (key === "todos") {
                 window.location.href = "/todos";
+            } else if (key === "ledger") {
+                window.location.href = "/ledger";
             } else {
                 showHomeToast("你要努力完善我噢~");
             }

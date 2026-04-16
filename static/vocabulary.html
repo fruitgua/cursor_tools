@@ -1307,16 +1307,17 @@
     async function getPinyin(char, signal) {
         try {
             const res = await fetchWithProxy(MOEDICT_API + encodeURIComponent(char), signal);
-            if (!res.ok) return { success: false, meaning: "" };
+            if (!res.ok) return { success: false, meaning: "", pinyin: "" };
             const data = await res.json();
             const heteronyms = data.heteronyms || [];
             const pinyins = heteronyms.map(h => h.pinyin).filter(Boolean);
             const defs = heteronyms.flatMap(h => (h.definitions || []).map(d => d.def)).slice(0, 3);
-            let meaning = "拼音：\n" + (pinyins.join(" / ") || "—");
+            const pinyinJoined = (pinyins.join(" / ") || "").trim();
+            let meaning = "拼音：\n" + (pinyinJoined || "—");
             if (defs.length) meaning += "\n\n释义：\n" + defs.join("；");
-            return { success: true, meaning, word: data.title || char };
+            return { success: true, meaning, word: data.title || char, pinyin: pinyinJoined };
         } catch (e) {
-            return { success: false, meaning: "" };
+            return { success: false, meaning: "", pinyin: "" };
         }
     }
 
@@ -1328,7 +1329,7 @@
     async function queryChinesePhrase(phrase, signal) {
         try {
             const res = await fetchWithProxy(YOUDAO_API_S + encodeURIComponent(phrase), signal);
-            if (!res.ok) return { success: false, meaning: "" };
+            if (!res.ok) return { success: false, meaning: "", pinyin: "" };
             const data = await res.json();
             let meaning = "";
             const ce = data.ce || data.ce_new;
@@ -1342,10 +1343,54 @@
                 if (texts.length) meaning += "释义：\n" + texts.slice(0, 5).join("；");
             }
             if (!meaning && simple?.phone) meaning = "拼音：\n" + simple.phone;
-            return { success: !!meaning, meaning: meaning.trim() || "", word: phrase };
+            const pinyinRaw = (phone || simple?.phone || "").trim();
+            return {
+                success: !!meaning,
+                meaning: meaning.trim() || "",
+                word: phrase,
+                pinyin: pinyinRaw
+            };
         } catch (e) {
-            return { success: false, meaning: "" };
+            return { success: false, meaning: "", pinyin: "" };
         }
+    }
+
+    /** 从释义文本中提取「拼音：xxx」一行（兼容模型把拼音写在 meaning_zh 里的情况） */
+    function extractPinyinLineFromText(text) {
+        const s = String(text || "");
+        const m = s.match(/(?:^|[\n\r])\s*拼音\s*[：:]\s*([^\n\r]+)/);
+        return m ? m[1].trim() : "";
+    }
+
+    /** 从萌典/有道返回的整段文案中提取「释义：」正文（词典为主释义） */
+    function extractShiyiFromChineseDictMeaning(meaning) {
+        const s = String(meaning || "").trim();
+        if (!s) return "";
+        const labels = ["释义：", "中文释义："];
+        for (let i = 0; i < labels.length; i++) {
+            const label = labels[i];
+            const idx = s.indexOf(label);
+            if (idx < 0) continue;
+            let rest = s.slice(idx + label.length).trim();
+            const nextHdr = rest.search(/\n\s*(?:拼音|释义|中文释义|短语|词性)\s*[：:]/);
+            if (nextHdr > 0) rest = rest.slice(0, nextHdr).trim();
+            if (rest) return rest;
+        }
+        return "";
+    }
+
+    /** 词典仅有拼音无「释义：」时，去掉开头拼音块，剩余作兜底释义 */
+    function stripLeadingPinyinBlockFromDictMeaning(meaning) {
+        const s = String(meaning || "").trim();
+        if (!s) return "";
+        if (!/^拼音\s*[：:]/m.test(s)) return s;
+        return s.replace(/^拼音\s*[：:][^\n]*(?:\n+|$)/m, "").trim();
+    }
+
+    function chineseDictPinyinToField(dictRes, queryTrimmed) {
+        const p = dictRes && String(dictRes.pinyin || "").trim();
+        if (!p) return "";
+        return queryTrimmed.length === 1 ? p.replace(/\s*\/\s*/g, " ").trim() : p;
     }
 
     /**
@@ -1374,40 +1419,66 @@
             return;
         }
 
+        const inputTrim = input.trim();
+        const detectedType = detectLanguage(inputTrim) || "english";
+
         btnQuery.disabled = true;
         btnQuery.textContent = "查询中...";
         if (btnAdd) btnAdd.disabled = true;
 
-        let res = { success: false };
-        try {
-            const r = await fetch("/api/vocab/llm-query", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: input })
-            });
-            if (r && r.ok) {
-                res = await r.json();
-            } else {
-                res = { success: false, message: "查询接口返回错误" };
+        const llmPromise = (async () => {
+            try {
+                const r = await fetch("/api/vocab/llm-query", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: inputTrim })
+                });
+                if (r) {
+                    let j = null;
+                    try { j = await r.json(); } catch (_) { j = null; }
+                    if (r.ok) return j;
+                    if (j && typeof j === "object") return j;
+                    return { success: false, message: "查询接口返回错误(" + (r.status || 0) + ")" };
+                }
+                return { success: false, message: "查询接口返回错误" };
+            } catch (e) {
+                console.warn("llm query error", e);
+                return { success: false, message: "查询失败，请稍后重试" };
             }
-        } catch (e) {
-            console.warn("llm query error", e);
-            res = { success: false, message: "查询失败，请稍后重试" };
+        })();
+
+        const dictPromise =
+            detectedType === "chinese" && inputTrim
+                ? inputTrim.length === 1
+                    ? getPinyin(inputTrim, undefined)
+                    : queryChinesePhrase(inputTrim, undefined)
+                : Promise.resolve(null);
+
+        let res;
+        let dictRes = null;
+        try {
+            const pair = await Promise.all([llmPromise, dictPromise]);
+            res = pair[0];
+            dictRes = pair[1];
         } finally {
             btnQuery.disabled = false;
             btnQuery.textContent = "查询";
         }
 
-        const detectedType = detectLanguage(input) || "english";
+        const dictUsable =
+            detectedType === "chinese" &&
+            dictRes &&
+            dictRes.success &&
+            !!(String(dictRes.pinyin || "").trim() || String(dictRes.meaning || "").trim());
 
-        if (!res.success || !res.data) {
-            wordEl.textContent = input;
-            meaningEl.textContent = res.message || "未找到释义";
+        if ((!res.success || !res.data) && !(dictUsable)) {
+            wordEl.textContent = inputTrim;
+            meaningEl.textContent = (res && res.message) || "未找到释义";
             resultEl.style.display = "block";
             resultEl.dataset.queryType = detectedType;
             lastQueryContext = {
                 type: detectedType,
-                word: input,
+                word: inputTrim,
                 meaningZh: "",
                 meaningEn: "",
                 pronunciation: "",
@@ -1419,10 +1490,74 @@
             return;
         }
 
+        // 中文且词典可用、大模型失败：仅展示词典（拼音 + 释义）
+        if ((!res.success || !res.data) && dictUsable) {
+            const word = String(dictRes.word || inputTrim).trim() || inputTrim;
+            const pronunciationOut = chineseDictPinyinToField(dictRes, inputTrim);
+            let meaningZh =
+                extractShiyiFromChineseDictMeaning(dictRes.meaning) ||
+                stripLeadingPinyinBlockFromDictMeaning(dictRes.meaning);
+            wordEl.textContent = word;
+            const fieldLines = [];
+            const pushField = (label, value) => {
+                const v = (value == null ? "" : String(value)).trim();
+                if (!v) return;
+                fieldLines.push(label + "：" + v);
+            };
+            pushField("拼音", pronunciationOut);
+            pushField("中文释义", meaningZh);
+            meaningEl.textContent = fieldLines.join("\n");
+            resultEl.style.display = "block";
+            resultEl.dataset.queryType = "chinese";
+            lastQueryContext = {
+                type: "chinese",
+                word,
+                meaningZh,
+                meaningEn: "",
+                pronunciation: pronunciationOut,
+                wordForms: {},
+                synonyms: [],
+                example: ""
+            };
+            if (btnAdd) btnAdd.disabled = false;
+            return;
+        }
+
         const d = res.data;
-        const word = (d.word || input || "").trim();
-        const meaningZh = String(d.meaning_zh || "");
+        const word = (d.word || inputTrim || "").trim();
+        let meaningZh = String(d.meaning_zh || "");
         const meaningEn = String(d.meaning_en || "");
+
+        let pronunciationOut = String(d.pronunciation || "").trim();
+        if (detectedType === "chinese" && dictUsable) {
+            const fromDict = chineseDictPinyinToField(dictRes, inputTrim);
+            if (fromDict) pronunciationOut = fromDict;
+            const shiyi = extractShiyiFromChineseDictMeaning(dictRes.meaning);
+            const dictFallback = shiyi || stripLeadingPinyinBlockFromDictMeaning(dictRes.meaning);
+            const llmZh = meaningZh.trim();
+            if (dictFallback) {
+                meaningZh = llmZh ? dictFallback + "\n\n" + llmZh : dictFallback;
+            }
+            d.pronunciation = pronunciationOut;
+        } else if (detectedType === "chinese") {
+            if (!pronunciationOut) {
+                const extracted = extractPinyinLineFromText(meaningZh);
+                if (extracted) pronunciationOut = extracted;
+            }
+            if (!pronunciationOut) {
+                try {
+                    const q = (word || inputTrim).trim();
+                    if (q.length === 1) {
+                        const r = await getPinyin(q, undefined);
+                        if (r && r.pinyin) pronunciationOut = String(r.pinyin).replace(/\s*\/\s*/g, " ").trim();
+                    } else if (q.length > 1) {
+                        const r = await queryChinesePhrase(q, undefined);
+                        if (r && r.pinyin) pronunciationOut = String(r.pinyin).trim();
+                    }
+                } catch (_) {}
+            }
+            d.pronunciation = pronunciationOut;
+        }
 
         wordEl.textContent = word;
         // 结果卡片中按“字段名称：字段内容”展示所有解析结果
@@ -1432,7 +1567,7 @@
             if (!v) return;
             fieldLines.push(label + "：" + v);
         };
-        pushField("发音", d.pronunciation || "");
+        pushField(detectedType === "chinese" ? "拼音" : "发音", pronunciationOut);
         pushField("中文释义", meaningZh);
         pushField("英文释义", meaningEn);
         if (Array.isArray(d.synonyms) && d.synonyms.length) {
@@ -1456,7 +1591,7 @@
             word,
             meaningZh,
             meaningEn,
-            pronunciation: String(d.pronunciation || ""),
+            pronunciation: pronunciationOut,
             wordForms: {
                 pastTense: String(d.past || ""),
                 pastParticiple: String(d.past_participle || ""),
@@ -1571,7 +1706,7 @@
             if (["英文释义", "英文解释", "英文"].includes(s)) return "meaning_en";
             if (["例句", "例句英文", "例句中文"].includes(s)) return "example";
             if (["同义词", "近义词"].includes(s)) return "synonyms";
-            if (["发音", "音标", "读音"].includes(s)) return "pronunciation";
+            if (["发音", "音标", "读音", "拼音"].includes(s)) return "pronunciation";
             // 词形变化
             if (["过去式", "过去形", "past", "past tense"].includes(s)) return "past_tense";
             if (["过去分词", "past participle"].includes(s)) return "past_participle";
@@ -2370,6 +2505,10 @@
 
         let pronunciation = fromPron;
         let zh = fromZh;
+
+        if (!pronunciation && ctx.type === "chinese") {
+            pronunciation = extractPinyinLineFromText(fromZh) || extractPinyinLineFromText(meaning);
+        }
 
         if (!pronunciation || !zh) {
             const pickBlock = (label) => {
