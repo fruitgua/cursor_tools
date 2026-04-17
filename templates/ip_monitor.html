@@ -128,6 +128,125 @@
             word-break: break-all;
             color: #111827;
         }
+
+        .ip-filter-toolbar {
+            flex-shrink: 0;
+            margin-bottom: 12px;
+            padding: 12px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .ip-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 12px 16px;
+        }
+
+        .ip-filter-field label {
+            display: block;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+
+        .ip-filter-field input[type="date"] {
+            height: 38px;
+            padding: 0 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #111827;
+            min-width: 150px;
+        }
+
+        .ip-filter-sep {
+            font-size: 14px;
+            color: #6b7280;
+            padding-bottom: 8px;
+        }
+
+        .ip-filter-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        /* 自定义 IP 下拉：面板高度上限 320px */
+        .ip-dd {
+            position: relative;
+            min-width: 200px;
+        }
+
+        .ip-dd-trigger {
+            width: 100%;
+            height: 38px;
+            padding: 0 34px 0 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fff;
+            font-size: 14px;
+            color: #111827;
+            text-align: left;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .ip-dd-trigger::after {
+            content: "";
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            margin-top: -3px;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid #6b7280;
+            pointer-events: none;
+        }
+
+        .ip-dd-trigger:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            border-color: #93c5fd;
+        }
+
+        .ip-dd-panel {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(100% + 4px);
+            z-index: 40;
+            max-height: 320px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        }
+
+        .ip-dd-panel[hidden] {
+            display: none !important;
+        }
+
+        .ip-dd-item {
+            padding: 10px 12px;
+            font-size: 13px;
+            color: #111827;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .ip-dd-item:last-child {
+            border-bottom: none;
+        }
+
+        .ip-dd-item:hover,
+        .ip-dd-item.is-active {
+            background: #eff6ff;
+        }
     </style>
 </head>
 <body>
@@ -144,6 +263,38 @@
 
     <main style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
         <section class="ip-monitor-card">
+            <form class="ip-filter-toolbar" method="get" action="/ip-monitor" id="ip-filter-form">
+                <div class="ip-filter-row">
+                    <div class="ip-filter-field">
+                        <label for="filter-start">开始日期</label>
+                        <input type="date" id="filter-start" name="start" value="{{ start_date }}" required />
+                    </div>
+                    <span class="ip-filter-sep">~</span>
+                    <div class="ip-filter-field">
+                        <label for="filter-end">结束日期</label>
+                        <input type="date" id="filter-end" name="end" value="{{ end_date }}" required />
+                    </div>
+                    <div class="ip-filter-field" style="flex: 1 1 220px; max-width: 320px;">
+                        <label>访问 IP</label>
+                        <div class="ip-dd" id="ip-dd">
+                            <input type="hidden" name="ip" id="filter-ip-hidden" value="{{ ip_filter }}" />
+                            <button type="button" class="ip-dd-trigger" id="ip-dd-trigger" aria-haspopup="listbox" aria-expanded="false">
+                                <span id="ip-dd-label">{% if ip_filter %}{{ ip_filter }}{% else %}全部{% endif %}</span>
+                            </button>
+                            <div class="ip-dd-panel" id="ip-dd-panel" role="listbox" hidden>
+                                <div class="ip-dd-item" data-ip="" role="option">全部</div>
+                                {% for opt in ip_options %}
+                                <div class="ip-dd-item{% if opt == ip_filter %} is-active{% endif %}" data-ip="{{ opt }}" role="option">{{ opt }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ip-filter-actions">
+                        <button type="submit" class="btn primary">查询</button>
+                    </div>
+                </div>
+            </form>
+
             <div class="ip-table-scroll">
                 <table class="ip-table" aria-label="访问记录">
                     <thead>
@@ -174,16 +325,16 @@
             <div class="vocab-pagination">
                 <span class="vocab-page-info">共 {{ total | default(0) }} 条（每页 {{ per_page | default(20) }} 条）</span>
                 <div class="vocab-page-actions">
-                    <a class="btn" href="/ip-monitor?page={{ 1 if (page|default(1)) <= 1 else (page-1) }}" {% if (page|default(1)) <= 1 %}aria-disabled="true" style="pointer-events:none;opacity:0.55;"{% endif %}>上一页</a>
+                    <a class="btn" href="/ip-monitor?page={{ 1 if (page|default(1)) <= 1 else (page-1) }}&amp;{{ filter_qs }}" {% if (page|default(1)) <= 1 %}aria-disabled="true" style="pointer-events:none;opacity:0.55;"{% endif %}>上一页</a>
                     <span class="vocab-page-status">第 {{ page | default(1) }} / {{ total_pages | default(1) }} 页</span>
                     <div class="ip-page-select-wrap" title="跳转页码">
-                        <select id="ip-page-select" class="ip-page-select" aria-label="跳转页码">
+                        <select id="ip-page-select" class="ip-page-select" aria-label="跳转页码" data-filter-qs="{{ filter_qs }}">
                             {% for p in range(1, (total_pages | default(1)) + 1) %}
                                 <option value="{{ p }}" {% if p == (page | default(1)) %}selected{% endif %}>{{ p }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <a class="btn" href="/ip-monitor?page={{ (total_pages|default(1)) if (page|default(1)) >= (total_pages|default(1)) else (page+1) }}" {% if (page|default(1)) >= (total_pages|default(1)) %}aria-disabled="true" style="pointer-events:none;opacity:0.55;"{% endif %}>下一页</a>
+                    <a class="btn" href="/ip-monitor?page={{ (total_pages|default(1)) if (page|default(1)) >= (total_pages|default(1)) else (page+1) }}&amp;{{ filter_qs }}" {% if (page|default(1)) >= (total_pages|default(1)) %}aria-disabled="true" style="pointer-events:none;opacity:0.55;"{% endif %}>下一页</a>
                 </div>
             </div>
         </section>
@@ -196,11 +347,50 @@
         window.location.href = "/home";
     });
 
+    (function () {
+        const panel = document.getElementById("ip-dd-panel");
+        const trigger = document.getElementById("ip-dd-trigger");
+        const hidden = document.getElementById("filter-ip-hidden");
+        const label = document.getElementById("ip-dd-label");
+        if (!panel || !trigger || !hidden || !label) return;
+
+        function setOpen(open) {
+            panel.hidden = !open;
+            trigger.setAttribute("aria-expanded", open ? "true" : "false");
+        }
+
+        function applyIp(ip) {
+            hidden.value = ip;
+            label.textContent = ip ? ip : "全部";
+            panel.querySelectorAll(".ip-dd-item").forEach((el) => {
+                el.classList.toggle("is-active", (el.getAttribute("data-ip") || "") === ip);
+            });
+        }
+
+        trigger.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setOpen(panel.hidden);
+        });
+
+        panel.querySelectorAll(".ip-dd-item").forEach((el) => {
+            el.addEventListener("click", (e) => {
+                e.stopPropagation();
+                applyIp(el.getAttribute("data-ip") || "");
+                setOpen(false);
+            });
+        });
+
+        panel.addEventListener("click", (e) => e.stopPropagation());
+        document.addEventListener("click", () => setOpen(false));
+    })();
+
     const pageSelect = document.getElementById("ip-page-select");
     pageSelect?.addEventListener("change", (e) => {
         const value = e?.target?.value;
         if (!value) return;
-        window.location.href = "/ip-monitor?page=" + encodeURIComponent(value);
+        const qs = pageSelect.getAttribute("data-filter-qs") || "";
+        const suffix = qs ? "&" + qs : "";
+        window.location.href = "/ip-monitor?page=" + encodeURIComponent(value) + suffix;
     });
 </script>
 </body>

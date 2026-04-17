@@ -126,8 +126,6 @@
         .vocab-item-meaning { font-size: 14px; color: #374151; line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
         .vocab-item-time { font-size: 12px; color: #9ca3af; margin-top: 6px; }
         .vocab-item-tag { display: inline-flex; align-items: center; padding: 2px 8px; font-size: 12px; border-radius: 999px; border: 1px solid #2563eb; color: #2563eb; background: transparent; }
-        .vocab-item-delete { flex-shrink: 0; padding: 6px 12px; font-size: 13px; background: #fff; border: 1px solid #dc2626; color: #dc2626; }
-        .vocab-item-delete:hover { background: rgba(220,38,38,0.1); }
         .vocab-export-row { margin-top: 20px; }
         .vocab-empty { text-align: center; padding: 40px 20px; color: #9ca3af; font-size: 14px; }
         html[data-theme="dark"] .vocab-result-card,
@@ -185,8 +183,6 @@
         html[data-theme="yellow-green"] .vocab-tab.active { color: #22c55e; border-bottom-color: #22c55e; }
         html[data-theme="orange"] .vocab-tab.active { color: #D95B1A; border-bottom-color: #D95B1A; }
         html[data-theme="lavender"] .vocab-tab.active { color: #7C6CD6; border-bottom-color: #7C6CD6; }
-        html[data-theme="dark"] .vocab-item-delete { background: transparent; border-color: #dc2626; color: #f87171; }
-        html[data-theme="dark"] .vocab-item-delete:hover { background: rgba(220,38,38,0.2); }
         /* 英文 / 中文 / 标签管理 列表滚动：头部工具栏固定，卡片区域滚动 */
         #section-english .vocab-list,
         #section-chinese .vocab-list {
@@ -416,8 +412,6 @@
             background: #f9fafb;
         }
         .vocab-drawer-footer { flex-shrink: 0; padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end; }
-        .vocab-item-edit { flex-shrink: 0; padding: 6px 12px; font-size: 13px; background: #fff; border: 1px solid #2563eb; color: #2563eb; }
-        .vocab-item-edit:hover { background: rgba(37,99,235,0.1); }
         .vocab-item-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
         /* 编辑抽屉：关联词组 */
@@ -489,8 +483,6 @@
         html[data-theme="dark"] .vocab-chip-wrap { background: #14171B; border-color: #2A3038; }
         html[data-theme="dark"] .vocab-chip { background: rgba(74,158,255,0.14); border-color: rgba(74,158,255,0.28); color: rgba(255,255,255,0.87); }
         html[data-theme="dark"] .vocab-chip-input { background: transparent; color: rgba(255,255,255,0.87); }
-        html[data-theme="dark"] .vocab-item-edit { background: transparent; border-color: rgba(74,158,255,0.55); color: #4A9EFF; }
-        html[data-theme="dark"] .vocab-item-edit:hover { background: rgba(74,158,255,0.12); }
 
         /* 单词本抽屉输入框聚焦态：与 .field-control 一致 */
         .vocab-drawer-input:focus,
@@ -1066,8 +1058,8 @@
                     "<td>" + scopeText + "</td>" +
                     "<td>" + count + "</td>" +
                     '<td><div class="tags-ops">' +
-                    '<button type="button" class="btn tags-edit">编辑</button>' +
-                    '<button type="button" class="btn btn-ghost-danger tags-delete">删除</button>' +
+                    '<button type="button" class="btn vocab-item-edit tags-edit">编辑</button>' +
+                    '<button type="button" class="btn vocab-item-delete tags-delete">删除</button>' +
                     "</div></td>" +
                     "</tr>"
                 );

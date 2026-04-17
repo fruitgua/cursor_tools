@@ -33,16 +33,16 @@ function initHome() {
                 window.location.href = "/files";
             } else if (key === "checkin") {
                 window.location.href = "/static/checkin.html";
-            } else if (key === "accounts") {
-                window.location.href = "/accounts";
+            } else if (key === "calendar") {
+                window.location.href = "/calendar";
             } else if (key === "notes") {
                 window.location.href = "/notes";
             } else if (key === "bookmarks") {
                 window.location.href = "/bookmarks";
             } else if (key === "address-helper") {
                 window.location.href = "/static/vocabulary.html";
-            } else if (key === "todos") {
-                window.location.href = "/todos";
+            } else if (key === "diary") {
+                window.location.href = "/diary";
             } else if (key === "ledger") {
                 window.location.href = "/ledger";
             } else {

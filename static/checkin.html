@@ -19,45 +19,13 @@
 <div id="app" class="app">
     <div class="nav-row">
         <div class="nav-tabs">
-            <button type="button" class="nav-tab active" data-page="calendar">月历</button>
-            <button type="button" class="nav-tab" data-page="stats">统计</button>
-            <button type="button" class="nav-tab" data-page="events">事件管理</button>
+            <button type="button" class="nav-tab active" data-page="events">事件管理</button>
+            <button type="button" class="nav-tab" data-page="stats">事件统计</button>
+            <button type="button" class="nav-tab" data-page="todos">待办事项</button>
         </div>
         <div class="header-actions">
             <div id="theme-switcher-container" class="header-action-extra"></div>
             <button type="button" class="btn btn-go-home" id="btn-go-home" title="返回首页" aria-label="返回首页"><span class="btn-go-home-icon" aria-hidden="true">⌂</span><span class="btn-go-home-text">返回首页</span></button>
-        </div>
-    </div>
-
-    <!-- Page: Calendar -->
-    <div id="page-calendar" class="page active">
-        <div class="calendar-layout">
-            <div class="calendar-left">
-                <div class="card calendar-card">
-                    <div class="calendar-header">
-                        <div class="calendar-header-title-wrap">
-                            <h3 class="calendar-title" id="calendar-title">2025年3月</h3>
-                            <a href="javascript:void(0)" class="calendar-goto-today" id="btn-goto-today">查看当月</a>
-                        </div>
-                        <div>
-                            <button type="button" class="btn btn-ghost" id="btn-prev-month">‹</button>
-                            <button type="button" class="btn btn-ghost" id="btn-next-month">›</button>
-                        </div>
-                    </div>
-                    <div class="calendar-weekday">
-                        <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
-                    </div>
-                    <div class="calendar-grid" id="calendar-grid"></div>
-                </div>
-            </div>
-            <div class="calendar-right">
-                <div class="card calendar-detail-card">
-                    <h3 class="calendar-detail-title" id="detail-title">选择日期</h3>
-                    <div id="detail-panel">
-                        <p class="add-event-hint">请点击左侧日历选择日期</p>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -80,7 +48,7 @@
     </div>
 
     <!-- Page: Events -->
-    <div id="page-events" class="page">
+    <div id="page-events" class="page active">
         <div class="event-type-tabs-wrap">
             <div class="event-type-tabs">
                 <button type="button" class="event-type-tab active" data-type="checkin">打卡</button>
@@ -312,6 +280,317 @@
             </p>
         </div>
     </div>
+
+    <!-- Page: Todos（复用“待办事项”页面，过渡期） -->
+    <div id="page-todos" class="page">
+        <style>
+            /* 仅作用于待办 Tab：避免影响其它 Tab 的 control-panel 等通用类 */
+            #app #page-todos.page.active { display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: auto; }
+            #page-todos .control-panel { padding: 12px 10px 8px; }
+            #page-todos .control-panel .control-row { gap: 10px; align-items: flex-end; }
+            #page-todos .control-panel .field-group { margin-right: 0; gap: 10px; }
+            #page-todos .control-panel .field-control { height: 36px; box-sizing: border-box; }
+            #page-todos #btn-add-todo { height: 36px; box-sizing: border-box; }
+
+            /* 新增待办：分类下拉（无文案标签，与其它字段一致） */
+            #page-todos .todo-add-field-category {
+                display: flex;
+                flex-direction: row;
+                align-items: flex-end;
+                flex-shrink: 0;
+                min-width: 120px;
+                max-width: 200px;
+            }
+            #page-todos .todo-add-field-category .field-control,
+            #page-todos .todo-add-field-category .select-combobox {
+                width: 100%;
+                min-width: 0;
+                max-width: 100%;
+            }
+            #page-todos .todo-add-field-category .select-combobox > .select-trigger.field-control {
+                min-width: 0;
+                width: 100%;
+            }
+
+            #page-todos .todo-main-layout { display: flex; gap: 16px; flex: 1; min-height: 0; margin-top: 8px; }
+            #page-todos .todo-column { flex: 1 1 50%; min-width: 0; display: flex; flex-direction: column; }
+            #page-todos .todo-column-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; min-height: 44px; padding-left: 12px; padding-right: 12px; box-sizing: border-box; gap: 12px; }
+            #page-todos .todo-column-header .field-group { margin-right: 0; }
+            #page-todos .todo-column-title { font-size: 16px; font-weight: 600; color: #111827; flex-shrink: 0; }
+            /* 已完成：标题与分类筛选同排，仅控件、无文案标签，居右 */
+            #page-todos .todo-column-done .todo-done-filter-only {
+                margin-left: auto;
+                flex: 0 0 auto;
+                min-width: 140px;
+                max-width: 220px;
+            }
+            #page-todos .todo-column-done .todo-done-filter-only .field-control,
+            #page-todos .todo-column-done .todo-done-filter-only .select-combobox {
+                width: 100%;
+                min-width: 0;
+            }
+            #page-todos .todo-column-done .todo-done-filter-only .select-combobox > .select-trigger.field-control {
+                min-width: 0;
+                width: 100%;
+            }
+            #page-todos .todo-list-container { flex: 1; min-height: 0; background-color: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08); padding: 12px 12px 8px; overflow-y: auto; }
+
+            /* 卡片样式（复制自待办事项页面样式，并做作用域隔离） */
+            #page-todos .todo-card {
+                position: relative;
+                padding: 12px 12px 10px;
+                border-radius: 8px;
+                background-color: #ffffff;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+                border: 1px solid #e5e7eb;
+                margin-bottom: 10px;
+                transition: box-shadow 0.15s, transform 0.05s, border-color 0.15s, background-color 0.15s;
+            }
+            #page-todos .todo-card:hover {
+                box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
+                transform: translateY(-1px);
+                border-color: #93c5fd;
+            }
+            #page-todos .todo-card-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 6px;
+                flex-wrap: wrap;
+            }
+            #page-todos .todo-card-header-left {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex: 1;
+                min-width: 0;
+                flex-wrap: wrap;
+            }
+            #page-todos .todo-checkbox {
+                width: 16px;
+                height: 16px;
+                cursor: pointer;
+            }
+            #page-todos .category-badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 2px 8px;
+                border-radius: 999px;
+                font-size: 12px;
+                font-weight: 500;
+                color: #fff;
+                white-space: nowrap;
+            }
+            #page-todos .badge-work { background-color: #2563eb; }
+            #page-todos .badge-study { background-color: #7c3aed; }
+            #page-todos .badge-life { background-color: #16a34a; }
+            #page-todos .badge-shopping { background-color: #f97316; }
+            #page-todos .badge-other { background-color: #6b7280; }
+            #page-todos .todo-card-content {
+                font-size: 14px;
+                color: #111827;
+                line-height: 1.6;
+                word-break: break-word;
+                margin-left: 24px;
+            }
+            #page-todos .todo-meta {
+                margin-top: 4px;
+                font-size: 11px;
+                color: #9ca3af;
+            }
+            #page-todos .card-actions {
+                position: absolute;
+                top: 6px;
+                right: 8px;
+                display: flex;
+                gap: 6px;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s;
+            }
+            #page-todos .todo-card:hover .card-actions {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            #page-todos .card-action-btn {
+                padding: 2px 8px;
+                font-size: 12px;
+                border-radius: 999px;
+                border: 1px solid transparent;
+                background: rgba(17, 24, 39, 0.02);
+                color: #374151;
+                cursor: pointer;
+            }
+            #page-todos .card-action-btn:hover {
+                background: rgba(37, 99, 235, 0.06);
+                border-color: rgba(37, 99, 235, 0.4);
+            }
+            #page-todos .card-action-btn.delete { color: #b91c1c; }
+            #page-todos .card-action-btn.delete:hover {
+                background: rgba(220, 38, 38, 0.06);
+                border-color: rgba(220, 38, 38, 0.4);
+            }
+            #page-todos .empty-state {
+                font-size: 13px;
+                color: #9ca3af;
+                text-align: center;
+                padding: 24px 12px;
+            }
+            #page-todos .done-item {
+                padding: 10px 10px 8px;
+                border-radius: 6px;
+                border: 1px solid #e5e7eb;
+                margin-bottom: 8px;
+                background-color: #f9fafb;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+            #page-todos .done-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 4px;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            #page-todos .done-top-left {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                flex: 1;
+                min-width: 0;
+                flex-wrap: wrap;
+            }
+            #page-todos .done-content { color: #111827; word-break: break-word; }
+            #page-todos .done-date { font-size: 11px; color: #9ca3af; }
+            #page-todos .todo-edit-grid { display: flex; flex-direction: column; gap: 12px; }
+            #page-todos .todo-edit-row-two { display: flex; gap: 8px; align-items: flex-start; }
+            #page-todos .todo-edit-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+            #page-todos .todo-edit-field label { font-size: 13px; color: #374151; }
+            #page-todos .todo-edit-field .field-control { width: 100%; height: 36px; box-sizing: border-box; }
+            #page-todos #edit-content.field-control { height: 160px; resize: vertical; }
+
+            #page-todos #new-category,
+            #page-todos #done-filter,
+            #page-todos #edit-category {
+                background-color: #ffffff;
+            }
+
+            /* H5：保持与原待办页一致（右侧已完成列隐藏） */
+            @media (max-width: 720px) {
+                #page-todos .todo-column-done { display: none !important; }
+            }
+        </style>
+
+        <!-- 顶部新增待办表单（复制自待办事项页面） -->
+        <section class="control-panel">
+            <div class="control-row">
+                <div class="field-group">
+                    <input id="new-due" type="datetime-local" class="field-control" style="min-width: 220px;" title="提醒时间" />
+                </div>
+                <div class="field-group todo-add-field-category">
+                    <select id="new-category" class="field-control" data-ui-select="single" aria-label="分类">
+                        <option value="work">工作</option>
+                        <option value="study">学习</option>
+                        <option value="organize">整理</option>
+                        <option value="life">生活</option>
+                        <option value="shopping">购物</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                <div class="field-group" style="flex:1; min-width: 260px;">
+                    <input id="new-content" type="text" class="field-control" style="flex:1; min-width: 200px;"
+                           placeholder="请输入待办内容" />
+                </div>
+                <button id="btn-add-todo" class="btn primary">添加待办</button>
+            </div>
+        </section>
+
+        <!-- 主体左右区域（复制自待办事项页面） -->
+        <div class="todo-main-layout">
+            <div class="todo-column">
+                <div class="todo-column-header">
+                    <div class="todo-column-title">待办事项</div>
+                </div>
+                <div id="todo-list" class="todo-list-container"></div>
+            </div>
+
+            <div class="todo-column todo-column-done">
+                <div class="todo-column-header">
+                    <div class="todo-column-title">已完成</div>
+                    <div class="todo-done-filter-only">
+                        <select id="done-filter" class="field-control" data-ui-select="single" aria-label="按分类筛选已完成">
+                            <option value="all">全部</option>
+                            <option value="work">工作</option>
+                            <option value="study">学习</option>
+                            <option value="organize">整理</option>
+                            <option value="life">生活</option>
+                            <option value="shopping">购物</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="done-list" class="todo-list-container"></div>
+            </div>
+        </div>
+
+        <!-- 编辑弹窗（复制自待办事项页面） -->
+        <div id="edit-modal-overlay" class="ui-input-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+            <div class="ui-input-modal">
+                <div class="ui-input-modal-header">
+                    <div class="ui-input-modal-title" id="edit-modal-title">编辑待办</div>
+                </div>
+                <div class="ui-input-modal-body">
+                    <div class="todo-edit-grid">
+                        <div class="todo-edit-row-two">
+                            <div class="todo-edit-field">
+                                <label for="edit-category">分类</label>
+                                <select id="edit-category" class="field-control" data-ui-select="single">
+                                    <option value="work">工作</option>
+                                    <option value="study">学习</option>
+                                    <option value="organize">整理</option>
+                                    <option value="life">生活</option>
+                                    <option value="shopping">购物</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                            <div class="todo-edit-field">
+                                <label for="edit-due">预计完成时间</label>
+                                <input type="datetime-local" id="edit-due" class="field-control" />
+                            </div>
+                        </div>
+                        <div class="todo-edit-field">
+                            <label for="edit-content">内容</label>
+                            <textarea id="edit-content" class="field-control"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="ui-input-modal-actions">
+                    <button class="btn btn-ghost" id="edit-modal-cancel">取消</button>
+                    <button class="btn primary" id="edit-modal-save">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast-container"></div>
+
+        <!-- UI 规范：确认弹窗（删除待办确认） -->
+        <div id="todos-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="todos-confirm-title">
+            <div class="ui-modal">
+                <div class="ui-modal-header">
+                    <div class="ui-modal-title" id="todos-confirm-title">操作提示</div>
+                </div>
+                <div class="ui-modal-body">
+                    <p class="ui-modal-body-text" id="todos-confirm-text"></p>
+                </div>
+                <div class="ui-modal-actions">
+                    <button type="button" class="btn btn-ghost" id="todos-confirm-cancel">取消</button>
+                    <button type="button" class="btn primary" id="todos-confirm-ok">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- Modal: Edit Event (checkin) -->
@@ -461,5 +740,6 @@
 <script src="/static/theme-switcher.js?v=20260323142431"></script>
 <script src="/static/ui-select.js?v=20260323142431"></script>
 <script src="/static/checkin.js?v=20260323142431"></script>
+<script src="/static/todos.js?v=20260323142431"></script>
 </body>
 </html>

@@ -174,16 +174,8 @@
     gap: 4px;
 }
 
-/* 移动端（手机 H5）布局：上方固定整月日历，下方为可滚动的每日事件列表；右上角仅保留 HOME 图标 */
+/* 移动端（手机 H5）：右上角仅保留 HOME 图标等 */
 @media (max-width: 720px) {
-    /* 简化导航，只保留“月历”tab，隐藏统计 / 事件管理 */
-    .nav-tabs .nav-tab[data-page="stats"],
-    .nav-tabs .nav-tab[data-page="events"],
-    #page-stats,
-    #page-events {
-        display: none !important;
-    }
-    /* 头部右侧：H5 下隐藏导出、切换模板，仅显示返回首页为 HOME 图标 */
     #btn-export-checkin,
     #theme-switcher-container.header-action-extra {
         display: none !important;
@@ -194,63 +186,6 @@
 
     .app {
         padding: 12px 12px 16px;
-    }
-
-    #page-calendar.page.active {
-        overflow: auto; /* 允许整页在手机上向下滚动，看到详情底部 */
-    }
-
-    .calendar-layout {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        flex: 1;
-        min-height: 0;
-    }
-
-    .calendar-left {
-        min-width: 0;
-        flex-shrink: 0;
-    }
-
-    .calendar-right {
-        min-width: 0;
-        flex: 1;
-        min-height: 0;
-    }
-
-    .calendar-card {
-        padding: 12px;
-    }
-
-    .calendar-weekday {
-        font-size: 11px;
-    }
-
-    .calendar-grid {
-        grid-auto-rows: 1fr;
-    }
-
-    .calendar-day {
-        font-size: 13px;
-        aspect-ratio: 1 / 1; /* 高宽 1:1 */
-        padding: 6px;
-    }
-
-    /* H5：仅展示日期 + 顶部图标（日期标签 / 提醒），隐藏其它详细行和打卡点 */
-    .calendar-day .day-dots,
-    .calendar-day .day-label-row,
-    .calendar-day .day-reminder-row {
-        display: none !important;
-    }
-
-    .calendar-day .day-top-label-icon,
-    .calendar-day .day-top-reminder-icon {
-        display: inline-flex;
-    }
-
-    .calendar-detail-card {
-        padding: 12px;
     }
 }
 
@@ -1829,14 +1764,6 @@
 
 .page.active {
     display: block;
-}
-
-#page-calendar.page.active {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
 }
 
 #page-events.page.active {

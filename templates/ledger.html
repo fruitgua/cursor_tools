@@ -20,10 +20,168 @@
         </div>
     </header>
 
-    <main style="padding: 16px;">
-        <div class="placeholder">（占位）记账本功能后续开发。</div>
+    <main class="ledger-wrap">
+        <!-- 顶部固定查询区 -->
+        <section class="ledger-toolbar card">
+            <div class="ledger-toolbar-left">
+                <div class="ledger-field-group">
+                    <select id="ledger-preset" class="field-control">
+                        <option value="today">当日</option>
+                        <option value="week" selected>当周</option>
+                        <option value="month">本月</option>
+                        <option value="range">区间</option>
+                    </select>
+                </div>
+
+                <div class="ledger-field-group">
+                    <input id="ledger-start" type="date" class="field-control" />
+                </div>
+                <div class="ledger-field-group">
+                    <input id="ledger-end" type="date" class="field-control" />
+                </div>
+                <div class="ledger-field-group">
+                    <select id="ledger-filter-tag" class="field-control">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+
+                <div class="ledger-stats">
+                    <div class="ledger-stat">
+                        <div class="ledger-stat-label">收入合计</div>
+                        <div class="ledger-stat-value ledger-income" id="ledger-income-total">0.00</div>
+                    </div>
+                    <div class="ledger-stat">
+                        <div class="ledger-stat-label">支出合计</div>
+                        <div class="ledger-stat-value ledger-expense" id="ledger-expense-total">0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ledger-toolbar-right">
+                <button type="button" class="btn primary" id="btn-ledger-add">新增记账</button>
+                <button type="button" class="btn btn-ghost" id="btn-ledger-tags">标签管理</button>
+            </div>
+        </section>
+
+        <!-- 下方统一列表 -->
+        <section class="ledger-main">
+            <div class="ledger-col card ledger-col-full">
+                <div class="ledger-col-header">
+                    <div class="ledger-col-title">记账列表</div>
+                    <div class="ledger-col-subtitle">按添加时间降序</div>
+                </div>
+                <div class="ledger-table">
+                    <div class="ledger-table-head ledger-table-row">
+                        <div>日期</div><div>类型</div><div>标签</div><div>明细</div><div>批注</div><div>金额</div><div>操作</div>
+                    </div>
+                    <div id="ledger-list" class="ledger-list"></div>
+                    <div class="vocab-pagination">
+                        <span class="vocab-page-info" id="ledger-count">共 0 条</span>
+                        <div class="vocab-page-actions">
+                            <button type="button" class="btn" id="ledger-prev">上一页</button>
+                            <span class="vocab-page-status" id="ledger-page-status">第 1 / 1 页</span>
+                            <div class="vocab-page-select-wrap" id="ledger-page-select-wrap">
+                                <button type="button" class="vocab-page-select-trigger" id="ledger-page-select-trigger" title="跳转页码">1</button>
+                                <div class="vocab-page-select-dropdown" id="ledger-page-select-dropdown"></div>
+                            </div>
+                            <button type="button" class="btn" id="ledger-next">下一页</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 </div>
+
+<!-- Entry Modal（新增/编辑复用） -->
+<div id="ledger-entry-modal" class="ui-input-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ledger-entry-modal-title">
+    <div class="ui-input-modal">
+        <div class="ui-input-modal-header">
+            <div class="ui-input-modal-title" id="ledger-entry-modal-title">新增记账</div>
+        </div>
+        <div class="ui-input-modal-body">
+            <div class="ledger-modal-grid">
+                <div class="ledger-modal-row-two">
+                    <div class="ledger-modal-field">
+                        <label for="ledger-entry-kind">类型</label>
+                        <select id="ledger-entry-kind" class="field-control">
+                            <option value="expense" selected>支出</option>
+                            <option value="income">收入</option>
+                        </select>
+                    </div>
+                    <div class="ledger-modal-field">
+                        <label for="ledger-entry-date">日期</label>
+                        <input id="ledger-entry-date" type="date" class="field-control" />
+                    </div>
+                </div>
+                <div class="ledger-modal-row-two">
+                    <div class="ledger-modal-field">
+                        <label for="ledger-entry-tag">标签</label>
+                        <select id="ledger-entry-tag" class="field-control"></select>
+                    </div>
+                    <div class="ledger-modal-field">
+                        <label for="ledger-entry-amount">金额</label>
+                        <input id="ledger-entry-amount" type="number" step="0.01" min="0" class="field-control" placeholder="例如 12.34" />
+                    </div>
+                </div>
+                <div class="ledger-modal-field">
+                    <label for="ledger-entry-desc">明细</label>
+                    <textarea id="ledger-entry-desc" class="field-control" placeholder="必填，200字以内" maxlength="200" required></textarea>
+                </div>
+                <div class="ledger-modal-field">
+                    <label for="ledger-entry-annotation">批注</label>
+                    <input id="ledger-entry-annotation" type="text" class="field-control" placeholder="选填，30字以内" maxlength="30" />
+                </div>
+            </div>
+        </div>
+        <div class="ui-input-modal-actions">
+            <button type="button" class="btn btn-ghost" id="ledger-entry-cancel">取消</button>
+            <button type="button" class="btn primary" id="ledger-entry-save">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 标签管理抽屉（参考“学习笔记”的分类管理抽屉） -->
+<div id="ledger-tags-drawer-overlay" class="ledger-drawer-overlay" hidden></div>
+<div id="ledger-tags-drawer" class="ledger-drawer" role="dialog" aria-modal="true" aria-labelledby="ledger-tags-drawer-title" hidden>
+    <div class="ledger-drawer-header">
+        <div class="ledger-drawer-title" id="ledger-tags-drawer-title">标签管理</div>
+        <button type="button" id="ledger-tags-drawer-close" class="ledger-drawer-close" aria-label="关闭">&times;</button>
+    </div>
+    <div class="ledger-drawer-body">
+        <div class="ledger-drawer-add-row">
+            <select id="ledger-tag-kind" class="field-control" style="min-width: 120px;">
+                <option value="expense" selected>支出</option>
+                <option value="income">收入</option>
+            </select>
+            <input id="ledger-tag-name" type="text" class="field-control" placeholder="标签名称（不重复）" />
+            <button type="button" class="btn primary" id="btn-ledger-tag-add">新增</button>
+        </div>
+        <div class="ledger-tags-hint">删除标签时会校验是否有关联记账记录。</div>
+        <div id="ledger-tags-list" class="ledger-tags-list"></div>
+    </div>
+    <div class="ledger-drawer-footer">
+        <button type="button" id="ledger-tags-drawer-ok" class="btn">关闭</button>
+    </div>
+</div>
+
+<!-- Confirm Modal（删除确认） -->
+<div id="ledger-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ledger-confirm-title">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title" id="ledger-confirm-title">操作提示</div>
+        </div>
+        <div class="ui-modal-body">
+            <p class="ui-modal-body-text" id="ledger-confirm-text"></p>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="ledger-confirm-cancel">取消</button>
+            <button type="button" class="btn primary" id="ledger-confirm-ok">确认</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
 
 <script src="/static/theme-switcher.js"></script>
 <script>
@@ -31,5 +189,332 @@
         window.location.href = "/home";
     });
 </script>
+
+<style>
+    /* 整页高度链：主区域占满视口剩余高度，列表中部单独滚动 */
+    html {
+        height: 100%;
+    }
+    body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        box-sizing: border-box;
+    }
+    .app-container {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
+    .app-container > header.app-header {
+        flex-shrink: 0;
+    }
+
+    .ledger-wrap{
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+    .ledger-toolbar{
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        padding: 12px;
+        display:flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+    .ledger-toolbar-left{
+        display:flex;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 10px;
+        min-width: 0;
+    }
+    .ledger-toolbar-right{
+        display:flex;
+        gap: 10px;
+        flex-shrink: 0;
+        align-items: center;
+    }
+    .ledger-field-group{
+        display:flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .ledger-field-label{
+        font-size: 12px;
+        color: #6b7280;
+    }
+    .ledger-stats{
+        display:flex;
+        gap: 12px;
+        align-items: flex-end;
+        padding-left: 6px;
+    }
+    .ledger-stat{
+        border-left: 1px solid #e5e7eb;
+        padding-left: 12px;
+        min-width: 120px;
+    }
+    .ledger-stat-label{
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 4px;
+    }
+    .ledger-stat-value{
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.2;
+    }
+    .ledger-income{ color: #16a34a; }
+    .ledger-expense{ color: #dc2626; }
+
+    .ledger-main{
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .ledger-col{
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+        display:flex;
+        flex-direction: column;
+        padding: 20px;
+        overflow: hidden;
+    }
+    .ledger-col-header{
+        display:flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
+        margin-bottom: 12px;
+        flex-shrink: 0;
+    }
+    .ledger-col-title{ font-size: 16px; font-weight: 700; color:#111827; }
+    .ledger-col-subtitle{ font-size: 12px; color:#6b7280; }
+    .ledger-table{
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+        min-height: 0;
+    }
+    .ledger-table-row{
+        display: grid;
+        grid-template-columns: 3fr 1fr 2fr 7fr 1fr 2fr 2fr;
+        column-gap: 10px;
+        align-items: center;
+        text-align: left;
+    }
+    .ledger-table-head{
+        flex-shrink: 0;
+        padding: 12px 14px;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+    }
+    .ledger-list{
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .vocab-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 0; padding: 10px 12px; border-top: 1px solid #e5e7eb; flex-shrink: 0; flex-wrap: nowrap; }
+    .vocab-page-actions { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; flex-shrink: 0; }
+    .vocab-pagination .vocab-page-actions .btn,
+    .vocab-page-select-trigger { height: 36px; box-sizing: border-box; }
+    .vocab-page-select-wrap { position: relative; flex-shrink: 0; }
+    .vocab-page-select-trigger { min-width: 56px; padding: 0 24px 0 8px; font-size: 13px; line-height: 34px; cursor: pointer; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #111827; text-align: left; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+    .vocab-page-select-trigger:hover:not(:disabled) { border-color: #9ca3af; }
+    .vocab-page-select-trigger:disabled { cursor: default; opacity: 0.7; }
+    .vocab-page-select-dropdown { position: absolute; bottom: calc(100% + 6px); left: 0; min-width: 100%; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 8px 20px rgba(15,23,42,0.12); z-index: 50; max-height: 240px; overflow-y: auto; display: none; }
+    .vocab-page-select-dropdown.open { display: block; }
+    .vocab-page-select-option { padding: 8px 10px; font-size: 13px; cursor: pointer; }
+    .vocab-page-select-option:hover { background: #f3f4f6; }
+    .vocab-page-select-option.active { background: #eef2ff; color: #1d4ed8; }
+    .vocab-page-info { font-size: 13px; color: #6b7280; margin-right: auto; flex-shrink: 0; white-space: nowrap; }
+    .vocab-page-status { font-size: 13px; color: #374151; white-space: nowrap; }
+    .ledger-row{
+        padding: 12px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+        color: #111827;
+    }
+    .ledger-row:last-child{ border-bottom: none; }
+    .ledger-row > div{
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .ledger-cell-date{ color:#4b5563; }
+    .ledger-cell-kind{ color:#374151; }
+    .ledger-cell-tag{
+        font-size: 13px;
+        font-weight: 500;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .ledger-cell-desc{ color:#111827; }
+    .ledger-cell-annotation{
+        color:#4b5563;
+        font-size: 12px;
+    }
+    .ledger-amount{
+        font-size: 14px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .ledger-row-actions{
+        display:flex;
+        gap: 8px;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .ledger-empty{
+        font-size: 13px;
+        color: #9ca3af;
+        text-align: center;
+        padding: 24px 12px;
+    }
+
+    .ledger-modal-grid{ display:flex; flex-direction: column; gap: 12px; }
+    .ledger-modal-row-two{ display:flex; gap: 10px; align-items: flex-start; }
+    .ledger-modal-field{ flex:1; min-width: 0; display:flex; flex-direction: column; gap: 6px; }
+    .ledger-modal-field label{ font-size: 13px; color:#374151; }
+    #ledger-entry-desc.field-control{ height: 80px; resize: none; box-sizing: border-box; }
+    #ledger-entry-annotation.field-control{ height: 40px; resize: none; box-sizing: border-box; }
+
+    .ledger-tags-add{ padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; margin-bottom: 10px; }
+    .ledger-tags-add-row{ display:flex; gap: 10px; align-items: center; }
+    .ledger-tags-hint{ font-size: 12px; color:#6b7280; margin-top: 8px; }
+    .ledger-tags-list{ display:flex; flex-direction: column; gap: 8px; }
+    .ledger-tag-row{
+        display:flex;
+        align-items:center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 10px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+    }
+    .ledger-tag-left{ display:flex; gap: 10px; align-items:center; min-width: 0; }
+    .ledger-tag-kind{
+        font-size: 12px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        color: #374151;
+        flex-shrink: 0;
+    }
+    .ledger-tag-name{
+        font-size: 13px;
+        color:#111827;
+        font-weight: 600;
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .ledger-tag-actions{ display:flex; gap: 8px; flex-shrink: 0; }
+
+    /* Ledger drawer（参考 Notes drawer） */
+    .ledger-drawer-overlay{
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        display: none;
+        z-index: 999;
+    }
+    .ledger-drawer-overlay.open{ display:block; }
+    .ledger-drawer{
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 100%;
+        max-width: 720px;
+        background: #fff;
+        border-left: 1px solid #e5e7eb;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+        transform: translateX(100%);
+        transition: transform 0.18s ease;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+    }
+    .ledger-drawer.open{ transform: translateX(0); }
+    .ledger-drawer-header{
+        padding: 20px 24px;
+        display:flex;
+        align-items:center;
+        justify-content: space-between;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+    .ledger-drawer-title{ font-size: 16px; font-weight: 600; color:#111827; }
+    .ledger-drawer-close{
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 22px;
+        color: #6b7280;
+    }
+    .ledger-drawer-close:hover{ color:#111827; }
+    .ledger-drawer-body{
+        padding: 24px;
+        overflow: auto;
+        flex: 1;
+        display:flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .ledger-drawer-add-row{
+        display:flex;
+        align-items:center;
+        gap: 10px;
+    }
+    .ledger-drawer-add-row .field-control{ flex:1; min-width: 0; }
+    .ledger-drawer-add-row .btn{ height: 36px; box-sizing: border-box; }
+    .ledger-drawer-footer{
+        padding: 16px 24px;
+        border-top: 1px solid #e5e7eb;
+        display:flex;
+        justify-content: flex-end;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+    .ledger-drawer-footer .btn{ height: 36px; box-sizing: border-box; }
+</style>
+
+<script src="/static/ledger.js"></script>
 </body>
 </html>

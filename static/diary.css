@@ -1,0 +1,120 @@
+/* /diary 专用，避免影响学习笔记页 */
+
+.diary-page .diary-sidebar-head {
+    flex-shrink: 0;
+    padding: 10px 10px 10px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.diary-page .diary-filter-dates-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.diary-page .diary-filter-date-line {
+    min-width: 0;
+}
+
+.diary-page .diary-filter-end-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.diary-page .diary-filter-date-line .diary-date-input,
+.diary-page .diary-filter-end-line .diary-date-input {
+    width: 180px;
+    max-width: 180px;
+    min-width: 0;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.diary-page .diary-filter-end-line .diary-filter-count {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.diary-page .diary-filter-count {
+    font-size: 13px;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.diary-page .diary-filter-count .notes-count-num {
+    color: #f59a23;
+}
+
+.diary-page .notes-list {
+    padding-top: 0;
+}
+
+.diary-page .notes-detail-content {
+    padding: 20px;
+}
+
+.diary-page .notes-form-label-row.diary-form-label-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    column-gap: 10px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.diary-page .diary-form-title-date-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+}
+
+.diary-page .diary-form-title-date-row #diary-title {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+}
+
+.diary-page .diary-form-title-date-row #diary-date {
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.diary-page .notes-form-row-title-category {
+    width: 100%;
+}
+
+.diary-page .diary-today-diet-row {
+    width: 1000px;
+    max-width: 100%;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.diary-page .diary-today-diet-row .notes-form-label {
+    margin-bottom: 8px;
+}
+
+.diary-page #diary-today-diet.diary-today-diet {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    height: 120px;
+    min-height: 120px;
+    max-height: 120px;
+    padding: 8px 12px;
+    line-height: 1.45;
+    resize: none;
+    font-family: inherit;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    overflow-y: auto;
+}

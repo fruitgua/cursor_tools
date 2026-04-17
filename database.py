@@ -2,7 +2,7 @@ import os
 import sqlite3
 import json
 from datetime import datetime
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Any
 
 
 DB_NAME = "file_remarks.db"
@@ -38,13 +38,6 @@ def init_db() -> None:
             path TEXT PRIMARY KEY,
             remark TEXT
         )
-        accounts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            system TEXT,
-            url TEXT,
-            account_info TEXT,
-            created_at REAL
-        )
     """
     conn = get_connection()
     try:
@@ -56,41 +49,6 @@ def init_db() -> None:
             )
             """
         )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS accounts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_type TEXT NOT NULL DEFAULT 'system',
-                system TEXT NOT NULL DEFAULT '',
-                url TEXT NOT NULL DEFAULT '',
-                account_info TEXT NOT NULL DEFAULT '',
-                description TEXT NOT NULL DEFAULT '',
-                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
-            )
-            """
-        )
-        conn.commit()
-        try:
-            conn.execute("ALTER TABLE accounts ADD COLUMN description TEXT NOT NULL DEFAULT ''")
-            conn.commit()
-        except sqlite3.OperationalError:
-            pass
-        # 兼容旧版 accounts 表：补充 account_type 字段，并回填历史数据为 system
-        try:
-            conn.execute("ALTER TABLE accounts ADD COLUMN account_type TEXT NOT NULL DEFAULT 'system'")
-            conn.commit()
-        except sqlite3.OperationalError:
-            pass
-        try:
-            conn.execute(
-                """
-                UPDATE accounts SET account_type = 'system'
-                WHERE account_type IS NULL OR account_type = ''
-                """
-            )
-            conn.commit()
-        except Exception:
-            pass
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS notes (
@@ -216,6 +174,76 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS diaries (
+                date TEXT PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '',
+                content TEXT NOT NULL DEFAULT '',
+                today_diet TEXT NOT NULL DEFAULT '',
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
+            )
+            """
+        )
+        try:
+            conn.execute("ALTER TABLE diaries ADD COLUMN today_diet TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ledger_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                UNIQUE(kind, name)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ledger_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                tag_id INTEGER NOT NULL,
+                tag_name_snapshot TEXT NOT NULL DEFAULT '',
+                description TEXT NOT NULL DEFAULT '',
+                annotation TEXT NOT NULL DEFAULT '',
+                amount REAL NOT NULL DEFAULT 0,
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now'))
+            )
+            """
+        )
+        try:
+            conn.execute("ALTER TABLE ledger_entries ADD COLUMN annotation TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS todo_instances (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_todo_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                complete_date TEXT NOT NULL DEFAULT '',
+                content_snapshot TEXT NOT NULL DEFAULT '',
+                created_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+                UNIQUE(source_todo_id, date)
+            )
+            """
+        )
+        # 兼容旧版 todo_instances 表：补充 complete_date 字段
+        try:
+            conn.execute("ALTER TABLE todo_instances ADD COLUMN complete_date TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS ip_access_logs (
@@ -669,6 +697,14 @@ def set_todos_state(items: List[Dict]) -> None:
                 (tid, content, status, due_time, complete_date, category, remind_time),
             )
 
+        # 主待办已删除时，清理仍挂在日历上的孤儿实例，避免月历待办数不更新
+        conn.execute(
+            """
+            DELETE FROM todo_instances
+            WHERE NOT EXISTS (SELECT 1 FROM todos t WHERE t.id = todo_instances.source_todo_id)
+            """
+        )
+
         conn.commit()
     except Exception:
         conn.rollback()
@@ -798,150 +834,6 @@ def set_calendar_state(data: Dict[str, Any]) -> None:
     except Exception:
         conn.rollback()
         raise
-    finally:
-        conn.close()
-
-
-def get_all_accounts() -> list:
-    """
-    Retrieve all accounts ordered by creation time (id).
-
-    :return: List of dicts with id, account_type, system, url, account_info, description.
-    """
-    conn = get_connection()
-    try:
-        cur = conn.execute(
-            "SELECT id, account_type, system, url, account_info, description FROM accounts ORDER BY id ASC"
-        )
-        rows = cur.fetchall()
-        return [
-            {
-                "id": row["id"],
-                "account_type": row["account_type"] or "system",
-                "system": row["system"] or "",
-                "url": row["url"] or "",
-                "account_info": row["account_info"] or "",
-                "description": row["description"] or "",
-            }
-            for row in rows
-        ]
-    finally:
-        conn.close()
-
-
-def add_account(account_type: str, system: str, url: str, account_info: str, description: str = "") -> int:
-    """
-    Insert a new account record.
-
-    :param system: System name.
-    :param url: Website URL.
-    :param account_info: Account information.
-    :param description: Optional description.
-    :return: The id of the inserted row.
-    """
-    conn = get_connection()
-    try:
-        cur = conn.execute(
-            "INSERT INTO accounts (account_type, system, url, account_info, description) VALUES (?, ?, ?, ?, ?)",
-            (account_type or "system", system or "", url or "", account_info or "", description or ""),
-        )
-        conn.commit()
-        return cur.lastrowid
-    finally:
-        conn.close()
-
-
-def update_account(
-    account_id: int, account_type: str, system: str, url: str, account_info: str, description: str = ""
-) -> bool:
-    """
-    Update an existing account by id.
-
-    :param account_id: Account id.
-    :param system: System name.
-    :param url: Website URL.
-    :param account_info: Account information.
-    :param description: Optional description.
-    :return: True if updated, False if not found.
-    """
-    conn = get_connection()
-    try:
-        cur = conn.execute(
-            """
-            UPDATE accounts SET account_type = ?, system = ?, url = ?, account_info = ?, description = ?
-            WHERE id = ?
-            """,
-            (account_type or "system", system or "", url or "", account_info or "", description or "", account_id),
-        )
-        conn.commit()
-        return cur.rowcount > 0
-    finally:
-        conn.close()
-
-
-def swap_accounts(account_id1: int, account_id2: int) -> bool:
-    """
-    Swap the content (system, url, account_info, description) of two accounts.
-
-    :param account_id1: First account id.
-    :param account_id2: Second account id.
-    :return: True if both swapped successfully.
-    """
-    conn = get_connection()
-    try:
-        cur = conn.execute(
-            "SELECT id, account_type, system, url, account_info, description FROM accounts WHERE id IN (?, ?)",
-            (account_id1, account_id2),
-        )
-        rows = cur.fetchall()
-        if len(rows) != 2:
-            return False
-        data = {
-            row["id"]: {
-                "account_type": row["account_type"] or "system",
-                "system": row["system"] or "",
-                "url": row["url"] or "",
-                "account_info": row["account_info"] or "",
-                "description": row["description"] or "",
-            }
-            for row in rows
-        }
-        if account_id1 not in data or account_id2 not in data:
-            return False
-
-        d1, d2 = data[account_id1], data[account_id2]
-        conn.execute(
-            """
-            UPDATE accounts SET account_type = ?, system = ?, url = ?, account_info = ?, description = ?
-            WHERE id = ?
-            """,
-            (d2["account_type"], d2["system"], d2["url"], d2["account_info"], d2["description"], account_id1),
-        )
-        conn.execute(
-            """
-            UPDATE accounts SET account_type = ?, system = ?, url = ?, account_info = ?, description = ?
-            WHERE id = ?
-            """,
-            (d1["account_type"], d1["system"], d1["url"], d1["account_info"], d1["description"], account_id2),
-        )
-        conn.commit()
-        return True
-    finally:
-        conn.close()
-
-
-def delete_account(account_id: int) -> bool:
-    """
-    Delete an account by id.
-
-    :param account_id: Account id.
-    :return: True if deleted, False if not found.
-    """
-    conn = get_connection()
-    try:
-        cur = conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
-        conn.commit()
-        return cur.rowcount > 0
     finally:
         conn.close()
 
@@ -1296,6 +1188,571 @@ def get_ip_access_logs(limit: int = 20, offset: int = 0) -> List[Dict]:
             {"id": row["id"], "ts": row["ts"] or "", "ip": row["ip"] or "", "path": row["path"] or ""}
             for row in rows
         ]
+    finally:
+        conn.close()
+
+
+def list_distinct_ips_in_log_range(start_ts: str, end_ts: str) -> List[str]:
+    """
+    在给定时间范围内（含端点，ts 为 YYYY-MM-DD HH:MM:SS 字符串）出现过的访问 IP，升序去重。
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT DISTINCT TRIM(ip) AS ip
+            FROM ip_access_logs
+            WHERE ts >= ? AND ts <= ? AND TRIM(ip) <> ''
+            ORDER BY ip ASC
+            """,
+            (start_ts or "", end_ts or ""),
+        )
+        out: List[str] = []
+        for row in cur.fetchall():
+            v = str(row["ip"] or "").strip()
+            if v:
+                out.append(v)
+        return out
+    finally:
+        conn.close()
+
+
+def count_ip_access_logs_filtered(start_ts: str, end_ts: str, ip: Optional[str] = None) -> int:
+    """统计时间范围内的访问日志条数，可选按 IP 精确匹配。"""
+    conn = get_connection()
+    try:
+        ip_val = (ip or "").strip()
+        if ip_val:
+            cur = conn.execute(
+                """
+                SELECT COUNT(1) AS c
+                FROM ip_access_logs
+                WHERE ts >= ? AND ts <= ? AND ip = ?
+                """,
+                (start_ts or "", end_ts or "", ip_val),
+            )
+        else:
+            cur = conn.execute(
+                """
+                SELECT COUNT(1) AS c
+                FROM ip_access_logs
+                WHERE ts >= ? AND ts <= ?
+                """,
+                (start_ts or "", end_ts or ""),
+            )
+        row = cur.fetchone()
+        return int(row["c"] or 0) if row is not None else 0
+    finally:
+        conn.close()
+
+
+def get_ip_access_logs_filtered(
+    limit: int, offset: int, start_ts: str, end_ts: str, ip: Optional[str] = None
+) -> List[Dict]:
+    """分页查询时间范围内的访问日志，可选按 IP 精确匹配。"""
+    conn = get_connection()
+    try:
+        ip_val = (ip or "").strip()
+        if ip_val:
+            cur = conn.execute(
+                """
+                SELECT id, ts, ip, path
+                FROM ip_access_logs
+                WHERE ts >= ? AND ts <= ? AND ip = ?
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (start_ts or "", end_ts or "", ip_val, int(limit), int(offset)),
+            )
+        else:
+            cur = conn.execute(
+                """
+                SELECT id, ts, ip, path
+                FROM ip_access_logs
+                WHERE ts >= ? AND ts <= ?
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (start_ts or "", end_ts or "", int(limit), int(offset)),
+            )
+        rows = cur.fetchall()
+        return [
+            {"id": row["id"], "ts": row["ts"] or "", "ip": row["ip"] or "", "path": row["path"] or ""}
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+def get_diary(date: str) -> Optional[Dict[str, Any]]:
+    """Get diary by date (YYYY-MM-DD)."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "SELECT date, title, content, today_diet, created_at, updated_at FROM diaries WHERE date = ?",
+            (date or "",),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return {
+            "date": row["date"],
+            "title": row["title"] or "",
+            "content": row["content"] or "",
+            "today_diet": row["today_diet"] if "today_diet" in row.keys() else "",
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+    finally:
+        conn.close()
+
+
+def upsert_diary(date: str, title: str, content: str, today_diet: str = "") -> None:
+    """Insert or update diary for a date."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO diaries (date, title, content, today_diet)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET
+                title = excluded.title,
+                content = excluded.content,
+                today_diet = excluded.today_diet,
+                updated_at = strftime('%s', 'now')
+            """,
+            (date or "", title or "", content or "", today_diet or ""),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_diaries_between(start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    """List diaries between start_date and end_date (inclusive), ordered by date desc."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT date, title, created_at, updated_at
+            FROM diaries
+            WHERE date >= ? AND date <= ?
+            ORDER BY date DESC
+            """,
+            (start_date or "", end_date or ""),
+        )
+        rows = cur.fetchall()
+        return [
+            {
+                "date": row["date"],
+                "title": row["title"] or "",
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+def get_ledger_tags(kind: str) -> List[Dict[str, Any]]:
+    """Get ledger tags by kind (income/expense)."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "SELECT id, kind, name, created_at FROM ledger_tags WHERE kind = ? ORDER BY name ASC",
+            (kind or "",),
+        )
+        rows = cur.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "kind": row["kind"] or "",
+                "name": row["name"] or "",
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+def add_ledger_tag(kind: str, name: str) -> int:
+    """Insert new ledger tag; returns id."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO ledger_tags (kind, name) VALUES (?, ?)",
+            (kind or "", name or ""),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def get_ledger_tag_by_id(tag_id: int) -> Optional[Dict[str, Any]]:
+    """Get a single ledger tag by id."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "SELECT id, kind, name, created_at FROM ledger_tags WHERE id = ?",
+            (int(tag_id),),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return {
+            "id": row["id"],
+            "kind": row["kind"] or "",
+            "name": row["name"] or "",
+            "created_at": row["created_at"],
+        }
+    finally:
+        conn.close()
+
+
+def rename_ledger_tag(tag_id: int, new_name: str) -> bool:
+    """Rename an existing ledger tag (also updates entry snapshots)."""
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN")
+        cur = conn.execute("UPDATE ledger_tags SET name = ? WHERE id = ?", (new_name or "", int(tag_id)))
+        # keep ledger_entries.tag_name_snapshot in sync for this tag_id
+        conn.execute(
+            "UPDATE ledger_entries SET tag_name_snapshot = ?, updated_at = strftime('%s', 'now') WHERE tag_id = ?",
+            (new_name or "", int(tag_id)),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def delete_ledger_tag_if_unused(tag_id: int) -> bool:
+    """
+    Delete ledger tag when there is no associated ledger_entries.
+    Returns True if deleted, False otherwise.
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "SELECT COUNT(1) AS c FROM ledger_entries WHERE tag_id = ?",
+            (tag_id,),
+        )
+        row = cur.fetchone()
+        if row and int(row["c"] or 0) > 0:
+            return False
+        cur2 = conn.execute("DELETE FROM ledger_tags WHERE id = ?", (tag_id,))
+        conn.commit()
+        return cur2.rowcount > 0
+    finally:
+        conn.close()
+
+
+def add_ledger_entry(
+    date: str,
+    kind: str,
+    tag_id: int,
+    tag_name_snapshot: str,
+    description: str,
+    annotation: str,
+    amount: float,
+) -> int:
+    """Insert a ledger entry; returns id."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO ledger_entries (date, kind, tag_id, tag_name_snapshot, description, annotation, amount)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                date or "",
+                kind or "",
+                int(tag_id),
+                tag_name_snapshot or "",
+                description or "",
+                annotation or "",
+                float(amount),
+            ),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def update_ledger_entry(
+    entry_id: int,
+    date: str,
+    kind: str,
+    tag_id: int,
+    tag_name_snapshot: str,
+    description: str,
+    annotation: str,
+    amount: float,
+) -> bool:
+    """Update an existing ledger entry."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            UPDATE ledger_entries
+            SET date = ?, kind = ?, tag_id = ?, tag_name_snapshot = ?, description = ?, annotation = ?, amount = ?, updated_at = strftime('%s', 'now')
+            WHERE id = ?
+            """,
+            (
+                date or "",
+                kind or "",
+                int(tag_id),
+                tag_name_snapshot or "",
+                description or "",
+                annotation or "",
+                float(amount),
+                entry_id,
+            ),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def delete_ledger_entry(entry_id: int) -> bool:
+    """Delete a ledger entry by id."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("DELETE FROM ledger_entries WHERE id = ?", (entry_id,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def query_ledger_entries_between(
+    start_date: str,
+    end_date: str,
+) -> List[Dict[str, Any]]:
+    """Query ledger entries between dates, ordered by date then id."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT id, date, kind, tag_id, tag_name_snapshot, description, annotation, amount, created_at, updated_at
+            FROM ledger_entries
+            WHERE date >= ? AND date <= ?
+            ORDER BY date ASC, id ASC
+            """,
+            (start_date or "", end_date or ""),
+        )
+        rows = cur.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "date": row["date"],
+                "kind": row["kind"],
+                "tag_id": row["tag_id"],
+                "tag_name": row["tag_name_snapshot"],
+                "description": row["description"],
+                "annotation": row["annotation"] if "annotation" in row.keys() else "",
+                "amount": row["amount"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+def sum_ledger_between(
+    start_date: str,
+    end_date: str,
+) -> Dict[str, float]:
+    """Return income/expense totals between dates."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT
+                SUM(CASE WHEN kind = 'income' THEN amount ELSE 0 END) AS income_total,
+                SUM(CASE WHEN kind = 'expense' THEN amount ELSE 0 END) AS expense_total
+            FROM ledger_entries
+            WHERE date >= ? AND date <= ?
+            """,
+            (start_date or "", end_date or ""),
+        )
+        row = cur.fetchone()
+        return {
+            "income_total": float(row["income_total"] or 0) if row else 0.0,
+            "expense_total": float(row["expense_total"] or 0) if row else 0.0,
+        }
+    finally:
+        conn.close()
+
+
+def purge_orphan_todo_instances() -> None:
+    """
+    Remove todo_instances whose source_todo_id no longer exists in todos
+    (e.g. user deleted the master todo). Safe to call periodically.
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            """
+            DELETE FROM todo_instances
+            WHERE NOT EXISTS (SELECT 1 FROM todos t WHERE t.id = todo_instances.source_todo_id)
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_todo_instances_for_date(date: str) -> List[Dict[str, Any]]:
+    """Get todo instances for a specific date."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT ti.id, ti.source_todo_id, ti.date, ti.status, ti.complete_date,
+                   ti.content_snapshot, ti.created_at, ti.updated_at
+            FROM todo_instances ti
+            INNER JOIN todos t ON t.id = ti.source_todo_id
+            WHERE ti.date = ?
+            ORDER BY ti.id ASC
+            """,
+            (date or "",),
+        )
+        rows = cur.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "source_todo_id": row["source_todo_id"],
+                "date": row["date"],
+                "status": row["status"],
+                "complete_date": row["complete_date"] or "",
+                "content_snapshot": row["content_snapshot"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+def insert_todo_instance(
+    source_todo_id: str,
+    date: str,
+    status: str,
+    content_snapshot: str,
+    complete_date: str = "",
+) -> int:
+    """Insert a todo instance; returns id (upsert-style ignoring duplicate pair)."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            INSERT OR IGNORE INTO todo_instances (source_todo_id, date, status, complete_date, content_snapshot)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (source_todo_id or "", date or "", status or "pending", complete_date or "", content_snapshot or ""),
+        )
+        conn.commit()
+        return int(cur.lastrowid or 0)
+    finally:
+        conn.close()
+
+
+def update_todo_instance_status(instance_id: int, status: str, complete_date: str = "") -> bool:
+    """Update status (and complete_date) for a todo instance."""
+    conn = get_connection()
+    try:
+        if (status or "pending") == "done":
+            cd = complete_date or ""
+        else:
+            cd = ""
+        cur = conn.execute(
+            """
+            UPDATE todo_instances
+            SET status = ?, complete_date = ?, updated_at = strftime('%s', 'now')
+            WHERE id = ?
+            """,
+            (status or "pending", cd, instance_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def get_todo_instances_completed_on(date: str) -> List[Dict[str, Any]]:
+    """Get todo instances completed on a date (complete_date == date), ordered by id."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT ti.id, ti.source_todo_id, ti.date, ti.status, ti.complete_date,
+                   ti.content_snapshot, ti.created_at, ti.updated_at
+            FROM todo_instances ti
+            INNER JOIN todos t ON t.id = ti.source_todo_id
+            WHERE ti.complete_date = ? AND ti.status = 'done'
+            ORDER BY ti.id ASC
+            """,
+            (date or "",),
+        )
+        rows = cur.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "source_todo_id": row["source_todo_id"],
+                "date": row["date"],
+                "status": row["status"],
+                "complete_date": row["complete_date"] or "",
+                "content_snapshot": row["content_snapshot"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+def clone_pending_todo_instances(from_date: str, to_date: str) -> int:
+    """
+    Clone all pending todo instances from one date to another.
+    Returns how many rows attempted to insert (ignores duplicates).
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            SELECT ti.source_todo_id, ti.content_snapshot
+            FROM todo_instances ti
+            INNER JOIN todos t ON t.id = ti.source_todo_id
+            WHERE ti.date = ? AND ti.status = 'pending'
+            """,
+            (from_date or "",),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return 0
+        for row in rows:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO todo_instances (source_todo_id, date, status, content_snapshot)
+                VALUES (?, ?, 'pending', ?)
+                """,
+                (row["source_todo_id"], to_date or "", row["content_snapshot"]),
+            )
+        conn.commit()
+        return len(rows)
     finally:
         conn.close()
 

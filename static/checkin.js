@@ -283,7 +283,7 @@
 
     let state = {
         data: loadData(),
-        activePage: "calendar",
+        activePage: "events",
         eventTypeTab: "checkin",
         reminderTypeFilter: "",
         reminderValidityFilter: "valid",
@@ -1745,20 +1745,18 @@
         document.querySelectorAll(".page").forEach(p => {
             p.classList.toggle("active", p.id === "page-" + page);
         });
-        if (page === "calendar") {
-            state.calendarDate = new Date();
-            renderCalendar();
-        }
         if (page === "stats") renderStats();
         if (page === "events") {
             initCheckinFormDefaults();
             renderEventList();
-            requestAnimationFrame(() => {
-                if (typeof window.refreshUiSelectComboboxVisibility === "function") {
-                    window.refreshUiSelectComboboxVisibility();
-                }
-            });
         }
+        // 待办 Tab 默认隐藏：ui-select 初始化时会把组合框设为 display:none；
+        // 切换到本页（或 URL ?page=todos）后必须刷新，否则「分类」「已完成筛选」只见标签不见控件。
+        requestAnimationFrame(() => {
+            if (typeof window.refreshUiSelectComboboxVisibility === "function") {
+                window.refreshUiSelectComboboxVisibility();
+            }
+        });
     }
 
     function bindEvents() {
@@ -1768,24 +1766,6 @@
 
         document.getElementById("btn-go-home")?.addEventListener("click", () => {
             window.location.href = "/home";
-        });
-
-        document.getElementById("btn-goto-today")?.addEventListener("click", () => {
-            state.calendarDate = new Date();
-            renderCalendar();
-        });
-        document.getElementById("btn-prev-month")?.addEventListener("click", () => {
-            state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1);
-            renderCalendar();
-        });
-        document.getElementById("btn-next-month")?.addEventListener("click", () => {
-            state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() + 1);
-            renderCalendar();
-        });
-
-        document.getElementById("calendar-grid")?.addEventListener("click", (e) => {
-            const day = e.target.closest(".calendar-day");
-            if (day && day.dataset.date) showDetailPanel(day.dataset.date);
         });
 
         document.getElementById("stats-event-list")?.addEventListener("click", (e) => {
@@ -2016,6 +1996,16 @@
 
         bindEvents();
         initCheckinFormDefaults();
+        // 支持通过 URL 参数跳转到指定一级 TAB：/static/checkin.html?page=events|stats|todos
+        try {
+            const p = new URLSearchParams(window.location.search || "").get("page");
+            if (p === "calendar") {
+                window.location.replace("/calendar");
+            } else if (p === "stats" || p === "events" || p === "todos") {
+                switchPage(p);
+            }
+        } catch (e) {}
+
         renderCalendar();
         showDetailPanel(state.selectedDate);
         renderEventList();

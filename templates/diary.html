@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="/static/frog.png">
+    <title>日记 - 工作小助手</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+    <link rel="stylesheet" href="/static/diary.css">
+    <link href="/static/quill/quill.snow.css" rel="stylesheet">
+</head>
+<body class="notes-page diary-page">
+<div class="app-container notes-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left">
+            <h1>日记</h1>
+        </div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+
+    <div class="notes-layout">
+        <aside class="notes-sidebar">
+            <div class="diary-sidebar-head">
+                <div class="diary-filter-dates-stack">
+                    <div class="diary-filter-date-line">
+                        <input id="diary-filter-start" type="date" class="notes-form-input diary-date-input" autocomplete="off" />
+                    </div>
+                    <div class="diary-filter-end-line">
+                        <input id="diary-filter-end" type="date" class="notes-form-input diary-date-input" autocomplete="off" />
+                        <span class="diary-filter-count">共 <span id="diary-count-num" class="notes-count-num">0</span> 条</span>
+                    </div>
+                </div>
+            </div>
+            <ul id="diary-list" class="notes-list">
+                <li class="notes-list-empty">暂无日记</li>
+            </ul>
+        </aside>
+
+        <main class="notes-detail">
+            <div class="notes-detail-content">
+                <div id="diary-detail-form" class="notes-form">
+                    <div class="notes-form-row notes-form-row-title-category">
+                        <div class="notes-form-label-row diary-form-label-row">
+                            <label class="notes-form-label" for="diary-title">今日小结</label>
+                            <label class="notes-form-label" for="diary-date">日期</label>
+                        </div>
+                        <div class="diary-form-title-date-row">
+                            <input type="text" id="diary-title" class="notes-form-input" placeholder="请输入今日小结" />
+                            <input type="date" id="diary-date" class="notes-form-input" disabled />
+                        </div>
+                    </div>
+                    <div class="notes-form-row diary-today-diet-row">
+                        <label class="notes-form-label" for="diary-today-diet">今日饮食</label>
+                        <textarea id="diary-today-diet" class="notes-form-input diary-today-diet" maxlength="200" placeholder="支持回车换行，200字以内" rows="4" spellcheck="false"></textarea>
+                    </div>
+                    <div class="notes-form-row notes-form-content-row">
+                        <label class="notes-form-label">随笔两三事</label>
+                        <div id="diary-editor-wrap" class="note-editor-wrap">
+                            <div id="diary-editor"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="diary-actions" class="notes-actions">
+                <div class="notes-actions-inner">
+                    <div class="notes-actions-left">
+                        <span class="notes-actions-hint" id="diary-last-updated">上次更新时间：-</span>
+                        <span class="notes-actions-hint" id="diary-word-count">总字数: -</span>
+                    </div>
+                    <div class="notes-actions-right">
+                        <button id="btn-save-diary-now" class="btn primary notes-action-btn">提交</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/quill/quill.min.js"></script>
+<script src="/static/diary.js"></script>
+</body>
+</html>
