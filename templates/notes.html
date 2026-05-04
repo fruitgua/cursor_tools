@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/theme.css">
     <link href="/static/quill/quill.snow.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/quill-theme.css">
 </head>
 <body class="notes-page">
 <div class="app-container notes-container">
@@ -25,7 +26,7 @@
             <button id="btn-add-note" class="btn primary notes-add-btn">+ 新增笔记</button>
             <div class="notes-filter-row">
                 <select id="notes-filter-category" class="notes-filter-select" data-ui-select="single">
-                    <option value="">全部</option>
+                    <option value="">不限</option>
                 </select>
                 <button type="button" id="btn-manage-categories" class="notes-manage-categories-btn" aria-label="管理分类" title="管理分类">✎</button>
                 <span class="notes-filter-count">共 <span id="notes-count-num" class="notes-count-num">0</span> 条</span>
@@ -120,6 +121,7 @@
 <script src="/static/theme-switcher.js"></script>
 <script src="/static/ui-select.js"></script>
 <script src="/static/quill/quill.min.js"></script>
+<script src="/static/quill-shared.js"></script>
 <script src="/static/notes.js"></script>
 </body>
 </html>

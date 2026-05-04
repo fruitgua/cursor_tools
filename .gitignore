@@ -12,9 +12,16 @@ env/
 # 本地大模型配置（含 API Key，不提交）
 config_llm.json
 
+# 光影文卷封面上传（保留目录）
+static/uploads/content_covers/*
+!static/uploads/content_covers/.gitkeep
+
 # 本地数据库文件
 file_remarks.db
 file_remarks.db-journal
+
+# 本地数据库备份目录（勿提交）
+backups/
 
 # 日志与临时文件
 *.log
@@ -37,4 +44,7 @@ Thumbs.db
 node_modules/
 dist/
 build/
+
+# 本地依赖展开目录（勿提交）
+.deps/
 

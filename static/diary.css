@@ -118,3 +118,22 @@
     overflow-wrap: break-word;
     overflow-y: auto;
 }
+
+.diary-page .diary-exercise-summary-row {
+    width: 1000px;
+    max-width: 100%;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.diary-page .diary-exercise-summary-row .notes-form-label {
+    margin-bottom: 8px;
+}
+
+.diary-page #diary-exercise-summary {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}

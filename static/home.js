@@ -43,8 +43,12 @@ function initHome() {
                 window.location.href = "/static/vocabulary.html";
             } else if (key === "diary") {
                 window.location.href = "/diary";
+            } else if (key === "content") {
+                window.location.href = "/content";
+            } else if (key === "people") {
+                window.location.href = "/people";
             } else if (key === "ledger") {
-                window.location.href = "/ledger";
+                window.location.href = "/ledger?tab=stats";
             } else {
                 showHomeToast("你要努力完善我噢~");
             }

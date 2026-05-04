@@ -228,7 +228,7 @@
                 <h3 class="card-title" id="event-list-title">打卡列表</h3>
                 <div class="event-list-filters inline-fields-gap">
                     <select id="reminder-type-filter" class="event-form-select reminder-type-filter" style="display:none" title="按类型筛选" data-ui-select="single">
-                        <option value="">全部</option>
+                        <option value="">全部提醒类型</option>
                         <option value="payment">生活缴费</option>
                         <option value="bill">银行账单</option>
                         <option value="activity">活动/演出</option>
@@ -285,8 +285,22 @@
     <div id="page-todos" class="page">
         <style>
             /* 仅作用于待办 Tab：避免影响其它 Tab 的 control-panel 等通用类 */
-            #app #page-todos.page.active { display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: auto; }
-            #page-todos .control-panel { padding: 12px 10px 8px; }
+            /* 不用 overflow:auto：会裁切/叠层导致新增区分类下拉被下方列表盖住；列表区各自 overflow-y:auto */
+            #app #page-todos.page.active { display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: visible; }
+            #page-todos .control-panel {
+                padding: 12px 10px 8px;
+                position: relative;
+                z-index: 40;
+            }
+            /*
+             * 打卡主题给 .control-panel 加了 backdrop-filter 时，会为内部 position:fixed 建立新的包含块，
+             * ui-select.js 用 getBoundingClientRect 写的视口坐标会错位，面板飘到页面中部。
+             * 仅待办 Tab 顶部条关闭毛玻璃，半透明底仍由 theme 的 background 提供。
+             */
+            html[data-theme="checkin"] #page-todos .control-panel {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
             #page-todos .control-panel .control-row { gap: 10px; align-items: flex-end; }
             #page-todos .control-panel .field-group { margin-right: 0; gap: 10px; }
             #page-todos .control-panel .field-control { height: 36px; box-sizing: border-box; }
@@ -311,8 +325,24 @@
                 min-width: 0;
                 width: 100%;
             }
+            #page-todos .todo-add-field-category .select-combobox,
+            #page-todos .todo-done-filter-only .select-combobox {
+                overflow: visible;
+            }
+            #page-todos .todo-add-field-category .select-panel,
+            #page-todos .todo-done-filter-only .select-panel {
+                z-index: 500;
+            }
 
-            #page-todos .todo-main-layout { display: flex; gap: 16px; flex: 1; min-height: 0; margin-top: 8px; }
+            #page-todos .todo-main-layout {
+                display: flex;
+                gap: 16px;
+                flex: 1;
+                min-height: 0;
+                margin-top: 8px;
+                position: relative;
+                z-index: 1;
+            }
             #page-todos .todo-column { flex: 1 1 50%; min-width: 0; display: flex; flex-direction: column; }
             #page-todos .todo-column-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; min-height: 44px; padding-left: 12px; padding-right: 12px; box-sizing: border-box; gap: 12px; }
             #page-todos .todo-column-header .field-group { margin-right: 0; }
@@ -520,7 +550,7 @@
                     <div class="todo-column-title">已完成</div>
                     <div class="todo-done-filter-only">
                         <select id="done-filter" class="field-control" data-ui-select="single" aria-label="按分类筛选已完成">
-                            <option value="all">全部</option>
+                            <option value="all">不限</option>
                             <option value="work">工作</option>
                             <option value="study">学习</option>
                             <option value="organize">整理</option>

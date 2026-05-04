@@ -1,9 +1,13 @@
 import os
 import json
+import csv
+import io
+import sqlite3
 import ssl
 import re
 import socket
 import difflib
+import uuid
 from datetime import datetime, date, timedelta
 from urllib.parse import urlencode
 from math import ceil
@@ -50,19 +54,55 @@ from database import (
     add_ledger_entry,
     update_ledger_entry,
     delete_ledger_entry,
+    ledger_retention_month_start_iso,
+    run_ledger_retention_archive,
     query_ledger_entries_between,
+    query_ledger_entries_archive_between,
     sum_ledger_between,
+    query_ledger_daily_expense_by_day,
+    query_ledger_tag_expense_ratios,
+    ledger_expense_breakdown_between,
+    upsert_ledger_budget_cell,
+    list_ledger_budget_cells,
+    update_ledger_budget_cell_amount,
+    resolve_ledger_budget_amount,
     get_todo_instances_for_date,
     get_todo_instances_completed_on,
     insert_todo_instance,
     update_todo_instance_status,
     clone_pending_todo_instances,
     purge_orphan_todo_instances,
+    heal_stale_pending_todo_instances_for_date,
     add_ip_access_log,
     count_distinct_access_ips,
+    get_recent_online_ip_stats,
     list_distinct_ips_in_log_range,
     count_ip_access_logs_filtered,
     get_ip_access_logs_filtered,
+    get_content_tags,
+    add_content_tag,
+    update_content_tag,
+    delete_content_tag_if_unused,
+    add_content_record,
+    update_content_record,
+    delete_content_record,
+    get_content_record,
+    content_record_related_ids_from_ext_json,
+    sync_content_record_related_links,
+    set_content_record_tags,
+    query_content_records,
+    get_content_calendar_aggregates,
+    search_content_record_titles,
+    is_valid_content_record_public_id,
+    normalize_content_record_public_id,
+    query_content_persons,
+    get_content_person,
+    get_content_person_works,
+    is_valid_content_person_public_id,
+    search_content_person_suggest,
+    toggle_content_person_liked,
+    update_content_person_profile,
+    delete_content_person_when_no_links,
 )
 from utils import scan_directory, validate_directory_path
 from caldav_sync import sync_checkin_to_caldav
@@ -72,6 +112,10 @@ app = Flask(__name__)
 
 # Initialize SQLite database for remarks storage.
 init_db()
+try:
+    run_ledger_retention_archive()
+except Exception:
+    pass
 
 # In-memory cache for the last scan result
 SCAN_RESULTS: List[Dict[str, Any]] = []
@@ -467,11 +511,24 @@ def home() -> str:
     :return: Rendered HTML content.
     """
     ip_count = 0
+    online_link_ip_count = 0
+    online_ips: List[str] = []
+    recent_online_minutes = 15
     try:
         ip_count = count_distinct_access_ips()
     except Exception:
         ip_count = 0
-    return render_template("home.html", ip_count=ip_count)
+    try:
+        online_link_ip_count, online_ips = get_recent_online_ip_stats(recent_online_minutes)
+    except Exception:
+        online_link_ip_count, online_ips = 0, []
+    return render_template(
+        "home.html",
+        ip_count=ip_count,
+        online_link_ip_count=online_link_ip_count,
+        online_ips=online_ips,
+        recent_online_minutes=recent_online_minutes,
+    )
 
 
 @app.route("/api/network-access-hint", methods=["GET"])
@@ -544,6 +601,89 @@ def _parse_date_param(date_str: str) -> Optional[date]:
         return None
 
 
+def _build_month_daily_expense_series(month_start: str, month_end: str) -> List[Dict[str, Any]]:
+    """自然月内每日支出（无则 0），用于统计柱状图。"""
+    sparse = query_ledger_daily_expense_by_day(month_start, month_end)
+    by_d = {
+        str(x.get("date") or ""): {
+            "expense_total": float(x.get("expense_total") or 0.0),
+            "daily_expense_total": float(x.get("daily_expense_total") or 0.0),
+        }
+        for x in sparse
+    }
+    d0 = _parse_date_param(month_start)
+    d1 = _parse_date_param(month_end)
+    if not d0 or not d1:
+        return []
+    out: List[Dict[str, Any]] = []
+    cur = d0
+    while cur <= d1:
+        ds = cur.strftime("%Y-%m-%d")
+        row = by_d.get(ds) or {}
+        out.append(
+            {
+                "date": ds,
+                "expense_total": round(float(row.get("expense_total") or 0.0), 2),
+                "daily_expense_total": round(float(row.get("daily_expense_total") or 0.0), 2),
+            }
+        )
+        cur += timedelta(days=1)
+    return out
+
+
+def _build_week_daily_breakdown_series(base_date: date) -> List[Dict[str, Any]]:
+    """自然周内逐日收入/日常支出/非日常支出。"""
+    wmon = _ledger_start_of_week_monday(base_date)
+    ws, _ = _ledger_week_range_from_monday(wmon)
+    d0 = _parse_date_param(ws)
+    if not d0:
+        return []
+    out: List[Dict[str, Any]] = []
+    for i in range(7):
+        d = d0 + timedelta(days=i)
+        ds = d.strftime("%Y-%m-%d")
+        totals = sum_ledger_between(ds, ds)
+        breakdown = ledger_expense_breakdown_between(ds, ds)
+        out.append(
+            {
+                "date": ds,
+                "income_total": round(float(totals.get("income_total") or 0.0), 2),
+                "daily_expense_total": round(float(totals.get("daily_expense_total") or 0.0), 2),
+                "nondaily_expense_total": round(float(breakdown.get("expense_fixed_total") or 0.0), 2),
+            }
+        )
+    return out
+
+
+def _build_month_weekly_expense_series(base_date: date) -> List[Dict[str, Any]]:
+    """自然月内按自然周汇总支出（包含跨月周）。"""
+    ms, me = _month_date_range(base_date.year, base_date.month)
+    d0 = _parse_date_param(ms)
+    d1 = _parse_date_param(me)
+    if not d0 or not d1:
+        return []
+    wk = _ledger_start_of_week_monday(d0)
+    out: List[Dict[str, Any]] = []
+    while wk <= d1:
+        ws, we = _ledger_week_range_from_monday(wk)
+        br = ledger_expense_breakdown_between(ws, we)
+        expense_total = float(br.get("expense_total") or 0.0)
+        daily_total = float(br.get("expense_daily_total") or 0.0)
+        fixed_total = float(br.get("expense_fixed_total") or 0.0)
+        out.append(
+            {
+                "week_start": ws,
+                "week_end": we,
+                "label": f"{ws.replace('-', '')}~{we.replace('-', '')}",
+                "expense_total": round(expense_total, 2),
+                "daily_expense_total": round(daily_total, 2),
+                "nondaily_expense_total": round(fixed_total, 2),
+            }
+        )
+        wk += timedelta(days=7)
+    return out
+
+
 def _load_global_todos_items() -> List[Dict[str, Any]]:
     """Prefer DB todos; fallback to app_state snapshot when DB empty."""
     try:
@@ -569,6 +709,28 @@ def _load_global_todos_items() -> List[Dict[str, Any]]:
     return items if isinstance(items, list) else []
 
 
+def _filter_pending_todo_instances_vs_master(instances: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Calendar/API: omit instance rows still pending when master `todos` is already done."""
+    try:
+        masters = get_all_todos() or []
+        done_ids = {
+            str(it.get("id") or "").strip()
+            for it in masters
+            if str(it.get("status") or "").strip().lower() == "done"
+        }
+        out: List[Dict[str, Any]] = []
+        for t in instances or []:
+            if (t.get("status") or "pending") != "pending":
+                continue
+            sid = str(t.get("source_todo_id") or "").strip()
+            if sid and sid in done_ids:
+                continue
+            out.append(t)
+        return out
+    except Exception:
+        return [t for t in instances or [] if (t.get("status") or "pending") == "pending"]
+
+
 def _sync_pending_todo_instances_missing_for_date(date_str: str) -> None:
     """
     For *today* only: ensure every pending master todo in todos has a todo_instances row
@@ -584,6 +746,14 @@ def _sync_pending_todo_instances_missing_for_date(date_str: str) -> None:
         existing_rows = []
     have_sources = {str(r.get("source_todo_id") or "").strip() for r in existing_rows if r.get("source_todo_id")}
     items = _load_global_todos_items()
+    try:
+        done_master_ids = {
+            str(it.get("id") or "").strip()
+            for it in (get_all_todos() or [])
+            if str(it.get("status") or "").strip().lower() == "done"
+        }
+    except Exception:
+        done_master_ids = set()
     for it in items or []:
         try:
             st = str(it.get("status") or "").strip().lower()
@@ -592,6 +762,8 @@ def _sync_pending_todo_instances_missing_for_date(date_str: str) -> None:
             source_id = str(it.get("id") or "").strip()
             content = str(it.get("content") or "").strip()
             if not source_id or not content:
+                continue
+            if source_id in done_master_ids:
                 continue
             if source_id in have_sources:
                 continue
@@ -614,12 +786,18 @@ def _ensure_todo_instances_for_date(date_str: str) -> None:
     - Else clone pending from previous date
     - If still empty: seed from global todos where status=pending
     """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if date_str == today_str:
+        try:
+            heal_stale_pending_todo_instances_for_date(date_str)
+        except Exception:
+            pass
+
     existing = []
     try:
         existing = get_todo_instances_for_date(date_str)
     except Exception:
         existing = []
-    today_str = datetime.now().strftime("%Y-%m-%d")
     if existing:
         if date_str == today_str:
             _sync_pending_todo_instances_missing_for_date(date_str)
@@ -641,6 +819,15 @@ def _ensure_todo_instances_for_date(date_str: str) -> None:
 
     items = _load_global_todos_items()
 
+    try:
+        done_master_ids_seed = {
+            str(it.get("id") or "").strip()
+            for it in (get_all_todos() or [])
+            if str(it.get("status") or "").strip().lower() == "done"
+        }
+    except Exception:
+        done_master_ids_seed = set()
+
     # seed pending instances: only for today (historical days should not show pending)
     if date_str == today_str:
         for it in items or []:
@@ -652,6 +839,8 @@ def _ensure_todo_instances_for_date(date_str: str) -> None:
                 source_id = str(it.get("id") or "").strip()
                 content = str(it.get("content") or "").strip()
                 if not source_id or not content:
+                    continue
+                if source_id in done_master_ids_seed:
                     continue
                 insert_todo_instance(
                     source_todo_id=source_id,
@@ -806,6 +995,10 @@ def api_calendar_summary() -> Any:
     except Exception:
         diaries_meta = []
     diary_dates = {row.get("date") for row in diaries_meta if row.get("date")}
+    try:
+        content_agg_by_date = get_content_calendar_aggregates(start_date, end_date)
+    except Exception:
+        content_agg_by_date = {}
 
     # Todo instances for month (only need pending count per day)
     # For simplicity and small scale, query per day when building days list.
@@ -889,13 +1082,14 @@ def api_calendar_summary() -> Any:
             try:
                 _ensure_todo_instances_for_date(d_str)
                 instances = get_todo_instances_for_date(d_str)
-                todo_pending = sum(1 for it in instances if (it.get("status") or "pending") == "pending")
+                todo_pending = len(_filter_pending_todo_instances_vs_master(instances))
             except Exception:
                 todo_pending = 0
         else:
             todo_pending = 0
 
         ledger_agg = ledger_by_date.get(d_str, {"income_total": 0.0, "expense_total": 0.0})
+        content_agg = content_agg_by_date.get(d_str, {"watch_count": 0, "book_count": 0})
 
         days.append(
             {
@@ -910,6 +1104,8 @@ def api_calendar_summary() -> Any:
                 "income_total": round(float(ledger_agg.get("income_total") or 0.0), 2),
                 "has_diary": d_str in diary_dates,
                 "hasDiary": d_str in diary_dates,
+                "watch_count": int(content_agg.get("watch_count") or 0),
+                "book_count": int(content_agg.get("book_count") or 0),
             }
         )
         cur += timedelta(days=1)
@@ -1065,7 +1261,15 @@ def api_calendar_day() -> Any:
         totals = sum_ledger_between(date_str, date_str)
     except Exception:
         entries = []
-        totals = {"income_total": 0.0, "expense_total": 0.0}
+        totals = {"income_total": 0.0, "expense_total": 0.0, "daily_expense_total": 0.0}
+    try:
+        content_items, _ = query_content_records(
+            submit_start=date_str,
+            submit_end=date_str,
+            page_size=0,
+        )
+    except Exception:
+        content_items = []
 
     # 待办实例：懒迁移 + 规则过滤
     # 规则：
@@ -1075,9 +1279,7 @@ def api_calendar_day() -> Any:
         today_obj = datetime.now().date()
         if d_obj == today_obj:
             _ensure_todo_instances_for_date(date_str)
-            pending_instances = [
-                t for t in get_todo_instances_for_date(date_str) if (t.get("status") or "pending") == "pending"
-            ]
+            pending_instances = _filter_pending_todo_instances_vs_master(get_todo_instances_for_date(date_str))
         else:
             # 非当天不展示未完成待办
             _ensure_todo_instances_for_date(date_str)  # 仅用于回填历史已完成（complete_date），pending 不会生成
@@ -1091,6 +1293,8 @@ def api_calendar_day() -> Any:
         {
             "success": True,
             "date": date_str,
+            # 与 todos_pending 是否返回保持一致，避免前端用本地日期判断「今天」与后端不一致
+            "server_today": datetime.now().strftime("%Y-%m-%d"),
             "labels": labels,
             "checkins": checkin_events,
             "reminders": reminder_events,
@@ -1100,6 +1304,7 @@ def api_calendar_day() -> Any:
                 "income_total": round(float(totals.get("income_total") or 0.0), 2),
                 "expense_total": round(float(totals.get("expense_total") or 0.0), 2),
             },
+            "content_items": content_items,
             "todos_pending": pending_instances,
             "todos_done": done_instances,
         }
@@ -1212,6 +1417,18 @@ def ledger_page() -> str:
     return render_template("ledger.html")
 
 
+@app.route("/content")
+def content_page() -> str:
+    """光影文卷页面。"""
+    return render_template("content.html")
+
+
+@app.route("/people")
+def people_library_page() -> str:
+    """人物库：追剧/读书人物卡片与关联作品。"""
+    return render_template("people.html")
+
+
 @app.route("/local-services")
 def local_services_dashboard() -> Any:
     """本机服务面板（可选：项目根目录 local-services-dashboard.html）。"""
@@ -1232,6 +1449,96 @@ def local_services_dashboard() -> Any:
 def _ledger_kind_normalize(kind: str) -> str:
     k = str(kind or "").strip().lower()
     return k if k in ("income", "expense") else ""
+
+
+def _ledger_retention_start_iso() -> str:
+    return ledger_retention_month_start_iso()
+
+
+def _ledger_server_date_iso() -> str:
+    return date.today().strftime("%Y-%m-%d")
+
+
+def _ledger_clamp_main_query_dates(start_date: str, end_date: str) -> Tuple[str, str, Optional[str]]:
+    """将查询区间限制在 [保留下限, 今天]；返回 (start, end, format_error)。
+    与保留区间无交集时 s > e，调用方按空结果处理（不视为格式错误）。"""
+    sd = _parse_date_param(str(start_date or "").strip())
+    ed = _parse_date_param(str(end_date or "").strip())
+    if not sd or not ed:
+        return "", "", "日期格式错误，需 YYYY-MM-DD"
+    s = sd.strftime("%Y-%m-%d")
+    e = ed.strftime("%Y-%m-%d")
+    if s > e:
+        s, e = e, s
+    cut = _ledger_retention_start_iso()
+    today_s = _ledger_server_date_iso()
+    if e > today_s:
+        e = today_s
+    if s < cut:
+        s = cut
+    return s, e, None
+
+
+def _ledger_entry_date_allowed(date_str: str) -> Optional[str]:
+    """POST/PUT 发生日期校验；通过返回 None。"""
+    ds = str(date_str or "").strip()
+    d = _parse_date_param(ds)
+    if not d:
+        return "参数错误：date 格式需 YYYY-MM-DD"
+    cut_d = _parse_date_param(_ledger_retention_start_iso())
+    if cut_d and d < cut_d:
+        return "发生日期不可早于系统保留区间（最近12个自然月）"
+    if d > date.today():
+        return "发生日期不能晚于今天"
+    return None
+
+
+def _ledger_archive_export_clamp(start_date: str, end_date: str) -> Tuple[str, str, Optional[str]]:
+    sd = _parse_date_param(str(start_date or "").strip())
+    ed = _parse_date_param(str(end_date or "").strip())
+    if not sd or not ed:
+        return "", "", "日期格式错误，需 YYYY-MM-DD"
+    s = sd.strftime("%Y-%m-%d")
+    e = ed.strftime("%Y-%m-%d")
+    if s > e:
+        s, e = e, s
+    today_s = _ledger_server_date_iso()
+    if e > today_s:
+        e = today_s
+    return s, e, None
+
+
+def _ledger_row_csv_cells(row: Dict[str, Any]) -> List[str]:
+    kind = str(row.get("kind") or "")
+    is_income = kind == "income"
+    type_text = "收入" if is_income else "支出"
+    nature_raw = str(row.get("expense_nature") or "").lower()
+    nature_text = "—" if is_income else ("固定" if nature_raw == "fixed" else "日常")
+    amt = float(row.get("amount") or 0.0)
+    return [
+        str(row.get("date") or ""),
+        type_text,
+        nature_text,
+        str(row.get("tag_name") or "").strip() or "未命名",
+        str(row.get("description") or "").strip() or "（无明细）",
+        str(row.get("annotation") or "").strip(),
+        f"{amt:.2f}",
+    ]
+
+
+def _ledger_csv_response(rows: List[Dict[str, Any]], filename: str) -> Response:
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    writer = csv.writer(buf)
+    writer.writerow(["发生日期", "类型", "支出性质", "标签", "明细", "批注", "金额"])
+    for row in rows:
+        writer.writerow(_ledger_row_csv_cells(row))
+    payload = buf.getvalue().encode("utf-8")
+    return Response(
+        payload,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def _ledger_parse_amount(raw: Any) -> Optional[float]:
@@ -1263,6 +1570,259 @@ def _ledger_parse_entry_text_fields(body: Dict[str, Any]) -> Tuple[str, str, Opt
     if len(ann) > 30:
         return "", "", "批注不能超过30字"
     return desc, ann, None
+
+
+def _ledger_scope_normalize(raw: Any) -> str:
+    s = str(raw or "").strip().lower()
+    return s if s in ("week", "month") else ""
+
+
+def _ledger_start_of_week_monday(d: date) -> date:
+    wd = d.weekday()
+    return d - timedelta(days=wd)
+
+
+def _ledger_week_range_from_monday(monday: date) -> Tuple[str, str]:
+    end = monday + timedelta(days=6)
+    return monday.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+
+
+def _ledger_period_dates(scope: str, period_start: str) -> Optional[Tuple[str, str]]:
+    d = _parse_date_param(str(period_start or "").strip())
+    if not d:
+        return None
+    if scope == "month":
+        if d.day != 1:
+            return None
+        return _month_date_range(d.year, d.month)
+    if scope == "week":
+        if d.weekday() != 0:
+            return None
+        return _ledger_week_range_from_monday(d)
+    return None
+
+
+def _ledger_period_not_future(scope: str, period_start: str) -> bool:
+    today = date.today()
+    d = _parse_date_param(str(period_start or "").strip())
+    if not d:
+        return False
+    if scope == "month":
+        if d.day != 1:
+            return False
+        return (d.year, d.month) <= (today.year, today.month)
+    if scope == "week":
+        if d.weekday() != 0:
+            return False
+        cur_mon = _ledger_start_of_week_monday(today)
+        return d <= cur_mon
+    return False
+
+
+def _ledger_period_label(scope: str, start_s: str, end_s: str) -> str:
+    sd = _parse_date_param(start_s)
+    ed = _parse_date_param(end_s)
+    if not sd or not ed:
+        return ""
+    if scope == "month":
+        return f"{sd.year}年{sd.month}月"
+
+    def _fmt_dot(d0: date) -> str:
+        return f"{d0.year}.{d0.month:02d}.{d0.day:02d}"
+
+    return f"周一 {_fmt_dot(sd)} ~ 周日 {_fmt_dot(ed)}"
+
+
+def _ledger_triple_totals(start_s: str, end_s: str) -> Dict[str, Any]:
+    """收入 / 总支出 / 日常性质支出（与记账列表合计口径一致）。"""
+    t = sum_ledger_between(start_s, end_s)
+    return {
+        "income_total": round(float(t.get("income_total") or 0.0), 2),
+        "expense_total": round(float(t.get("expense_total") or 0.0), 2),
+        "daily_expense_total": round(float(t.get("daily_expense_total") or 0.0), 2),
+    }
+
+
+def _ledger_gauge_block(scope: str, anchor: date) -> Dict[str, Any]:
+    """支出预算占比：日常类支出（非固定）/ 周期预算。anchor 为当周周一或当月 1 号。"""
+    ps = anchor.strftime("%Y-%m-%d")
+    prange = _ledger_period_dates(scope, ps)
+    if not prange:
+        return {
+            "scope": scope,
+            "period_start": ps,
+            "period_label": "",
+            "start_date": "",
+            "end_date": "",
+            "daily_budget": None,
+            "budget_ratio_percent": None,
+            "expense_daily_for_budget": 0.0,
+        }
+    start_s, end_s = prange
+    br = ledger_expense_breakdown_between(start_s, end_s)
+    resolved = resolve_ledger_budget_amount(scope, start_s, end_s)
+    daily_spent = float(br.get("expense_daily_total") or 0.0)
+    ratio_pct: Optional[float] = None
+    if resolved is not None and resolved > 0:
+        ratio_pct = round((daily_spent / resolved) * 100.0, 1)
+    return {
+        "scope": scope,
+        "period_start": ps,
+        "start_date": start_s,
+        "end_date": end_s,
+        "period_label": _ledger_period_label(scope, start_s, end_s),
+        "daily_budget": round(float(resolved), 2) if resolved is not None else None,
+        "expense_daily_for_budget": round(daily_spent, 2),
+        "budget_ratio_percent": ratio_pct,
+    }
+
+
+def _ledger_expense_nature_for_kind(kind: str, body: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+    if kind == "income":
+        return "", None
+    raw = str(body.get("expense_nature") or "").strip().lower()
+    if raw not in ("fixed", "daily"):
+        return "", "参数错误：支出需选择支出性质（fixed=固定 / daily=日常）"
+    return raw, None
+
+
+def _ledger_parse_budget_amount(raw: Any) -> Optional[float]:
+    try:
+        v = float(raw)
+    except Exception:
+        return None
+    if v < 0:
+        return None
+    return round(abs(v), 2)
+
+
+def _ledger_policy_range_validate(range_start: str, range_end: str) -> Optional[str]:
+    rs = _parse_date_param(str(range_start or "").strip())
+    re_ = _parse_date_param(str(range_end or "").strip())
+    if not rs or not re_:
+        return "预算起止日期格式需为 YYYY-MM-DD"
+    if rs > re_:
+        return "预算开始日期不能晚于结束日期"
+    return None
+
+
+def _enumerate_week_budget_lines(range_start_d: date, range_end_d: date, amount: float) -> List[Dict[str, Any]]:
+    """Each calendar week (Mon–Sun) that intersects [range_start_d, range_end_d] gets the same budget amount."""
+    d0 = _ledger_start_of_week_monday(range_start_d)
+    d1 = _ledger_start_of_week_monday(range_end_d)
+    lines: List[Dict[str, Any]] = []
+    cur = d0
+    while cur <= d1:
+        ps = cur.strftime("%Y-%m-%d")
+        pe = (cur + timedelta(days=6)).strftime("%Y-%m-%d")
+        label = _ledger_period_label("week", ps, pe)
+        lines.append(
+            {
+                "period_start": ps,
+                "period_end": pe,
+                "period_label": label,
+                "amount": round(float(amount), 2),
+            }
+        )
+        cur += timedelta(days=7)
+    return lines
+
+
+def _enumerate_month_budget_lines(range_start_d: date, range_end_d: date, amount: float) -> List[Dict[str, Any]]:
+    """Each calendar month that intersects [range_start_d, range_end_d] gets the same budget amount."""
+    y, m = range_start_d.year, range_start_d.month
+    y_end, m_end = range_end_d.year, range_end_d.month
+    lines: List[Dict[str, Any]] = []
+    while y < y_end or (y == y_end and m <= m_end):
+        ps, pe = _month_date_range(y, m)
+        label = _ledger_period_label("month", ps, pe)
+        lines.append(
+            {
+                "period_start": ps,
+                "period_end": pe,
+                "period_label": label,
+                "amount": round(float(amount), 2),
+            }
+        )
+        if m == 12:
+            y += 1
+            m = 1
+        else:
+            m += 1
+    return lines
+
+
+def _content_record_type_normalize(raw: Any) -> str:
+    x = str(raw or "").strip().lower()
+    return x if x in ("watch", "book") else ""
+
+
+def _content_list_status_normalize(raw: Any) -> str:
+    x = str(raw or "").strip().lower()
+    return x if x in ("done", "wishlist") else ""
+
+
+def _content_tag_record_type_normalize(raw: Any) -> str:
+    x = str(raw or "").strip().lower()
+    return x if x in ("watch", "book", "all") else ""
+
+
+def _parse_rating(raw: Any) -> int:
+    try:
+        n = int(raw)
+    except Exception:
+        return -1
+    if 0 <= n <= 5:
+        return n
+    return -1
+
+
+@app.route("/api/ledger/meta", methods=["GET"])
+def api_ledger_meta() -> Any:
+    """记账保留策略：热库仅最近12个自然月；供前端限制日期控件。"""
+    return jsonify(
+        {
+            "success": True,
+            "retention_start_date": _ledger_retention_start_iso(),
+            "server_date": _ledger_server_date_iso(),
+        }
+    )
+
+
+@app.route("/api/ledger/export.csv", methods=["GET"])
+def api_ledger_export_csv() -> Any:
+    """导出当前热库区间流水，表头与记账列表一致（无「操作」列）。"""
+    start_date = str(request.args.get("start_date") or "").strip()
+    end_date = str(request.args.get("end_date") or "").strip()
+    if not start_date or not end_date:
+        return jsonify({"success": False, "message": "缺少参数 start_date / end_date"}), 400
+    s, e, fmt_err = _ledger_clamp_main_query_dates(start_date, end_date)
+    if fmt_err:
+        return jsonify({"success": False, "message": fmt_err}), 400
+    try:
+        rows = query_ledger_entries_between(s, e) if s <= e else []
+        fn = f"ledger_{s}_{e}.csv"
+        return _ledger_csv_response(rows, fn)
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"导出失败：{exc}"}), 500
+
+
+@app.route("/api/ledger/archive/export.csv", methods=["GET"])
+def api_ledger_archive_export_csv() -> Any:
+    """导出归档表流水（早于热库保留下限的历史），表头与记账列表一致。"""
+    start_date = str(request.args.get("start_date") or "").strip()
+    end_date = str(request.args.get("end_date") or "").strip()
+    if not start_date or not end_date:
+        return jsonify({"success": False, "message": "缺少参数 start_date / end_date"}), 400
+    s, e, fmt_err = _ledger_archive_export_clamp(start_date, end_date)
+    if fmt_err:
+        return jsonify({"success": False, "message": fmt_err}), 400
+    try:
+        rows = query_ledger_entries_archive_between(s, e) if s <= e else []
+        fn = f"ledger_archive_{s}_{e}.csv"
+        return _ledger_csv_response(rows, fn)
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"导出失败：{exc}"}), 500
 
 
 @app.route("/api/ledger/tags", methods=["GET"])
@@ -1343,6 +1903,570 @@ def api_ledger_tags_delete(tag_id: int) -> Any:
         return jsonify({"success": False, "message": f"删除失败：{exc}"}), 500
 
 
+@app.route("/api/content/tags", methods=["GET"])
+def api_content_tags_list() -> Any:
+    """List content tags, optionally filtered by record_type."""
+    rt = _content_tag_record_type_normalize(request.args.get("record_type") or "") or "all"
+    try:
+        items = get_content_tags(rt)
+        return jsonify({"success": True, "items": items})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取标签失败：{exc}"}), 500
+
+
+@app.route("/api/content/tags", methods=["POST"])
+def api_content_tags_add() -> Any:
+    """Add one content tag."""
+    body = request.get_json(silent=True) or {}
+    name = str(body.get("name") or "").strip()
+    rt = _content_tag_record_type_normalize(body.get("record_type") or "") or "all"
+    if not name:
+        return jsonify({"success": False, "message": "参数错误：name 必填"}), 400
+    try:
+        tag_id = add_content_tag(name, rt)
+        return jsonify({"success": True, "id": tag_id})
+    except Exception as exc:  # pylint: disable=broad-except
+        msg = str(exc)
+        if "UNIQUE constraint failed" in msg:
+            return jsonify({"success": False, "message": "标签已存在"}), 400
+        return jsonify({"success": False, "message": f"新增标签失败：{exc}"}), 500
+
+
+@app.route("/api/content/tags/<int:tag_id>", methods=["PUT"])
+def api_content_tags_rename(tag_id: int) -> Any:
+    """Update one content tag (name and/or 追剧/读书适用范围)."""
+    body = request.get_json(silent=True) or {}
+    raw_name = body.get("name")
+    raw_rt = body.get("record_type")
+    name: Optional[str] = None
+    record_type: Optional[str] = None
+    if raw_name is not None:
+        name = str(raw_name or "").strip()
+        if not name:
+            return jsonify({"success": False, "message": "参数错误：name 不能为空"}), 400
+    if raw_rt is not None:
+        record_type = _content_tag_record_type_normalize(raw_rt) or str(raw_rt or "").strip().lower()
+        if record_type not in ("watch", "book", "all"):
+            return jsonify({"success": False, "message": "参数错误：record_type 须为 watch / book / all"}), 400
+    if name is None and record_type is None:
+        return jsonify({"success": False, "message": "参数错误：请提供 name 或 record_type"}), 400
+    try:
+        ok = update_content_tag(tag_id, name=name, record_type=record_type)
+        if not ok:
+            return jsonify({"success": False, "message": "记录不存在"}), 404
+        return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        return jsonify({"success": False, "message": "标签已存在"}), 400
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"更新失败：{exc}"}), 500
+
+
+@app.route("/api/content/tags/<int:tag_id>", methods=["DELETE"])
+def api_content_tags_delete(tag_id: int) -> Any:
+    """Delete content tag when unused."""
+    try:
+        ok = delete_content_tag_if_unused(tag_id)
+        if not ok:
+            return jsonify({"success": False, "message": "该标签已被记录引用，无法删除"}), 400
+        return jsonify({"success": True})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"删除失败：{exc}"}), 500
+
+
+def _content_cover_upload_dir() -> Path:
+    p = Path(app.root_path) / "static" / "uploads" / "content_covers"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _detect_uploaded_image_ext(header: bytes) -> Optional[str]:
+    if len(header) < 12:
+        return None
+    if header[:3] == b"\xff\xd8\xff":
+        return ".jpg"
+    if header[:8] == b"\x89PNG\r\n\x1a\n":
+        return ".png"
+    if header[:6] in (b"GIF87a", b"GIF89a"):
+        return ".gif"
+    if header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return ".webp"
+    return None
+
+
+def _normalize_content_cover_url(raw: str) -> str:
+    s = str(raw or "").strip()[:800]
+    if not s:
+        return ""
+    prefix = "/static/uploads/content_covers/"
+    if not s.startswith(prefix):
+        return ""
+    rest = s[len(prefix) :]
+    if not rest or "/" in rest or ".." in rest:
+        return ""
+    if not re.match(r"^[a-fA-F0-9]{32}\.(jpg|jpeg|png|gif|webp)$", rest, re.IGNORECASE):
+        return ""
+    return prefix + rest
+
+
+def _parse_content_record_payload(body: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    rt = _content_record_type_normalize(body.get("record_type") or "")
+    if not rt:
+        return None, "参数错误：record_type 仅支持 watch / book"
+    submit_date = str(body.get("submit_date") or "").strip()
+    if not submit_date or not _parse_date_param(submit_date):
+        return None, "参数错误：标记日期格式需 YYYY-MM-DD"
+    title = str(body.get("title") or "").strip()
+    if not title:
+        return None, "参数错误：title 必填"
+    rating = _parse_rating(body.get("rating"))
+    if rating < 0:
+        return None, "参数错误：rating 需在 0-5 之间"
+    category = str(body.get("category") or "").strip()
+    if rt == "watch":
+        fixed_categories = {"长剧", "短剧", "电影", "TV动画", "剧场动画", "AI漫剧"}
+        if category not in fixed_categories:
+            return None, "参数错误：category 仅支持 长剧/短剧/电影/TV动画/剧场动画/AI漫剧"
+    elif rt == "book":
+        if category and category not in {"书籍"}:
+            return None, "参数错误：读书 category 仅支持 书籍"
+    ls = _content_list_status_normalize(body.get("list_status"))
+    if not ls:
+        ls = "done"
+    episode_count = str(body.get("episode_count") or "").strip()[:200]
+    payload = {
+        "record_type": rt,
+        "submit_date": submit_date,
+        "title": title,
+        "creator": str(body.get("creator") or "").strip(),
+        "category": category,
+        "rating": rating,
+        "episode_count": episode_count,
+        "summary": str(body.get("summary") or "").strip(),
+        "review": str(body.get("review") or "").strip(),
+        "original_work": str(body.get("original_work") or "").strip(),
+        "release_date": str(body.get("release_date") or "").strip(),
+        "related_series": str(body.get("related_series") or "").strip(),
+        "cover_url": _normalize_content_cover_url(str(body.get("cover_url") or "")),
+        "source": str(body.get("source") or "manual").strip() or "manual",
+        "source_id": str(body.get("source_id") or "").strip(),
+        "ext_json": str(body.get("ext_json") or "{}").strip() or "{}",
+        "list_status": ls,
+    }
+    tag_ids_raw = body.get("tag_ids") or []
+    tag_ids: List[int] = []
+    if isinstance(tag_ids_raw, list):
+        for x in tag_ids_raw:
+            try:
+                tag_ids.append(int(x))
+            except Exception:
+                continue
+    payload["tag_ids"] = tag_ids
+    return payload, None
+
+
+@app.route("/api/content/person-suggest", methods=["GET"])
+def api_content_person_suggest() -> Any:
+    """
+    人物库关键字筛选（光影文卷主演/作者录入）。
+
+    Query:
+      q: keyword
+      record_type: watch | book（与当前记录类型一致）
+      exclude: 可重复，已选中的展示名不再出现
+      limit: 默认 30，最大 80
+    """
+    q = str(request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"success": True, "items": []})
+    rt = _content_record_type_normalize(request.args.get("record_type") or "")
+    if rt not in ("watch", "book"):
+        return jsonify({"success": False, "message": "record_type 需为 watch 或 book"}), 400
+    exclude = [str(x or "").strip() for x in request.args.getlist("exclude") if str(x or "").strip()]
+    try:
+        lim = int(request.args.get("limit") or 30)
+    except (TypeError, ValueError):
+        lim = 30
+    try:
+        items = search_content_person_suggest(q, rt, exclude_names=exclude, limit=lim)
+        return jsonify({"success": True, "items": items})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"查询失败：{exc}"}), 500
+
+
+@app.route("/api/content/title-suggest", methods=["GET"])
+def api_content_title_suggest() -> Any:
+    """
+    Fuzzy match record titles for form pickers.
+
+    Query:
+      q: keyword (required, non-empty)
+      exclude_id: record id to omit (e.g. current editing row)
+      limit: max rows (default 30, max 80)
+    """
+    q = str(request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"success": True, "items": []})
+    exclude_raw = str(request.args.get("exclude_id") or "").strip()
+    exclude_id = ""
+    if exclude_raw and is_valid_content_record_public_id(exclude_raw):
+        exclude_id = normalize_content_record_public_id(exclude_raw)
+    try:
+        lim = int(request.args.get("limit") or 30)
+    except (TypeError, ValueError):
+        lim = 30
+    try:
+        items = search_content_record_titles(q, exclude_id=exclude_id, limit=lim)
+        return jsonify({"success": True, "items": items})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"查询失败：{exc}"}), 500
+
+
+@app.route("/api/content/cover", methods=["POST"])
+def api_content_cover_upload() -> Any:
+    """Upload one poster image; returns URL under /static/uploads/content_covers/."""
+    if "file" not in request.files:
+        return jsonify({"success": False, "message": "缺少文件参数 file"}), 400
+    uf = request.files["file"]
+    if not uf or not uf.filename:
+        return jsonify({"success": False, "message": "未选择文件"}), 400
+    try:
+        data = uf.read()
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取失败：{exc}"}), 400
+    max_bytes = 5 * 1024 * 1024
+    if len(data) > max_bytes:
+        return jsonify({"success": False, "message": "图片不能超过 5MB"}), 400
+    ext = _detect_uploaded_image_ext(data[:32])
+    if not ext:
+        return jsonify({"success": False, "message": "仅支持 JPEG / PNG / GIF / WebP 图片"}), 400
+    name = f"{uuid.uuid4().hex}{ext}"
+    dest = _content_cover_upload_dir() / name
+    try:
+        dest.write_bytes(data)
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"保存失败：{exc}"}), 500
+    url = f"/static/uploads/content_covers/{name}"
+    return jsonify({"success": True, "url": url})
+
+
+@app.route("/api/content/records", methods=["GET"])
+def api_content_records_query() -> Any:
+    """Query content records with key filters."""
+    rt = _content_record_type_normalize(request.args.get("record_type") or "")
+    title_kw = str(request.args.get("title") or "").strip()
+    creator_kw = str(request.args.get("creator") or "").strip()
+    category = str(request.args.get("category") or "").strip()
+    tag_name = str(request.args.get("tag") or "").strip()
+    submit_start = str(request.args.get("submit_start") or "").strip()
+    submit_end = str(request.args.get("submit_end") or "").strip()
+    rating = _parse_rating(request.args.get("rating"))
+    list_status = _content_list_status_normalize(request.args.get("list_status"))
+    try:
+        page = int(request.args.get("page") or 1)
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = int(request.args.get("page_size") or 20)
+    except (TypeError, ValueError):
+        page_size = 20
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    if submit_start and not _parse_date_param(submit_start):
+        return jsonify({"success": False, "message": "submit_start 格式错误，需 YYYY-MM-DD"}), 400
+    if submit_end and not _parse_date_param(submit_end):
+        return jsonify({"success": False, "message": "submit_end 格式错误，需 YYYY-MM-DD"}), 400
+    if submit_start and submit_end and submit_start > submit_end:
+        submit_start, submit_end = submit_end, submit_start
+    try:
+        items, total = query_content_records(
+            record_type=rt,
+            title_kw=title_kw,
+            creator_kw=creator_kw,
+            category=category,
+            rating=rating if rating >= 0 else -1,
+            tag_name=tag_name,
+            submit_start=submit_start,
+            submit_end=submit_end,
+            list_status=list_status,
+            page=page,
+            page_size=page_size,
+        )
+        return jsonify(
+            {
+                "success": True,
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+            }
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"查询失败：{exc}"}), 500
+
+
+@app.route("/api/content/records/<string:record_id>", methods=["GET"])
+def api_content_records_get(record_id: str) -> Any:
+    """Get one content record by id."""
+    if not is_valid_content_record_public_id(record_id):
+        return jsonify({"success": False, "message": "记录 ID 格式无效"}), 400
+    try:
+        item = get_content_record(record_id)
+        if not item:
+            return jsonify({"success": False, "message": "记录不存在"}), 404
+        return jsonify({"success": True, "item": item})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取失败：{exc}"}), 500
+
+
+@app.route("/api/content/records", methods=["POST"])
+def api_content_records_add() -> Any:
+    """Add one content record."""
+    body = request.get_json(silent=True) or {}
+    payload, err = _parse_content_record_payload(body)
+    if err:
+        return jsonify({"success": False, "message": err}), 400
+    try:
+        record_id = add_content_record(
+            record_type=payload["record_type"],
+            submit_date=payload["submit_date"],
+            title=payload["title"],
+            creator=payload["creator"],
+            category=payload["category"],
+            rating=payload["rating"],
+            episode_count=payload["episode_count"],
+            summary=payload["summary"],
+            review=payload["review"],
+            original_work=payload["original_work"],
+            release_date=payload["release_date"],
+            related_series=payload["related_series"],
+            cover_url=payload["cover_url"],
+            source=payload["source"],
+            source_id=payload["source_id"],
+            ext_json=payload["ext_json"],
+            list_status=payload["list_status"],
+        )
+        set_content_record_tags(record_id, payload.get("tag_ids") or [])
+        new_ids = content_record_related_ids_from_ext_json(payload.get("ext_json") or "{}")
+        sync_content_record_related_links(record_id, set(), new_ids)
+        return jsonify({"success": True, "id": record_id})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"新增失败：{exc}"}), 500
+
+
+@app.route("/api/content/records/<string:record_id>", methods=["PUT"])
+def api_content_records_update(record_id: str) -> Any:
+    """Update one content record."""
+    if not is_valid_content_record_public_id(record_id):
+        return jsonify({"success": False, "message": "记录 ID 格式无效"}), 400
+    body = request.get_json(silent=True) or {}
+    payload, err = _parse_content_record_payload(body)
+    if err:
+        return jsonify({"success": False, "message": err}), 400
+    try:
+        existing = get_content_record(record_id)
+        if not existing:
+            return jsonify({"success": False, "message": "记录不存在"}), 404
+        old_ids = content_record_related_ids_from_ext_json(existing.get("ext_json") or "{}")
+        ok = update_content_record(
+            record_id=record_id,
+            record_type=payload["record_type"],
+            submit_date=payload["submit_date"],
+            title=payload["title"],
+            creator=payload["creator"],
+            category=payload["category"],
+            rating=payload["rating"],
+            episode_count=payload["episode_count"],
+            summary=payload["summary"],
+            review=payload["review"],
+            original_work=payload["original_work"],
+            release_date=payload["release_date"],
+            related_series=payload["related_series"],
+            cover_url=payload["cover_url"],
+            source=payload["source"],
+            source_id=payload["source_id"],
+            ext_json=payload["ext_json"],
+            list_status=payload["list_status"],
+        )
+        if not ok:
+            return jsonify({"success": False, "message": "记录不存在"}), 404
+        set_content_record_tags(record_id, payload.get("tag_ids") or [])
+        new_ids = content_record_related_ids_from_ext_json(payload.get("ext_json") or "{}")
+        sync_content_record_related_links(record_id, old_ids, new_ids)
+        return jsonify({"success": True})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"更新失败：{exc}"}), 500
+
+
+@app.route("/api/content/records/<string:record_id>", methods=["DELETE"])
+def api_content_records_delete(record_id: str) -> Any:
+    """Delete one content record."""
+    if not is_valid_content_record_public_id(record_id):
+        return jsonify({"success": False, "message": "记录 ID 格式无效"}), 400
+    try:
+        ok = delete_content_record(record_id)
+        if not ok:
+            return jsonify({"success": False, "message": "记录不存在"}), 404
+        return jsonify({"success": True})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"删除失败：{exc}"}), 500
+
+
+@app.route("/api/content/calendar-summary", methods=["GET"])
+def api_content_calendar_summary() -> Any:
+    """Get watch/book counts by date for month range."""
+    month_str = request.args.get("month")
+    year, month = _parse_month_param(month_str)
+    start_date, end_date = _month_date_range(year, month)
+    try:
+        by_date = get_content_calendar_aggregates(start_date, end_date)
+        return jsonify(
+            {
+                "success": True,
+                "year": year,
+                "month": month,
+                "start_date": start_date,
+                "end_date": end_date,
+                "by_date": by_date,
+            }
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取失败：{exc}"}), 500
+
+
+@app.route("/api/content/day", methods=["GET"])
+def api_content_day() -> Any:
+    """Get one day content records, optional by record_type."""
+    date_str = str(request.args.get("date") or "").strip()
+    if not date_str or not _parse_date_param(date_str):
+        return jsonify({"success": False, "message": "参数错误：date 格式需 YYYY-MM-DD"}), 400
+    rt = _content_record_type_normalize(request.args.get("record_type") or "")
+    try:
+        items, _ = query_content_records(
+            record_type=rt,
+            submit_start=date_str,
+            submit_end=date_str,
+            page_size=0,
+        )
+        return jsonify({"success": True, "date": date_str, "items": items})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取失败：{exc}"}), 500
+
+
+@app.route("/api/content/persons", methods=["GET"])
+def api_content_persons_list() -> Any:
+    """
+    人物库列表：分页、统计。
+
+    Query:
+      scope: watch | book | 空
+      name: 姓名关键字
+      letter: A–Z，按展示名首字拼音首字母
+      page: 默认 1
+      page_size: 默认 80，最大 100
+    """
+    raw = str(request.args.get("scope") or "").strip().lower()
+    scope = raw if raw in ("watch", "book") else ""
+    name_kw = str(request.args.get("name") or "").strip()
+    letter = str(request.args.get("letter") or "").strip().upper()
+    try:
+        page = int(request.args.get("page") or 1)
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = int(request.args.get("page_size") or 80)
+    except (TypeError, ValueError):
+        page_size = 80
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    try:
+        items, total = query_content_persons(
+            scope=scope,
+            name_kw=name_kw,
+            letter=letter,
+            page=page,
+            page_size=page_size,
+        )
+        return jsonify(
+            {
+                "success": True,
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+            }
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取失败：{exc}"}), 500
+
+
+@app.route("/api/content/persons/<string:person_id>", methods=["GET", "PUT", "DELETE"])
+def api_content_person_detail(person_id: str) -> Any:
+    """人物详情（GET）、更新资料（PUT）、删除（DELETE，无关联作品时）。"""
+    if not is_valid_content_person_public_id(person_id):
+        return jsonify({"success": False, "message": "人物 ID 格式无效"}), 400
+    if request.method == "GET":
+        try:
+            item = get_content_person(person_id)
+            if not item:
+                return jsonify({"success": False, "message": "人物不存在"}), 404
+            return jsonify({"success": True, "item": item})
+        except Exception as exc:  # pylint: disable=broad-except
+            return jsonify({"success": False, "message": f"读取失败：{exc}"}), 500
+    if request.method == "PUT":
+        body = request.get_json(silent=True) or {}
+        try:
+            ok = update_content_person_profile(
+                person_id,
+                gender=str(body.get("gender") or ""),
+                education=str(body.get("education") or ""),
+                birthday=str(body.get("birthday") or ""),
+                real_name=str(body.get("real_name") or ""),
+                bio_note=str(body.get("bio_note") or ""),
+            )
+            if not ok:
+                return jsonify({"success": False, "message": "人物不存在"}), 404
+            item = get_content_person(person_id)
+            return jsonify({"success": True, "item": item})
+        except Exception as exc:  # pylint: disable=broad-except
+            return jsonify({"success": False, "message": f"保存失败：{exc}"}), 500
+    if request.method == "DELETE":
+        try:
+            ok, msg = delete_content_person_when_no_links(person_id)
+            if not ok:
+                code = 404 if ("不存在" in msg) or ("已删除" in msg) else 400
+                return jsonify({"success": False, "message": msg}), code
+            return jsonify({"success": True})
+        except Exception as exc:  # pylint: disable=broad-except
+            return jsonify({"success": False, "message": f"删除失败：{exc}"}), 500
+    return jsonify({"success": False, "message": "不支持的请求方法"}), 405
+
+
+@app.route("/api/content/persons/<string:person_id>/like", methods=["POST"])
+def api_content_person_toggle_like(person_id: str) -> Any:
+    """切换喜欢 / 取消喜欢。"""
+    if not is_valid_content_person_public_id(person_id):
+        return jsonify({"success": False, "message": "人物 ID 格式无效"}), 400
+    try:
+        newv = toggle_content_person_liked(person_id)
+        if newv is None:
+            return jsonify({"success": False, "message": "人物不存在"}), 404
+        return jsonify({"success": True, "liked": newv})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"操作失败：{exc}"}), 500
+
+
+@app.route("/api/content/persons/<string:person_id>/works", methods=["GET"])
+def api_content_person_works(person_id: str) -> Any:
+    """某人物关联的光影文卷作品（星级、日期、清单）。"""
+    if not is_valid_content_person_public_id(person_id):
+        return jsonify({"success": False, "message": "人物 ID 格式无效"}), 400
+    try:
+        items = get_content_person_works(person_id)
+        return jsonify({"success": True, "items": items})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取失败：{exc}"}), 500
+
+
 @app.route("/api/ledger/entries", methods=["GET"])
 def api_ledger_entries_query() -> Any:
     """
@@ -1356,13 +2480,17 @@ def api_ledger_entries_query() -> Any:
     end_date = str(request.args.get("end_date") or "").strip()
     if not start_date or not end_date:
         return jsonify({"success": False, "message": "缺少参数 start_date / end_date"}), 400
-    if not _parse_date_param(start_date) or not _parse_date_param(end_date):
-        return jsonify({"success": False, "message": "日期格式错误，需 YYYY-MM-DD"}), 400
-    if start_date > end_date:
-        start_date, end_date = end_date, start_date
+    s, e, fmt_err = _ledger_clamp_main_query_dates(start_date, end_date)
+    if fmt_err:
+        return jsonify({"success": False, "message": fmt_err}), 400
+    start_date, end_date = s, e
     try:
-        entries = query_ledger_entries_between(start_date, end_date)
-        totals = sum_ledger_between(start_date, end_date)
+        if start_date > end_date:
+            entries: List[Dict[str, Any]] = []
+            totals = {"income_total": 0.0, "expense_total": 0.0, "daily_expense_total": 0.0}
+        else:
+            entries = query_ledger_entries_between(start_date, end_date)
+            totals = sum_ledger_between(start_date, end_date)
         return jsonify(
             {
                 "success": True,
@@ -1372,6 +2500,7 @@ def api_ledger_entries_query() -> Any:
                 "totals": {
                     "income_total": round(float(totals.get("income_total") or 0.0), 2),
                     "expense_total": round(float(totals.get("expense_total") or 0.0), 2),
+                    "daily_expense_total": round(float(totals.get("daily_expense_total") or 0.0), 2),
                 },
             }
         )
@@ -1402,6 +2531,9 @@ def api_ledger_entries_add() -> Any:
     amt = _ledger_parse_amount(body.get("amount"))
     if not date_str or not _parse_date_param(date_str):
         return jsonify({"success": False, "message": "参数错误：date 格式需 YYYY-MM-DD"}), 400
+    date_err = _ledger_entry_date_allowed(date_str)
+    if date_err:
+        return jsonify({"success": False, "message": date_err}), 400
     if not kind:
         return jsonify({"success": False, "message": "参数错误：kind 仅支持 income / expense"}), 400
     try:
@@ -1412,6 +2544,9 @@ def api_ledger_entries_add() -> Any:
         return jsonify({"success": False, "message": "参数错误：amount 必须为正数"}), 400
     if text_err:
         return jsonify({"success": False, "message": text_err}), 400
+    nature, nature_err = _ledger_expense_nature_for_kind(kind, body)
+    if nature_err:
+        return jsonify({"success": False, "message": nature_err}), 400
 
     try:
         tag = get_ledger_tag_by_id(tag_id)
@@ -1427,6 +2562,7 @@ def api_ledger_entries_add() -> Any:
             description=desc,
             annotation=ann,
             amount=float(amt),
+            expense_nature=nature or "daily",
         )
         return jsonify({"success": True, "id": entry_id})
     except Exception as exc:  # pylint: disable=broad-except
@@ -1444,6 +2580,9 @@ def api_ledger_entries_update(entry_id: int) -> Any:
     amt = _ledger_parse_amount(body.get("amount"))
     if not date_str or not _parse_date_param(date_str):
         return jsonify({"success": False, "message": "参数错误：date 格式需 YYYY-MM-DD"}), 400
+    date_err = _ledger_entry_date_allowed(date_str)
+    if date_err:
+        return jsonify({"success": False, "message": date_err}), 400
     if not kind:
         return jsonify({"success": False, "message": "参数错误：kind 仅支持 income / expense"}), 400
     try:
@@ -1454,6 +2593,9 @@ def api_ledger_entries_update(entry_id: int) -> Any:
         return jsonify({"success": False, "message": "参数错误：amount 必须为正数"}), 400
     if text_err:
         return jsonify({"success": False, "message": text_err}), 400
+    nature, nature_err = _ledger_expense_nature_for_kind(kind, body)
+    if nature_err:
+        return jsonify({"success": False, "message": nature_err}), 400
 
     try:
         tag = get_ledger_tag_by_id(tag_id)
@@ -1470,6 +2612,7 @@ def api_ledger_entries_update(entry_id: int) -> Any:
             description=desc,
             annotation=ann,
             amount=float(amt),
+            expense_nature=nature or "daily",
         )
         if not ok:
             return jsonify({"success": False, "message": "记录不存在"}), 404
@@ -1488,6 +2631,215 @@ def api_ledger_entries_delete(entry_id: int) -> Any:
         return jsonify({"success": True})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": f"删除失败：{exc}"}), 500
+
+
+def _ledger_budget_cell_json(row: Dict[str, Any]) -> Dict[str, Any]:
+    g = str(row.get("granularity") or "")
+    ps = str(row.get("period_start") or "")
+    pe = str(row.get("period_end") or "")
+    label = _ledger_period_label(g, ps, pe) if ps and pe else ""
+    return {
+        "id": row["id"],
+        "granularity": g,
+        "period_start": ps,
+        "period_end": pe,
+        "period_label": label,
+        "amount": round(float(row.get("amount") or 0), 2),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+@app.route("/api/ledger/budget/cells", methods=["GET"])
+def api_ledger_budget_cells_list() -> Any:
+    """List persisted week / month budget cells (left column weeks, right column months)."""
+    try:
+        weeks = [_ledger_budget_cell_json(r) for r in list_ledger_budget_cells("week")]
+        months = [_ledger_budget_cell_json(r) for r in list_ledger_budget_cells("month")]
+        return jsonify({"success": True, "weeks": weeks, "months": months})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"读取失败：{exc}"}), 500
+
+
+@app.route("/api/ledger/budget/cells/generate", methods=["POST"])
+def api_ledger_budget_cells_generate() -> Any:
+    """
+    Expand a date range into discrete week or month rows and upsert amounts (does not keep a separate rule row).
+    """
+    body = request.get_json(silent=True) or {}
+    granularity = _ledger_scope_normalize(body.get("granularity"))
+    range_start = str(body.get("range_start") or "").strip()
+    range_end = str(body.get("range_end") or "").strip()
+    amt = _ledger_parse_budget_amount(body.get("amount"))
+    err = _ledger_policy_range_validate(range_start, range_end)
+    if not granularity:
+        return jsonify({"success": False, "message": "缺少或非法的 granularity（week / month）"}), 400
+    if err:
+        return jsonify({"success": False, "message": err}), 400
+    if amt is None:
+        return jsonify({"success": False, "message": "参数错误：amount 需为非负数"}), 400
+    rs = _parse_date_param(range_start)
+    re_ = _parse_date_param(range_end)
+    if not rs or not re_:
+        return jsonify({"success": False, "message": "日期无效"}), 400
+    try:
+        if granularity == "week":
+            lines = _enumerate_week_budget_lines(rs, re_, float(amt))
+        else:
+            lines = _enumerate_month_budget_lines(rs, re_, float(amt))
+        for ln in lines:
+            upsert_ledger_budget_cell(
+                granularity,
+                str(ln["period_start"]),
+                str(ln["period_end"]),
+                float(amt),
+            )
+        return jsonify({"success": True, "count": len(lines)})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"生成失败：{exc}"}), 500
+
+
+@app.route("/api/ledger/budget/cells/<int:cell_id>", methods=["PUT"])
+def api_ledger_budget_cell_update(cell_id: int) -> Any:
+    body = request.get_json(silent=True) or {}
+    amt = _ledger_parse_budget_amount(body.get("amount"))
+    if amt is None:
+        return jsonify({"success": False, "message": "参数错误：amount 需为非负数"}), 400
+    try:
+        ok = update_ledger_budget_cell_amount(cell_id, float(amt))
+        if not ok:
+            return jsonify({"success": False, "message": "记录不存在"}), 404
+        return jsonify({"success": True})
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"更新失败：{exc}"}), 500
+
+
+@app.route("/api/ledger/stats/budget", methods=["GET"])
+def api_ledger_stats_budget() -> Any:
+    """
+    Totals for a week/month plus optional daily-expense budget ratio.
+
+    Query: scope=week|month, period_start=YYYY-MM-DD (week Monday or month first day).
+    """
+    scope = _ledger_scope_normalize(request.args.get("scope"))
+    period_start = str(request.args.get("period_start") or "").strip()
+    if not scope or not period_start:
+        return jsonify({"success": False, "message": "缺少参数 scope / period_start"}), 400
+    prange = _ledger_period_dates(scope, period_start)
+    if not prange:
+        return jsonify({"success": False, "message": "period_start 不合法"}), 400
+    if not _ledger_period_not_future(scope, period_start):
+        return jsonify({"success": False, "message": "不能选择未来周期"}), 400
+    start_s, end_s = prange
+    try:
+        br = ledger_expense_breakdown_between(start_s, end_s)
+        resolved = resolve_ledger_budget_amount(scope, start_s, end_s)
+        daily_spent = float(br.get("expense_daily_total") or 0.0)
+        ratio_pct: Optional[float] = None
+        if resolved is not None and resolved > 0:
+            ratio_pct = round((daily_spent / resolved) * 100.0, 1)
+        return jsonify(
+            {
+                "success": True,
+                "scope": scope,
+                "period_start": period_start,
+                "start_date": start_s,
+                "end_date": end_s,
+                "period_label": _ledger_period_label(scope, start_s, end_s),
+                "daily_budget": round(float(resolved), 2) if resolved is not None else None,
+                "expense_daily_total": round(float(br.get("expense_daily_total") or 0.0), 2),
+                "expense_fixed_total": round(float(br.get("expense_fixed_total") or 0.0), 2),
+                "expense_total": round(float(br.get("expense_total") or 0.0), 2),
+                "budget_ratio_percent": ratio_pct,
+            }
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        return jsonify({"success": False, "message": f"统计失败：{exc}"}), 500
+
+
+@app.route("/api/ledger/stats/overview", methods=["GET"])
+def api_ledger_stats_overview() -> Any:
+    """统计 TAB：基准日期（日）对应的日/周/前周/月汇总 + 预算占比与消费占比。"""
+    ds = str(request.args.get("date") or "").strip()
+    if ds:
+        base = _parse_date_param(ds)
+        if not base:
+            return jsonify({"success": False, "message": "缺少或非法的 date（YYYY-MM-DD）"}), 400
+        date_err = _ledger_entry_date_allowed(ds)
+        if date_err:
+            return jsonify({"success": False, "message": date_err}), 400
+    else:
+        base = date.today()
+    day_s = base.strftime("%Y-%m-%d")
+    wmon = _ledger_start_of_week_monday(base)
+    ws, we = _ledger_week_range_from_monday(wmon)
+    ms, me = _month_date_range(base.year, base.month)
+    current = {
+        "day": _ledger_triple_totals(day_s, day_s),
+        "week": _ledger_triple_totals(ws, we),
+        "month": _ledger_triple_totals(ms, me),
+    }
+    prev_wmon = wmon - timedelta(days=7)
+    pw_s, pw_e = _ledger_week_range_from_monday(prev_wmon)
+    current["prev_week"] = _ledger_triple_totals(pw_s, pw_e)
+    gauges = {
+        "this_week": _ledger_gauge_block("week", wmon),
+        "prev_week": _ledger_gauge_block("week", prev_wmon),
+        "this_month": _ledger_gauge_block("month", date(base.year, base.month, 1)),
+    }
+    tag_ratios = {
+        "week": query_ledger_tag_expense_ratios(ws, we),
+        "month": query_ledger_tag_expense_ratios(ms, me),
+    }
+    month_daily_expense = _build_month_daily_expense_series(ms, me)
+    week_daily_breakdown = _build_week_daily_breakdown_series(base)
+    month_weekly_expense = _build_month_weekly_expense_series(base)
+    return jsonify(
+        {
+            "success": True,
+            "server_date": day_s,
+            "current": current,
+            "gauges": gauges,
+            "tag_ratios": tag_ratios,
+            "month_daily_expense": month_daily_expense,
+            "week_daily_breakdown": week_daily_breakdown,
+            "month_weekly_expense": month_weekly_expense,
+        }
+    )
+
+
+@app.route("/api/ledger/stats/by-date", methods=["GET"])
+def api_ledger_stats_by_date() -> Any:
+    """按指定日期：当日、所在自然周、所在自然月的收入/支出/日常支出及周、月预算占比。"""
+    ds = str(request.args.get("date") or "").strip()
+    d = _parse_date_param(ds)
+    if not d:
+        return jsonify({"success": False, "message": "缺少或非法的 date（YYYY-MM-DD）"}), 400
+    date_err = _ledger_entry_date_allowed(ds)
+    if date_err:
+        return jsonify({"success": False, "message": date_err}), 400
+    day_s = d.strftime("%Y-%m-%d")
+    wmon = _ledger_start_of_week_monday(d)
+    ws, we = _ledger_week_range_from_monday(wmon)
+    ms, me = _month_date_range(d.year, d.month)
+    week_tag = query_ledger_tag_expense_ratios(ws, we)
+    month_tag = query_ledger_tag_expense_ratios(ms, me)
+    return jsonify(
+        {
+            "success": True,
+            "date": day_s,
+            "day": _ledger_triple_totals(day_s, day_s),
+            "week": {
+                "totals": _ledger_triple_totals(ws, we),
+                "gauge": _ledger_gauge_block("week", wmon),
+                "tag_ratios": week_tag,
+            },
+            "month": {
+                "totals": _ledger_triple_totals(ms, me),
+                "gauge": _ledger_gauge_block("month", date(d.year, d.month, 1)),
+                "tag_ratios": month_tag,
+            },
+        }
+    )
 
 
 @app.route("/files")
@@ -1742,7 +3094,7 @@ def api_diary_get(date_str: str) -> Any:
 def api_diary_upsert(date_str: str) -> Any:
     """
     Upsert one diary by date (YYYY-MM-DD).
-    Request JSON: { "title": "", "content": "", "today_diet": "" }
+    Request JSON: { "title": "", "content": "", "today_diet": "", "exercise_summary": "" }
     """
     date_str = str(date_str or "").strip()
     if not _parse_date_param(date_str):
@@ -1751,10 +3103,13 @@ def api_diary_upsert(date_str: str) -> Any:
     title = str(body.get("title") or "")
     content = str(body.get("content") or "")
     today_diet = str(body.get("today_diet") or "").strip()
+    exercise_summary = str(body.get("exercise_summary") or "").strip()
     if len(today_diet) > 200:
         return jsonify({"success": False, "message": "今日饮食不能超过200字"}), 400
+    if len(exercise_summary) > 500:
+        return jsonify({"success": False, "message": "锻炼小结不能超过500字"}), 400
     try:
-        upsert_diary(date_str, title, content, today_diet)
+        upsert_diary(date_str, title, content, today_diet, exercise_summary)
         return jsonify({"success": True})
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": str(exc)}), 500
@@ -2608,73 +3963,6 @@ def _vocab_input_is_chinese(text: str) -> bool:
     return bool(re.search(r"[\u4e00-\u9fff]", s))
 
 
-def _fetch_chinese_pinyin_from_dict(text: str) -> str:
-    """
-    从权威词典接口中获取拼音（带声调）。
-
-    约定：
-    - 单字：萌典 raw API
-    - 词语：有道 jsonapi_s
-
-    获取失败时返回空字符串；上层可据此决定是否报错。
-    """
-    import urllib.request
-    import urllib.error
-    import urllib.parse
-
-    q = (text or "").strip()
-    if not q:
-        return ""
-
-    # 本地开发环境：关闭 SSL 证书校验，避免 macOS 上的 CA 配置问题
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    def _get_json(url: str) -> Dict[str, Any]:
-        req = urllib.request.Request(url, method="GET")
-        req.add_header("User-Agent", "Mozilla/5.0")
-        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
-            raw = resp.read().decode("utf-8")
-        obj = json.loads(raw)
-        return obj if isinstance(obj, dict) else {}
-
-    try:
-        if len(q) == 1:
-            # 萌典：https://www.moedict.tw/raw/<char>
-            url = "https://www.moedict.tw/raw/" + urllib.parse.quote(q)
-            data = _get_json(url)
-            heteronyms = data.get("heteronyms") or []
-            if isinstance(heteronyms, list):
-                for h in heteronyms:
-                    if not isinstance(h, dict):
-                        continue
-                    p = str(h.get("pinyin") or "").strip()
-                    if p:
-                        return p
-            return ""
-
-        # 有道：https://dict.youdao.com/jsonapi_s?doctype=json&jsonversion=4&q=<phrase>
-        url = "https://dict.youdao.com/jsonapi_s?doctype=json&jsonversion=4&q=" + urllib.parse.quote(q)
-        data = _get_json(url)
-        ce = data.get("ce") or data.get("ce_new") or {}
-        simple = ((data.get("simple") or {}).get("word") or [])
-        simple0 = simple[0] if isinstance(simple, list) and simple else {}
-        phone = ""
-        if isinstance(simple0, dict):
-            phone = str(simple0.get("phone") or "").strip()
-        if not phone:
-            word_obj = (ce.get("word") if isinstance(ce, dict) else None)
-            first = word_obj[0] if isinstance(word_obj, list) and word_obj else (word_obj if isinstance(word_obj, dict) else {})
-            if isinstance(first, dict):
-                phone = str(first.get("phone") or "").strip()
-            elif isinstance(word_obj, dict):
-                phone = str(word_obj.get("phone") or "").strip()
-        return phone
-    except Exception:
-        return ""
-
-
 def _call_llm_for_vocab(text: str) -> Dict[str, Any]:
     """
     调用大语言模型，将原始查询文本解析为结构化的单词信息。
@@ -2698,28 +3986,19 @@ def _call_llm_for_vocab(text: str) -> Dict[str, Any]:
     base_url = cfg["base_url"] or os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
     model = cfg["model"] or os.environ.get("OPENAI_VOCAB_MODEL", "gpt-4o-mini")
 
-    is_zh = _vocab_input_is_chinese(text)
-    pronunciation_comment = (
-        '  \"pronunciation\": string,     // 可为空：拼音由前端权威词典优先展示；若填写则仅作兜底，须为标准汉语拼音（带声调）\n'
-        if is_zh
-        else '  \"pronunciation\": string,     // 音标或发音描述，可为空\n'
-    )
+    pronunciation_comment = '  \"pronunciation\": string,     // 音标或发音描述，可为空\n'
     meaning_zh_comment = (
-        '  \"meaning_zh\": string,        // 补充性中文说明：搭配、用法辨析、近义区分、英文对应说法等；标准义项以用户端词典为准，此处勿复述整本词典释义\n'
-        if is_zh
-        else '  \"meaning_zh\": string,        // 中文释义，要求每个义项前必须带有词性缩写（如 \"adj.\"、\"n.\"、\"v.\" 等），多义用分号或换行分隔，例如：\"adj. 优良的；能干的；……；n. 善；好事；……\"\n'
+        '  \"meaning_zh\": string,        // 中文释义，要求每个义项前必须带有词性缩写（如 \"adj.\"、\"n.\"、\"v.\" 等），多义用分号或换行分隔，例如：\"adj. 优良的；能干的；……；n. 善；好事；……\"\n'
     )
     example_comment = (
-        '  \"example\": string            // 简短例句：优先给出用该词造的中文例句，可附英文翻译；若无合适例句可为空\n'
-        if is_zh
-        else '  \"example\": string            // 一个代表性英文例句，尽量简单，同时附带中文翻译，例如：\"I wear sweatpants at home. 在家时我穿运动休闲裤。\"\n'
+        '  \"example\": string            // 一个代表性英文例句，尽量简单，同时附带中文翻译，例如：\"I wear sweatpants at home. 在家时我穿运动休闲裤。\"\n'
     )
 
     system_prompt = (
         "你是一个精确的英汉词典引擎，请根据用户输入的单词或短语，返回 ONLY JSON，不要包含任何多余文字。\n"
         "JSON 结构严格为：\n"
         "{\n"
-        '  \"word\": string,              // 标准词条形式（中文输入则为规范汉字词语）\n'
+        '  \"word\": string,              // 标准词条形式\n'
         + pronunciation_comment
         + meaning_zh_comment
         + '  \"meaning_en\": string,        // 英文释义，可为空\n'
@@ -2733,19 +4012,10 @@ def _call_llm_for_vocab(text: str) -> Dict[str, Any]:
         + '  \"plural\": string,            // 复数形式，可为空\n'
         + example_comment
         + "}\n"
-        + (
-            "对于中文词条：前端会合并权威词典的拼音与释义；请你把 meaning_zh 写成对标准释义的补充（用法、搭配、辨析等），"
-            "pronunciation 可留空；英文词形字段填空字符串即可。\n"
-            if is_zh
-            else "确保 meaning_zh 中的每个义项都清晰标明词性（如 \"adj.\"、\"n.\"），并且始终返回合法 JSON。\n"
-        )
+        + '确保 meaning_zh 中的每个义项都清晰标明词性（如 "adj."、"n."），并且始终返回合法 JSON。\n'
     )
 
-    user_prompt = (
-        f"查询中文词语：{text}\n请在 meaning_zh 中提供词典之外的补充说明（可含词性标注）；pronunciation 可留空。"
-        if is_zh
-        else f"查询单词或短语：{text}"
-    )
+    user_prompt = f"查询单词或短语：{text}"
 
     payload = {
         "model": model,
@@ -2836,15 +4106,10 @@ def api_vocab_llm_query() -> Any:
         return jsonify({"success": False, "message": "请输入要查询的单词"}), 400
 
     try:
-        # 中文输入：强制要求词典能给出拼音，否则直接失败（契约：接口必带拼音）
         if _vocab_input_is_chinese(text):
-            pinyin = _fetch_chinese_pinyin_from_dict(text)
-            if not pinyin:
-                return jsonify({"success": False, "message": "词典获取拼音失败，请稍后重试"}), 502
+            return jsonify({"success": False, "message": "当前仅支持英文单词/词组查询"}), 400
 
         data = _call_llm_for_vocab(text)
-        if _vocab_input_is_chinese(text):
-            data["pronunciation"] = pinyin
     except Exception as exc:  # pylint: disable=broad-except
         return jsonify({"success": False, "message": str(exc)}), 500
 

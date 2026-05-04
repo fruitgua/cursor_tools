@@ -9,18 +9,47 @@
     <link rel="stylesheet" href="/static/theme.css">
 </head>
 <body>
-<div class="app-container">
-    <header class="app-header app-header-with-action">
-        <div class="app-header-left">
-            <h1>记账本</h1>
+<div id="app" class="app app-container">
+    <div class="nav-row">
+        <div class="nav-tabs" role="tablist" aria-label="记账本视图">
+            <button type="button" class="nav-tab active" id="ledger-tab-btn-stats" role="tab" aria-selected="true" aria-controls="ledger-panel-stats">统计</button>
+            <button type="button" class="nav-tab" id="ledger-tab-btn-entries" role="tab" aria-selected="false" aria-controls="ledger-panel-entries">记账</button>
+            <button type="button" class="nav-tab" id="ledger-tab-btn-budget" role="tab" aria-selected="false" aria-controls="ledger-panel-budget">预算目标</button>
         </div>
         <div class="header-actions">
-            <div id="theme-switcher-container"></div>
-            <button id="btn-go-home" class="btn">返回首页</button>
+            <div id="theme-switcher-container" class="header-action-theme"></div>
+            <button type="button" id="btn-go-home" class="btn btn-go-home" title="返回首页" aria-label="返回首页">
+                <span class="btn-go-home-icon" aria-hidden="true">⌂</span><span class="btn-go-home-text">返回首页</span>
+            </button>
         </div>
-    </header>
+    </div>
 
     <main class="ledger-wrap">
+        <div id="ledger-panel-stats" role="tabpanel" aria-labelledby="ledger-tab-btn-stats">
+            <section class="ledger-stats-panel card">
+                <div class="ledger-stats-panel-head">
+                    <div class="ledger-stats-lead muted">
+                        <p class="ledger-stats-lead-line">收入、支出、日常支出为区间内汇总；仪表盘「预算占比」= 日常类支出（非固定）÷ 该周期在预算目标中设置的金额。</p>
+                        <p class="ledger-stats-lead-line">标签消费占比：按自然周、自然月统计：各标签支出 ÷ 该周期支出总额；占比保留 2 位小数，列表按占比降序排列。</p>
+                    </div>
+                    <button type="button" class="btn primary" id="ledger-stats-refresh">刷新</button>
+                </div>
+
+                <div class="ledger-stats-section ledger-stats-current-section">
+                    <div class="ledger-stats-current-head">
+                        <h2 class="ledger-stats-current-title">当期消费汇总</h2>
+                        <div class="ledger-stats-query-inline">
+                            <input type="date" id="ledger-stats-query-date" class="field-control" aria-label="统计基准日期" />
+                            <button type="button" class="btn primary" id="ledger-stats-query-btn">查询</button>
+                        </div>
+                        <div id="ledger-stats-today-strip" class="ledger-stats-today-strip" aria-live="polite"></div>
+                    </div>
+                    <div id="ledger-stats-current-stack" class="ledger-stats-current-stack"></div>
+                </div>
+            </section>
+        </div>
+
+        <div id="ledger-panel-entries" role="tabpanel" aria-labelledby="ledger-tab-btn-entries" hidden>
         <!-- 顶部固定查询区 -->
         <section class="ledger-toolbar card">
             <div class="ledger-toolbar-left">
@@ -41,7 +70,7 @@
                 </div>
                 <div class="ledger-field-group">
                     <select id="ledger-filter-tag" class="field-control">
-                        <option value="">全部</option>
+                        <option value="">全部标签</option>
                     </select>
                 </div>
 
@@ -54,11 +83,16 @@
                         <div class="ledger-stat-label">支出合计</div>
                         <div class="ledger-stat-value ledger-expense" id="ledger-expense-total">0.00</div>
                     </div>
+                    <div class="ledger-stat">
+                        <div class="ledger-stat-label">日常支出合计</div>
+                        <div class="ledger-stat-value ledger-expense" id="ledger-daily-expense-total">0.00</div>
+                    </div>
                 </div>
             </div>
 
             <div class="ledger-toolbar-right">
                 <button type="button" class="btn primary" id="btn-ledger-add">新增记账</button>
+                <button type="button" class="btn btn-ghost" id="btn-ledger-export-csv" title="导出当前查询区间（表头与列表一致）">导出 CSV</button>
                 <button type="button" class="btn btn-ghost" id="btn-ledger-tags">标签管理</button>
             </div>
         </section>
@@ -68,11 +102,11 @@
             <div class="ledger-col card ledger-col-full">
                 <div class="ledger-col-header">
                     <div class="ledger-col-title">记账列表</div>
-                    <div class="ledger-col-subtitle">按添加时间降序</div>
+                    <div class="ledger-col-subtitle">按发生日期降序</div>
                 </div>
                 <div class="ledger-table">
                     <div class="ledger-table-head ledger-table-row">
-                        <div>日期</div><div>类型</div><div>标签</div><div>明细</div><div>批注</div><div>金额</div><div>操作</div>
+                        <div>发生日期</div><div>类型</div><div>支出性质</div><div>标签</div><div>明细</div><div>批注</div><div>金额</div><div>操作</div>
                     </div>
                     <div id="ledger-list" class="ledger-list"></div>
                     <div class="vocab-pagination">
@@ -90,6 +124,63 @@
                 </div>
             </div>
         </section>
+
+        <section class="ledger-toolbar card ledger-toolbar-archive" aria-label="归档导出">
+            <div class="ledger-toolbar-archive-inner">
+                <p class="ledger-toolbar-archive-hint muted">早于热库保留区间的流水在归档表中，可选日期区间后导出：</p>
+                <div class="ledger-field-group">
+                    <input id="ledger-archive-start" type="date" class="field-control" aria-label="归档导出开始日期" />
+                </div>
+                <div class="ledger-field-group">
+                    <input id="ledger-archive-end" type="date" class="field-control" aria-label="归档导出结束日期" />
+                </div>
+                <button type="button" class="btn btn-ghost" id="btn-ledger-archive-csv">导出归档 CSV</button>
+            </div>
+        </section>
+        </div>
+
+        <div id="ledger-panel-budget" role="tabpanel" aria-labelledby="ledger-tab-btn-budget" hidden>
+            <div id="ledger-budget-tab-root" class="ledger-budget-tab">
+                <header class="ledger-budget-head card">
+                    <p class="ledger-budget-hint muted" style="margin:0 0 12px;font-size:13px;line-height:1.55;">在生效区间内，每个与区间有交集的自然周（或自然月）均使用该金额；统计里「预算占比」仅比较日常支出与该金额。</p>
+                    <div class="ledger-budget-add-row">
+                        <div class="ledger-field-group">
+                            <span class="ledger-field-label">周期类型</span>
+                            <select id="ledger-budget-gen-granularity" class="field-control">
+                                <option value="week" selected>按周生成（写入左栏）</option>
+                                <option value="month">按月生成（写入右栏）</option>
+                            </select>
+                        </div>
+                        <div class="ledger-field-group">
+                            <span class="ledger-field-label">预算开始日期</span>
+                            <input id="ledger-budget-gen-range-start" type="date" class="field-control" />
+                        </div>
+                        <div class="ledger-field-group">
+                            <span class="ledger-field-label">预算结束日期</span>
+                            <input id="ledger-budget-gen-range-end" type="date" class="field-control" />
+                        </div>
+                        <div class="ledger-field-group">
+                            <span class="ledger-field-label">预算金额（元）</span>
+                            <input id="ledger-budget-gen-amount" type="number" step="0.01" min="0" class="field-control" placeholder="例如 1000" />
+                        </div>
+                        <div class="ledger-field-group ledger-budget-add-btn-wrap">
+                            <span class="ledger-field-label" style="visibility:hidden">操作</span>
+                            <button type="button" class="btn primary" id="btn-ledger-budget-generate">新增支出目标</button>
+                        </div>
+                    </div>
+                </header>
+                <div class="ledger-budget-columns">
+                    <div class="ledger-budget-col card">
+                        <div class="ledger-budget-col-title">各周预算明细</div>
+                        <div class="ledger-budget-col-scroll" id="ledger-budget-weeks-mount"></div>
+                    </div>
+                    <div class="ledger-budget-col card">
+                        <div class="ledger-budget-col-title">各月预算明细</div>
+                        <div class="ledger-budget-col-scroll" id="ledger-budget-months-mount"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 </div>
 
@@ -101,7 +192,7 @@
         </div>
         <div class="ui-input-modal-body">
             <div class="ledger-modal-grid">
-                <div class="ledger-modal-row-two">
+                <div class="ledger-modal-row-three">
                     <div class="ledger-modal-field">
                         <label for="ledger-entry-kind">类型</label>
                         <select id="ledger-entry-kind" class="field-control">
@@ -110,18 +201,26 @@
                         </select>
                     </div>
                     <div class="ledger-modal-field">
-                        <label for="ledger-entry-date">日期</label>
-                        <input id="ledger-entry-date" type="date" class="field-control" />
+                        <label for="ledger-entry-tag">标签</label>
+                        <select id="ledger-entry-tag" class="field-control"></select>
+                    </div>
+                    <div class="ledger-modal-field" id="ledger-entry-expense-nature-row">
+                        <label for="ledger-entry-expense-nature">支出性质</label>
+                        <select id="ledger-entry-expense-nature" class="field-control">
+                            <option value=""> </option>
+                            <option value="daily">日常</option>
+                            <option value="fixed">固定</option>
+                        </select>
                     </div>
                 </div>
                 <div class="ledger-modal-row-two">
                     <div class="ledger-modal-field">
-                        <label for="ledger-entry-tag">标签</label>
-                        <select id="ledger-entry-tag" class="field-control"></select>
-                    </div>
-                    <div class="ledger-modal-field">
                         <label for="ledger-entry-amount">金额</label>
                         <input id="ledger-entry-amount" type="number" step="0.01" min="0" class="field-control" placeholder="例如 12.34" />
+                    </div>
+                    <div class="ledger-modal-field">
+                        <label for="ledger-entry-date">日期</label>
+                        <input id="ledger-entry-date" type="date" class="field-control" />
                     </div>
                 </div>
                 <div class="ledger-modal-field">
@@ -137,6 +236,27 @@
         <div class="ui-input-modal-actions">
             <button type="button" class="btn btn-ghost" id="ledger-entry-cancel">取消</button>
             <button type="button" class="btn primary" id="ledger-entry-save">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑单条周/月预算 -->
+<div id="ledger-budget-cell-edit-modal" class="ui-input-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ledger-budget-cell-edit-title">
+    <div class="ui-input-modal">
+        <div class="ui-input-modal-header">
+            <div class="ui-input-modal-title" id="ledger-budget-cell-edit-title">编辑预算</div>
+        </div>
+        <div class="ui-input-modal-body">
+            <input type="hidden" id="ledger-budget-cell-edit-id" value="" />
+            <p class="muted" id="ledger-budget-cell-edit-period" style="margin:0 0 10px;font-size:13px;"></p>
+            <div class="ledger-modal-field">
+                <label for="ledger-budget-cell-edit-amount">预算金额（元）</label>
+                <input id="ledger-budget-cell-edit-amount" type="number" step="0.01" min="0" class="field-control" />
+            </div>
+        </div>
+        <div class="ui-input-modal-actions">
+            <button type="button" class="btn btn-ghost" id="ledger-budget-cell-edit-cancel">取消</button>
+            <button type="button" class="btn primary" id="ledger-budget-cell-edit-save">保存</button>
         </div>
     </div>
 </div>
@@ -208,8 +328,62 @@
         flex-direction: column;
         box-sizing: border-box;
     }
-    .app-container > header.app-header {
+    /* 与单词本页头一致：一行内左侧 Tab、右侧主题 + 返回首页 */
+    .app-container .nav-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        flex-wrap: nowrap;
+        gap: 12px;
         flex-shrink: 0;
+    }
+    .app-container .nav-row .nav-tabs {
+        display: flex;
+        gap: 16px;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 1;
+        min-width: 0;
+        flex: 1;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .app-container .nav-row .nav-tab {
+        padding: 8px 4px;
+        border: none;
+        background: transparent;
+        color: #374151;
+        font-size: 14px;
+        cursor: pointer;
+        border-radius: 0;
+        border-bottom: 2px solid transparent;
+        text-align: left;
+        transition: color 0.15s, border-bottom-color 0.15s;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .app-container .nav-row .nav-tab:hover {
+        color: #2563eb;
+    }
+    .app-container .nav-row .nav-tab.active {
+        color: #2563eb;
+        font-weight: 500;
+        border-bottom-color: #2563eb;
+    }
+    html[data-theme="dark"] .app-container .nav-row .nav-tabs {
+        border-bottom-color: #2a3038;
+    }
+    .app-container .nav-row .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+    .btn-go-home-icon {
+        display: none;
+    }
+    .btn-go-home-text {
+        display: inline;
     }
 
     .ledger-wrap{
@@ -221,20 +395,668 @@
         min-height: 0;
         overflow: hidden;
     }
+    @media (max-width: 720px) {
+        #theme-switcher-container.header-action-theme {
+            display: none !important;
+        }
+        .btn-go-home-icon {
+            display: inline;
+            font-size: 18px;
+            line-height: 1;
+        }
+        .btn-go-home-text {
+            display: none;
+        }
+        .btn-go-home {
+            min-width: 36px;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+    }
+    #ledger-panel-entries{
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+    #ledger-panel-stats,
+    #ledger-panel-budget{
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+    }
+    /* #id 的 display:flex 会盖过浏览器对 [hidden] 的默认 display:none，导致三个 Tab 面板同时叠在一起 */
+    #ledger-panel-entries[hidden],
+    #ledger-panel-stats[hidden],
+    #ledger-panel-budget[hidden]{
+        display: none !important;
+    }
+    .ledger-budget-tab{
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: hidden;
+    }
+    .ledger-budget-head{
+        padding: 14px 16px;
+        flex-shrink: 0;
+    }
+    .ledger-budget-add-row{
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px;
+    }
+    .ledger-budget-add-row .ledger-field-group{
+        min-width: 140px;
+        flex: 1 1 160px;
+    }
+    .ledger-budget-add-btn-wrap{
+        flex: 0 0 auto;
+        min-width: auto;
+    }
+    .ledger-budget-add-btn-wrap .btn{
+        height: 36px;
+        box-sizing: border-box;
+    }
+    .ledger-budget-columns{
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: row;
+        gap: 12px;
+        height: 520px;
+        max-height: calc(100vh - 220px);
+    }
+    .ledger-budget-col{
+        flex: 1 1 0;
+        width: 50%;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 12px 14px 14px;
+        box-sizing: border-box;
+    }
+    .ledger-budget-col-title{
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        margin: 0 0 10px;
+        flex-shrink: 0;
+    }
+    .ledger-budget-col-scroll{
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #fff;
+        -webkit-overflow-scrolling: touch;
+    }
+    .ledger-budget-cell-head,
+    .ledger-budget-cell-row{
+        display: grid;
+        grid-template-columns: 1fr 100px 72px;
+        column-gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    .ledger-budget-cell-head{
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+        color: #374151;
+    }
+    .ledger-budget-cell-row{
+        border-bottom: 1px solid #f1f5f9;
+        color: #111827;
+    }
+    .ledger-budget-cell-row:last-child{ border-bottom: none; }
+    .ledger-budget-cell-period{
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .ledger-budget-cell-actions{
+        text-align: right;
+    }
+    .ledger-stats-panel{
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        gap: 0;
+    }
+    .ledger-stats-panel-head{
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 14px;
+        margin-bottom: 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .ledger-stats-lead{
+        margin: 0;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 720px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .ledger-stats-lead-line{
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.55;
+        text-align: left;
+    }
+    .ledger-stats-section{
+        padding: 14px 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .ledger-stats-section:last-of-type{
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .ledger-stats-section-title{
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        margin: 0 0 12px;
+    }
+    .ledger-stats-current-head{
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px 16px;
+        margin-bottom: 12px;
+    }
+    .ledger-stats-current-title{
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+    }
+    .ledger-stats-today-strip{
+        font-size: 13px;
+        line-height: 1.5;
+        color: #374151;
+        text-align: right;
+        flex: 1 1 auto;
+        min-width: 0;
+        word-break: break-word;
+    }
+    .ledger-stats-current-stack{
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .ledger-stats-current-row{
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        align-items: stretch;
+    }
+    .ledger-stats-current-row--r3 .ledger-stats-month-chart-card{
+        grid-column: 2 / -1;
+    }
+    @media (max-width: 1100px){
+        .ledger-stats-current-row{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .ledger-stats-current-row--r3 .ledger-stats-month-chart-card{ grid-column: auto; }
+    }
+    @media (max-width: 560px){
+        .ledger-stats-current-row{ grid-template-columns: 1fr; }
+        .ledger-stats-month-chart-card{ grid-column: auto !important; }
+    }
+    .ledger-stats-current-row .ledger-stats-query-gauge-inline.ledger-gauge{
+        margin-top: auto;
+    }
+    .ledger-stats-month-chart-card{
+        min-width: 0;
+    }
+    .ledger-gauge-split-card{
+        padding-bottom: 10px;
+    }
+    .ledger-gauge-split-body{
+        display: grid;
+        grid-template-columns: minmax(180px, 3fr) minmax(0, 2fr);
+        gap: 10px;
+        align-items: stretch;
+    }
+    .ledger-gauge-split-left .ledger-gauge{
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .ledger-gauge-split-right{
+        min-width: 0;
+        display: flex;
+    }
+    .ledger-gauge-split-metrics{
+        display: grid;
+        grid-template-rows: repeat(4, minmax(0, 1fr));
+        gap: 7px;
+        width: 100%;
+    }
+    .ledger-gauge-split-row{
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+        font-size: 13px;
+    }
+    .ledger-gauge-split-row .lbl{ color: #6b7280; }
+    .ledger-gauge-split-row .val{
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #111827;
+    }
+    .ledger-gauge-split-row .val.ledger-gauge-val-income{ color: #16a34a; }
+    .ledger-gauge-split-row .val.ledger-gauge-val-expense{ color: #dc2626; }
+    @media (max-width: 820px){
+        .ledger-gauge-split-body{
+            grid-template-columns: 1fr;
+        }
+    }
+    .ledger-month-chart-mount{
+        flex: 1 1 auto;
+        min-height: 200px;
+        width: 100%;
+        overflow: visible;
+        position: relative;
+    }
+    #ledger-overview-month-chart.ledger-month-chart-mount{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #ledger-overview-week-daily-chart.ledger-month-chart-mount,
+    #ledger-overview-month-weekly-chart.ledger-month-chart-mount{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .ledger-month-chart-wrap{
+        position: relative;
+        width: 100%;
+        overflow: visible;
+    }
+    .ledger-month-chart-svg{
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 280px;
+    }
+    .ledger-month-chart-empty{
+        padding: 24px 12px;
+        font-size: 13px;
+        text-align: center;
+    }
+    .ledger-month-chart-grid{ stroke: #e5e7eb; }
+    .ledger-month-chart-ytick{ fill: #9ca3af; }
+    .ledger-month-chart-xtick{ fill: #6b7280; }
+    .ledger-month-chart-bar{ fill: #2563eb; }
+    .ledger-month-chart-bar:hover{ opacity: 0.88; cursor: pointer; }
+    .ledger-month-chart-tooltip{
+        position: absolute;
+        transform: translate(-50%, -100%);
+        padding: 6px 8px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        background: #ffffff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+        pointer-events: none;
+        z-index: 20;
+        white-space: nowrap;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #555555;
+    }
+    .ledger-month-chart-tooltip::after{
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid #ffffff;
+    }
+    .ledger-month-chart-tip-line{
+        font-size: 12px;
+        line-height: 1.45;
+        color: #555555;
+    }
+    .ledger-month-chart-tip-money{
+        color: #ea580c;
+    }
+    .ledger-hbar-wrap{
+        position: relative;
+        width: 100%;
+    }
+    .ledger-hbar-svg{
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+    .ledger-hbar-legend{
+        font-size: 13px;
+        fill: #6b7280;
+    }
+    .ledger-hbar-ylabel{
+        font-size: 12px;
+        fill: #6b7280;
+    }
+    .ledger-hbar-income{ fill: #16a34a; }
+    .ledger-hbar-daily{ fill: #2563eb; }
+    .ledger-hbar-nondaily{ fill: #7c3aed; }
+    .ledger-hbar-track{ fill: #e5e7eb; }
+    .ledger-hbar-item:hover{ opacity: 0.9; cursor: pointer; }
+    .ledger-hbar-xtick{
+        font-size: 11px;
+        fill: #6b7280;
+    }
+    .ledger-hbar-tooltip{
+        position: absolute;
+        transform: translate(0, -50%);
+        padding: 6px 8px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+        z-index: 20;
+        font-size: 12px;
+        color: #555555;
+        line-height: 1.45;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+    .ledger-hbar-tip-line{
+        color: #555555;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+    .ledger-hbar-tip-money{ color: #ea580c; }
+    html[data-theme="dark"] .ledger-month-chart-grid{ stroke: #374151; }
+    html[data-theme="dark"] .ledger-month-chart-ytick{ fill: #9ca3af; }
+    html[data-theme="dark"] .ledger-month-chart-xtick{ fill: #9ca3af; }
+    html[data-theme="dark"] .ledger-month-chart-bar{ fill: #60a5fa; }
+    html[data-theme="dark"] .ledger-month-chart-tooltip{
+        border-color: #374151;
+        background: #1f2937;
+        color: #d1d5db;
+    }
+    html[data-theme="dark"] .ledger-month-chart-tooltip::after{
+        border-top-color: #1f2937;
+    }
+    html[data-theme="dark"] .ledger-month-chart-tip-line{
+        color: #d1d5db;
+    }
+    html[data-theme="dark"] .ledger-month-chart-tip-money{
+        color: #fb923c;
+    }
+    html[data-theme="dark"] .ledger-hbar-legend,
+    html[data-theme="dark"] .ledger-hbar-ylabel,
+    html[data-theme="dark"] .ledger-hbar-xtick{ fill: #9ca3af; }
+    html[data-theme="dark"] .ledger-hbar-track{ fill: #374151; }
+    html[data-theme="dark"] .ledger-hbar-tooltip{
+        border-color: #374151;
+        background: #1f2937;
+        color: #d1d5db;
+    }
+    html[data-theme="dark"] .ledger-hbar-tip-line{ color: #d1d5db; }
+    html[data-theme="dark"] .ledger-hbar-tip-money{ color: #fb923c; }
+    .ledger-stats-tagratio-list{
+        font-size: 13px;
+        text-align: left;
+    }
+    /* 统计卡片与周/月卡同高时，占比列表占满剩余高度再滚动，避免底部留白 */
+    .ledger-stats-tagratio-list.ledger-stats-query-taglist{
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+    .ledger-tagratio-empty{
+        padding: 6px 0;
+        font-size: 13px;
+        text-align: left;
+    }
+    .ledger-tagratio-row{
+        display: grid;
+        /* 消费占比行内：标签名 : 占比 : 金额 = 2 : 1 : 1 */
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px 10px;
+        align-items: baseline;
+        text-align: left;
+        padding: 5px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .ledger-tagratio-row:last-child{ border-bottom: none; }
+    .ledger-tagratio-name{
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #374151;
+        text-align: left;
+        font-size: 13px;
+    }
+    .ledger-tagratio-num{
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        color: #111827;
+        text-align: left;
+        font-size: 13px;
+    }
+    .ledger-tagratio-amt{
+        font-size: 13px;
+        text-align: left;
+    }
+    .ledger-tagratio-row.is-high-pct,
+    .ledger-tagratio-row.is-high-pct .ledger-tagratio-name,
+    .ledger-tagratio-row.is-high-pct .ledger-tagratio-num,
+    .ledger-tagratio-row.is-high-pct .ledger-tagratio-amt{
+        color: #ea580c;
+        font-weight: 700;
+    }
+    .ledger-tagratio-row.is-high-pct .ledger-tagratio-amt.muted{
+        color: #ea580c;
+        opacity: 1;
+    }
+    html[data-theme="dark"] .ledger-tagratio-row.is-high-pct,
+    html[data-theme="dark"] .ledger-tagratio-row.is-high-pct .ledger-tagratio-name,
+    html[data-theme="dark"] .ledger-tagratio-row.is-high-pct .ledger-tagratio-num,
+    html[data-theme="dark"] .ledger-tagratio-row.is-high-pct .ledger-tagratio-amt,
+    html[data-theme="dark"] .ledger-tagratio-row.is-high-pct .ledger-tagratio-amt.muted{
+        color: #fb923c;
+        opacity: 1;
+    }
+    .ledger-gauge{
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px 10px 14px;
+        background: #fff;
+        text-align: center;
+    }
+    .ledger-gauge-title{
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 4px;
+    }
+    .ledger-gauge-period{
+        font-size: 11px;
+        color: #6b7280;
+        margin-top: 8px;
+        line-height: 1.35;
+        min-height: 2.7em;
+    }
+    .ledger-gauge-svgwrap{
+        width: 100%;
+        max-width: 200px;
+        margin: 0 auto;
+        position: relative;
+    }
+    .ledger-gauge-svg{
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+    .ledger-gauge-fx{
+        position: absolute;
+        top: -8px;
+        right: -4px;
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+        z-index: 2;
+        pointer-events: none;
+    }
+    .ledger-gauge-fx.is-warn{ width: 36px; height: 36px; }
+    .ledger-gauge-fx.is-angry{ width: 36px; height: 36px; }
+    .ledger-gauge-fx.is-bomb{ width: 36px; height: 36px; }
+    .ledger-gauge-track{ stroke: #e5e7eb; }
+    .ledger-gauge-fill{ stroke: #16a34a; transition: stroke-dashoffset 0.35s ease; }
+    .ledger-gauge-fill.is-over{ stroke: #ea580c; }
+    .ledger-gauge-pct{
+        display: block;
+        margin-top: 6px;
+        font-size: 22px;
+        font-weight: 800;
+        color: #111827;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+    .ledger-gauge-sub{
+        display: block;
+        font-size: 11px;
+        color: #6b7280;
+        margin-top: 2px;
+        padding: 0 4px;
+        line-height: 1.3;
+    }
+    .ledger-stats-query-inline{
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        flex-wrap: nowrap;
+        gap: 10px;
+    }
+    .ledger-stats-query-inline .field-control,
+    .ledger-stats-query-inline .btn.primary{
+        height: 36px;
+        min-height: 36px;
+        box-sizing: border-box;
+    }
+    .ledger-stats-query-inline .field-control{
+        width: 168px;
+        min-width: 140px;
+        max-width: 100%;
+    }
+    .ledger-stats-query-inline .btn.primary{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    .ledger-stats-query-col{
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px 12px 12px;
+        background: #fafafa;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .ledger-stats-query-col-head{
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .ledger-stats-query-col-title{
+        font-size: 13px;
+        font-weight: 600;
+        color: #111827;
+        flex-shrink: 0;
+    }
+    .ledger-stats-query-col-period{
+        font-size: 11px;
+        color: #6b7280;
+        text-align: right;
+        line-height: 1.35;
+        max-width: 58%;
+    }
+    /* 自然周起止日期保持同一行；极窄时横向滚动查看 */
+    .ledger-stats-query-col-period--week{
+        display: inline-block;
+        white-space: nowrap;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        vertical-align: bottom;
+    }
+    .ledger-stats-query-metrics{
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+    .ledger-stats-query-metric{
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        font-size: 13px;
+    }
+    .ledger-stats-query-metric span.lbl{ color: #6b7280; }
+    .ledger-stats-query-metric span.val{ font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ledger-stats-query-gauge-inline{
+        margin-top: auto;
+        max-width: 100%;
+    }
+    .ledger-stats-query-gauge-inline.ledger-gauge{
+        padding: 8px 6px 10px;
+    }
     .ledger-toolbar{
         position: sticky;
         top: 0;
         z-index: 10;
         padding: 12px;
         display:flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
         gap: 12px;
         flex-shrink: 0;
     }
     .ledger-toolbar-left{
         display:flex;
-        align-items: flex-end;
+        align-items: center;
         flex-wrap: wrap;
         gap: 10px;
         min-width: 0;
@@ -249,6 +1071,34 @@
         display:flex;
         flex-direction: column;
         gap: 6px;
+    }
+    /* 记账 TAB 查询区：预设/标签 120px；起止日期 160px；与右侧按钮同高、垂直居中 */
+    #ledger-panel-entries .ledger-toolbar .ledger-field-group > .field-control{
+        width: 120px;
+        min-width: 120px;
+        max-width: 120px;
+        height: 36px;
+        min-height: 36px;
+        box-sizing: border-box;
+    }
+    #ledger-panel-entries .ledger-toolbar #ledger-start.field-control,
+    #ledger-panel-entries .ledger-toolbar #ledger-end.field-control,
+    #ledger-panel-entries .ledger-toolbar-archive #ledger-archive-start.field-control,
+    #ledger-panel-entries .ledger-toolbar-archive #ledger-archive-end.field-control{
+        width: 160px;
+        min-width: 160px;
+        max-width: 160px;
+        height: 36px;
+        min-height: 36px;
+        box-sizing: border-box;
+    }
+    #ledger-panel-entries .ledger-toolbar-right .btn{
+        height: 36px;
+        min-height: 36px;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
     .ledger-field-label{
         font-size: 12px;
@@ -286,6 +1136,26 @@
         display: flex;
         flex-direction: column;
     }
+    .ledger-toolbar-archive{
+        flex-shrink: 0;
+        padding: 12px 16px;
+        text-align: left;
+    }
+    .ledger-toolbar-archive-inner{
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+    }
+    .ledger-toolbar-archive-hint{
+        font-size: 12px;
+        line-height: 1.4;
+        margin: 0;
+    }
+    .ledger-toolbar-archive .ledger-field-group{
+        margin: 0;
+    }
     .ledger-col{
         flex: 1 1 auto;
         min-width: 0;
@@ -319,7 +1189,7 @@
     }
     .ledger-table-row{
         display: grid;
-        grid-template-columns: 3fr 1fr 2fr 7fr 1fr 2fr 2fr;
+        grid-template-columns: 2fr 1fr 1fr 1fr 4fr 2fr 1fr 2fr;
         column-gap: 10px;
         align-items: center;
         text-align: left;
@@ -370,6 +1240,7 @@
     }
     .ledger-cell-date{ color:#4b5563; }
     .ledger-cell-kind{ color:#374151; }
+    .ledger-cell-nature{ color:#4b5563; font-size: 12px; }
     .ledger-cell-tag{
         font-size: 13px;
         font-weight: 500;
@@ -403,6 +1274,15 @@
 
     .ledger-modal-grid{ display:flex; flex-direction: column; gap: 12px; }
     .ledger-modal-row-two{ display:flex; gap: 10px; align-items: flex-start; }
+    .ledger-modal-row-three{ display:flex; gap: 10px; align-items: flex-start; }
+    .ledger-modal-row-three .ledger-modal-field{ flex:1; min-width: 0; }
+    /* 覆盖全局 .field-control 的 min-width:180px，否则多列下拉在 480px 弹窗内溢出重叠 */
+    #ledger-entry-modal .ledger-modal-row-three .field-control,
+    #ledger-entry-modal .ledger-modal-row-two .field-control {
+        min-width: 0;
+        width: 100%;
+        max-width: 100%;
+    }
     .ledger-modal-field{ flex:1; min-width: 0; display:flex; flex-direction: column; gap: 6px; }
     .ledger-modal-field label{ font-size: 13px; color:#374151; }
     #ledger-entry-desc.field-control{ height: 80px; resize: none; box-sizing: border-box; }

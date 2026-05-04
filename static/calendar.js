@@ -16,6 +16,8 @@
         ledgerDrawerOpen: false,
         ledgerModalEditingId: null,
         ledgerConfirmOnOk: null,
+        ledgerRetentionStart: "",
+        ledgerServerDate: "",
     };
 
     /** 并发 loadDayDetail 时只应用最后一次结果 */
@@ -124,13 +126,6 @@
                     : "";
 
                 const labels = Array.isArray(summary.labels) ? summary.labels : [];
-                const labelRowsHtml = labels
-                    .slice(0, 2)
-                    .map(
-                        (l) =>
-                            `<div class="day-label-row"><span class="day-label-icon" aria-hidden="true">${(l.addType === "sync") ? "☁️" : "🏷️"}</span><span class="day-label">${escapeHtml(l.name || "")}</span></div>`
-                    )
-                    .join("");
 
                 const reminders = Array.isArray(summary.reminders) ? summary.reminders : [];
                 const iconMap = {
@@ -142,55 +137,61 @@
                     work: "💼",
                     normal: "🔔",
                 };
-                const reminderRowsHtml = reminders
-                    .slice(0, 1)
-                    .map((r) => {
+                const reminderRows = reminders.map((r) => {
                         const completed = !!r.completed;
                         const rt = String(r.reminderType || "normal");
                         const icon = completed ? "✓" : (iconMap[rt] || "🔔");
                         const iconClass = completed ? "day-reminder-icon day-reminder-icon-completed" : "day-reminder-icon";
-                        return `<div class="day-reminder-row"><span class="${iconClass}" aria-hidden="true">${icon}</span><span class="day-reminder-name">${escapeHtml(r.name || "")}</span></div>`;
+                        return `<span class="${iconClass}" aria-hidden="true">${icon}</span><span class="day-reminder-name">${escapeHtml(r.name || "")}</span>`;
                     })
-                    .join("");
+                    .slice(0, 2);
 
-                const metrics = [];
-                if (isToday && summary.todo_pending_count > 0) {
-                    metrics.push(
-                        `<span class="day-badge todo">待办 ${summary.todo_pending_count}</span>`
-                    );
-                }
-                const metricsHtml = metrics.length
-                    ? `<div class="day-metrics-row">${metrics.join("")}</div>`
-                    : "";
+                // row2~row3：按当前优先级展示“日期标签 -> 提醒事件”，最多两行
+                const rowItems = labels
+                    .map(
+                        (l) =>
+                            `<span class="day-label-icon" aria-hidden="true">${(l.addType === "sync") ? "☁️" : "🏷️"}</span><span class="day-label">${escapeHtml(l.name || "")}</span>`
+                    )
+                    .concat(reminderRows)
+                    .slice(0, 2);
+                const row2Html = rowItems[0]
+                    ? `<div class="day-info-row">${rowItems[0]}</div>`
+                    : `<div class="day-info-row day-info-row-empty"></div>`;
+                const row3Html = rowItems[1]
+                    ? `<div class="day-info-row">${rowItems[1]}</div>`
+                    : `<div class="day-info-row day-info-row-empty"></div>`;
 
                 const hasDiary = !!(summary.hasDiary || summary.has_diary);
                 const incAmt = Number(summary.income_total || 0);
                 const expAmt = Number(summary.expense_total || 0);
                 const incomeStr = incAmt > 0 ? formatLedgerAmountForCalendarCell(incAmt) : "";
                 const expenseStr = expAmt > 0 ? formatLedgerAmountForCalendarCell(expAmt) : "";
-                const showFooter = hasDiary || incomeStr || expenseStr;
-                const footerHtml = showFooter
-                    ? `<div class="day-cell-footer">
-                        <div class="day-footer-left">${
-                            incomeStr
-                                ? `<span class="day-badge income day-footer-amount" title="收入">${escapeHtml(
-                                      incomeStr
-                                  )}</span>`
-                                : ""
-                        }</div>
-                        <div class="day-footer-right">${
-                            expenseStr
-                                ? `<span class="day-badge expense day-footer-amount" title="支出">${escapeHtml(
-                                      expenseStr
-                                  )}</span>`
-                                : ""
-                        }${
-                            hasDiary
-                                ? `<span class="day-diary-mark" title="有日记" aria-label="有日记">📝</span>`
-                                : ""
-                        }</div>
-                    </div>`
+                const watchCount = Number(summary.watch_count || 0);
+                const bookCount = Number(summary.book_count || 0);
+                const pendingTodos = Number(summary.todo_pending_count || 0);
+                const leftFooterHtml = isToday
+                    ? `<span class="day-row5-todo">待办 ${escapeHtml(String(Math.max(0, pendingTodos)))}</span>`
                     : "";
+                const rightFooterParts = [];
+                if (watchCount > 0) {
+                    rightFooterParts.push(
+                        `<span class="day-row5-badge" title="已看完 · 追剧">🎬${escapeHtml(String(watchCount))}</span>`
+                    );
+                }
+                if (bookCount > 0) {
+                    rightFooterParts.push(
+                        `<span class="day-row5-badge" title="已看完 · 读书">📚${escapeHtml(String(bookCount))}</span>`
+                    );
+                }
+                if (hasDiary) {
+                    rightFooterParts.push(`<span class="day-diary-mark" title="有日记" aria-label="有日记">📝</span>`);
+                }
+                const rightFooterHtml = rightFooterParts.join("");
+                const incomeExpenseHtml = `<div class="day-income-expense-row">${
+                    incomeStr ? `<span class="day-amount income">${escapeHtml(incomeStr)}</span>` : ""
+                }${
+                    expenseStr ? `<span class="day-amount expense">${escapeHtml(expenseStr)}</span>` : ""
+                }</div>`;
 
                 return `<div class="${cls}" data-date="${c.dateStr}">
                     <div class="day-top-row">
@@ -199,10 +200,13 @@
                             <span class="day-num">${c.dayNum}</span>
                         </div>
                     </div>
-                    ${labelRowsHtml}
-                    ${reminderRowsHtml}
-                    ${metricsHtml}
-                    ${footerHtml}
+                    ${row2Html}
+                    ${row3Html}
+                    ${incomeExpenseHtml}
+                    <div class="day-bottom-row">
+                        <div class="day-bottom-left">${leftFooterHtml}</div>
+                        <div class="day-bottom-right">${rightFooterHtml}</div>
+                    </div>
                 </div>`;
             })
             .join("");
@@ -260,6 +264,32 @@
             ":" +
             pad(d.getMinutes())
         );
+    }
+
+    async function loadLedgerRetentionMeta() {
+        try {
+            const r = await fetch("/api/ledger/meta");
+            const d = await r.json().catch(() => ({}));
+            if (!d || !d.success) return;
+            state.ledgerRetentionStart = String(d.retention_start_date || "").trim();
+            state.ledgerServerDate = String(d.server_date || "").trim() || formatDate(new Date());
+            const el = document.getElementById("calendar-ledger-entry-date");
+            if (el) {
+                if (state.ledgerRetentionStart) el.min = state.ledgerRetentionStart;
+                if (state.ledgerServerDate) el.max = state.ledgerServerDate;
+            }
+        } catch (e) {
+            console.error("loadLedgerRetentionMeta", e);
+        }
+    }
+
+    function ledgerDateAllowedForWrite(ds) {
+        if (!ds) return false;
+        const max = state.ledgerServerDate || formatDate(new Date());
+        const min = state.ledgerRetentionStart || "";
+        if (ds > max) return false;
+        if (min && ds < min) return false;
+        return true;
     }
 
     async function loadLedgerTagsIntoState() {
@@ -342,6 +372,19 @@
         }
     }
 
+    function syncCalLedgerAddExpenseNature() {
+        const kind = String(document.getElementById("cal-ledger-add-kind")?.value || "expense");
+        const sel = document.getElementById("cal-ledger-add-expense-nature");
+        if (!sel) return;
+        if (kind === "income") {
+            sel.disabled = true;
+            sel.value = "";
+        } else {
+            sel.disabled = false;
+            if (!sel.value) sel.value = "daily";
+        }
+    }
+
     function refreshLedgerDrawerFromState() {
         const ledger = (state.dayDetail && state.dayDetail.ledger) || {};
         const entries = Array.isArray(ledger.entries) ? ledger.entries : [];
@@ -349,8 +392,9 @@
         const expEl = document.getElementById("cal-ledger-drawer-expense");
         if (incEl) incEl.textContent = "￥" + formatLedgerAmountDisplay(ledger.income_total || 0);
         if (expEl) expEl.textContent = "￥" + formatLedgerAmountDisplay(ledger.expense_total || 0);
-        const dateEl = document.getElementById("cal-ledger-add-date");
-        if (dateEl && state.selectedDate) dateEl.value = state.selectedDate;
+        syncCalLedgerAddExpenseNature();
+        const sub = document.getElementById("btn-cal-ledger-add-submit");
+        if (sub) sub.disabled = !ledgerDateAllowedForWrite(state.selectedDate);
         const mount = document.getElementById("cal-ledger-cards-mount");
         if (!mount) return;
         if (!entries.length) {
@@ -360,6 +404,7 @@
         }
         const headHtml = `<div class="calendar-ledger-table-head calendar-ledger-table-row" role="row">
                 <div class="calendar-ledger-cell" role="columnheader">类型</div>
+                <div class="calendar-ledger-cell" role="columnheader">支出性质</div>
                 <div class="calendar-ledger-cell" role="columnheader">标签</div>
                 <div class="calendar-ledger-cell" role="columnheader">明细</div>
                 <div class="calendar-ledger-cell" role="columnheader">批注</div>
@@ -370,6 +415,8 @@
             .map((e) => {
                 const kind = String(e.kind || "");
                 const isIncome = kind === "income";
+                const natureRaw = String(e.expense_nature || "").toLowerCase();
+                const natureText = isIncome ? "—" : natureRaw === "fixed" ? "固定" : "日常";
                 const amt = formatLedgerAmountDisplay(e.amount || 0);
                 const tagName = escapeHtml(String(e.tag_name || "").trim() || "未命名");
                 const desc = escapeHtml(String(e.description || "").trim() || "（无明细）");
@@ -377,6 +424,7 @@
                 const kindText = isIncome ? "收入" : "支出";
                 return `<div class="calendar-ledger-table-data calendar-ledger-table-row" role="row" data-ledger-entry-id="${escapeHtml(String(e.id))}">
                     <div class="calendar-ledger-cell">${escapeHtml(kindText)}</div>
+                    <div class="calendar-ledger-cell">${escapeHtml(natureText)}</div>
                     <div class="calendar-ledger-cell">${tagName}</div>
                     <div class="calendar-ledger-cell">${desc}</div>
                     <div class="calendar-ledger-cell">${ann}</div>
@@ -398,7 +446,7 @@
     async function openLedgerDrawer() {
         if (!state.selectedDate) return;
         try {
-            await loadLedgerTagsIntoState();
+            await Promise.all([loadLedgerRetentionMeta(), loadLedgerTagsIntoState()]);
         } catch (e) {
             console.error(e);
             showToast("加载标签失败", "error");
@@ -406,6 +454,11 @@
         }
         const kindEl = document.getElementById("cal-ledger-add-kind");
         if (kindEl) kindEl.value = "expense";
+        const addNat = document.getElementById("cal-ledger-add-expense-nature");
+        if (addNat) {
+            addNat.value = "daily";
+            addNat.disabled = false;
+        }
         fillCalLedgerTagSelect(document.getElementById("cal-ledger-add-tag"), kindEl ? kindEl.value : "expense", null);
         const amtEl = document.getElementById("cal-ledger-add-amount");
         const descEl = document.getElementById("cal-ledger-add-desc");
@@ -430,6 +483,10 @@
     async function submitCalLedgerAdd() {
         const date = state.selectedDate;
         if (!date) return;
+        if (!ledgerDateAllowedForWrite(date)) {
+            showToast("该日期不在系统可记账范围内（最近12个自然月）", "error");
+            return;
+        }
         const kind = String(document.getElementById("cal-ledger-add-kind")?.value || "expense");
         const tagId = String(document.getElementById("cal-ledger-add-tag")?.value || "");
         const amount = Number(document.getElementById("cal-ledger-add-amount")?.value);
@@ -455,18 +512,30 @@
             showToast("批注不能超过30字", "error");
             return;
         }
+        let expenseNature = "daily";
+        if (kind === "expense") {
+            expenseNature = String(document.getElementById("cal-ledger-add-expense-nature")?.value || "daily");
+            if (expenseNature !== "daily" && expenseNature !== "fixed") {
+                showToast("请选择支出性质", "error");
+                return;
+            }
+        }
         try {
+            const body = {
+                date,
+                kind,
+                tag_id: Number(tagId),
+                amount: Number(amount.toFixed(2)),
+                description,
+                annotation,
+            };
+            if (kind === "expense") {
+                body.expense_nature = expenseNature;
+            }
             const res = await fetch("/api/ledger/entries", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    date,
-                    kind,
-                    tag_id: Number(tagId),
-                    amount: Number(amount.toFixed(2)),
-                    description,
-                    annotation,
-                }),
+                body: JSON.stringify(body),
             });
             const data = await res.json().catch(() => ({}));
             if (!data || !data.success) {
@@ -500,7 +569,7 @@
         if (!entry || entry.id == null) return;
         state.ledgerModalEditingId = entry.id;
         try {
-            await loadLedgerTagsIntoState();
+            await Promise.all([loadLedgerRetentionMeta(), loadLedgerTagsIntoState()]);
         } catch (e) {
             showToast("加载标签失败", "error");
             return;
@@ -508,11 +577,22 @@
         const kind = String(entry.kind || "expense");
         document.getElementById("calendar-ledger-entry-modal-title").textContent = "编辑记账";
         document.getElementById("calendar-ledger-entry-kind").value = kind;
-        document.getElementById("calendar-ledger-entry-date").value = String(entry.date || state.selectedDate || "");
+        let dv = String(entry.date || state.selectedDate || "");
+        const mx = state.ledgerServerDate || formatDate(new Date());
+        const mn = state.ledgerRetentionStart || "";
+        if (mn && dv < mn) dv = mn;
+        if (dv > mx) dv = mx;
+        const dEl = document.getElementById("calendar-ledger-entry-date");
+        if (dEl) dEl.value = dv;
         document.getElementById("calendar-ledger-entry-amount").value = String(Number(entry.amount || 0).toFixed(2));
         document.getElementById("calendar-ledger-entry-desc").value = String(entry.description || "");
         const annEl = document.getElementById("calendar-ledger-entry-annotation");
         if (annEl) annEl.value = String(entry.annotation || "");
+        const en = String(entry.expense_nature || "daily").toLowerCase();
+        const enEl = document.getElementById("calendar-ledger-entry-expense-nature");
+        if (enEl) enEl.value = en === "fixed" ? "fixed" : "daily";
+        const enWrap = document.getElementById("calendar-ledger-entry-nature-wrap");
+        if (enWrap) enWrap.style.display = kind === "expense" ? "" : "none";
         fillCalLedgerTagSelect(document.getElementById("calendar-ledger-entry-tag"), kind, entry.tag_id);
         openLedgerEntryModal();
     }
@@ -528,6 +608,10 @@
         const annotation = String(document.getElementById("calendar-ledger-entry-annotation")?.value || "").trim();
         if (!date) {
             showToast("请选择日期", "error");
+            return;
+        }
+        if (!ledgerDateAllowedForWrite(date)) {
+            showToast("该日期不在系统可记账范围内（最近12个自然月）", "error");
             return;
         }
         if (!tagId) {
@@ -550,18 +634,27 @@
             showToast("批注不能超过30字", "error");
             return;
         }
+        const expenseNature = String(document.getElementById("calendar-ledger-entry-expense-nature")?.value || "daily");
+        if (kind === "expense" && expenseNature !== "daily" && expenseNature !== "fixed") {
+            showToast("请选择支出性质", "error");
+            return;
+        }
         try {
+            const body = {
+                date,
+                kind,
+                tag_id: Number(tagId),
+                amount: Number(amount.toFixed(2)),
+                description,
+                annotation,
+            };
+            if (kind === "expense") {
+                body.expense_nature = expenseNature;
+            }
             const res = await fetch("/api/ledger/entries/" + encodeURIComponent(String(id)), {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    date,
-                    kind,
-                    tag_id: Number(tagId),
-                    amount: Number(amount.toFixed(2)),
-                    description,
-                    annotation,
-                }),
+                body: JSON.stringify(body),
             });
             const data = await res.json().catch(() => ({}));
             if (!data || !data.success) {
@@ -715,6 +808,7 @@
         const footerLeft = document.getElementById("calendar-diary-drawer-footer-left");
         const inputTitle = document.getElementById("calendar-diary-title");
         const inputDiet = document.getElementById("calendar-diary-today-diet");
+        const inputExercise = document.getElementById("calendar-diary-exercise-summary");
 
         if (titleEl) titleEl.textContent = mode === "add" ? "添加日记" : "编辑日记";
         if (footerLeft) {
@@ -738,6 +832,7 @@
         }
         if (inputTitle) inputTitle.value = mode === "edit" && diary ? diary.title || "" : "";
         if (inputDiet) inputDiet.value = mode === "edit" && diary ? diary.today_diet || "" : "";
+        if (inputExercise) inputExercise.value = mode === "edit" && diary ? diary.exercise_summary || "" : "";
         if (q) q.root.innerHTML = mode === "edit" && diary ? diary.content || "" : "";
 
         setDiaryDrawerOpen(true);
@@ -765,8 +860,13 @@
         if (!dateStr) return;
         const title = String(document.getElementById("calendar-diary-title")?.value || "");
         const todayDiet = String(document.getElementById("calendar-diary-today-diet")?.value || "");
+        const exerciseSummary = String(document.getElementById("calendar-diary-exercise-summary")?.value || "");
         if (todayDiet.length > 200) {
             showToast("今日饮食不能超过200字", "error");
+            return;
+        }
+        if (exerciseSummary.length > 500) {
+            showToast("锻炼小结不能超过500字", "error");
             return;
         }
         const q = state.diaryQuill;
@@ -775,7 +875,7 @@
             const res = await fetch("/api/diaries/" + encodeURIComponent(dateStr), {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title, content, today_diet: todayDiet }),
+                body: JSON.stringify({ title, content, today_diet: todayDiet, exercise_summary: exerciseSummary }),
             });
             const data = await res.json();
             if (!data || !data.success) {
@@ -797,7 +897,10 @@
         const el = document.getElementById("toast");
         if (!el || !text) return;
         el.textContent = String(text);
-        el.className = "toast " + (type === "error" ? "toast-error" : "toast-info");
+        let variant = "toast-success";
+        if (type === "error") variant = "toast-error";
+        else if (type === "info") variant = "toast-info";
+        el.className = "toast " + variant;
         el.style.opacity = "1";
         clearTimeout(el._timer);
         el._timer = setTimeout(() => {
@@ -821,11 +924,6 @@
     function isFutureDate(dateStr) {
         const todayStr = formatDate(new Date());
         return String(dateStr || "") > todayStr;
-    }
-
-    function isPastDate(dateStr) {
-        const todayStr = formatDate(new Date());
-        return String(dateStr || "") < todayStr;
     }
 
     function toggleRecordInSnapshot(snapshot, eventId, dateStr) {
@@ -924,15 +1022,20 @@
 
         const dateStr = data.date || state.selectedDate || "";
         const detailFuture = isFutureDate(dateStr);
-        const detailPast = isPastDate(dateStr);
+        const serverTodayStr = String(data.server_today || formatDate(new Date())).slice(0, 10);
+        const isServerTodayForTodos = String(dateStr || "").slice(0, 10) === serverTodayStr;
+        const isBeforeServerToday = String(dateStr || "") < serverTodayStr;
 
         const labels = Array.isArray(data.labels) ? data.labels : [];
         const checkins = Array.isArray(data.checkins) ? data.checkins : [];
         const reminders = Array.isArray(data.reminders) ? data.reminders : [];
-        const todosPending = Array.isArray(data.todos_pending) ? data.todos_pending : [];
         const todosDone = Array.isArray(data.todos_done) ? data.todos_done : [];
+        const doneTodoIds = new Set(todosDone.map((t) => Number(t.id)));
+        const todosPendingRaw = Array.isArray(data.todos_pending) ? data.todos_pending : [];
+        const todosPending = todosPendingRaw.filter((t) => !doneTodoIds.has(Number(t.id)));
         const ledger = data.ledger || {};
         const diary = data.diary || null;
+        const contentItems = Array.isArray(data.content_items) ? data.content_items : [];
 
         const labelsHtml =
             labels.length > 0
@@ -1047,31 +1150,10 @@
                 </p>
                </div>`;
 
-        const todosHtml =
-            `<div class="detail-section">
-                <div class="detail-section-title">待办事项</div>
-                ${
-                    todosPending.length === 0
-                        ? `<p class="muted">暂无未完成待办。</p>`
-                        : `<div class="detail-list">
-                            ${todosPending
-                                .map(
-                                    (t) =>
-                                        `<div class="detail-event-item detail-todo-item" data-kind="todo" data-id="${escapeHtml(
-                                            String(t.id)
-                                        )}">
-                                                <div class="detail-event-item-content-wrap">
-                                                    <span class="detail-event-item-name">${escapeHtml(
-                                                        t.content_snapshot || ""
-                                                    )}</span>
-                                                </div>
-                                            </div>`
-                                )
-                                .join("")}
-                           </div>`
-                }
-               </div>
-               <div class="detail-section">
+        let pendingTodosHtml = "";
+        let doneTodosHtml = "";
+        if (!detailFuture) {
+            doneTodosHtml = `<div class="detail-section">
                 <div class="detail-section-title">已完成待办</div>
                 ${
                     todosDone.length === 0
@@ -1081,7 +1163,7 @@
                                 .map(
                                     (t) =>
                                         `<div class="detail-event-item detail-todo-item checked${
-                                            detailPast ? " disabled" : ""
+                                            isBeforeServerToday ? " disabled" : ""
                                         }" data-kind="todo" data-id="${escapeHtml(String(t.id))}">
                                                 <div class="detail-event-item-content-wrap">
                                                     <span class="detail-event-item-name">${escapeHtml(
@@ -1095,6 +1177,34 @@
                            </div>`
                 }
                </div>`;
+
+            if (isServerTodayForTodos) {
+                // 与接口一致：仅服务端「今天」生成待办区块（避免与本地日历日期判断错位）
+                pendingTodosHtml = `<div class="detail-section">
+                    <div class="detail-section-title">待办事项</div>
+                    ${
+                        todosPending.length === 0
+                            ? `<p class="muted">暂无未完成待办。</p>`
+                            : `<div class="detail-list">
+                                ${todosPending
+                                    .map(
+                                        (t) =>
+                                            `<div class="detail-event-item detail-todo-item" data-kind="todo" data-id="${escapeHtml(
+                                                String(t.id)
+                                            )}">
+                                                    <div class="detail-event-item-content-wrap">
+                                                        <span class="detail-event-item-name">${escapeHtml(
+                                                            t.content_snapshot || ""
+                                                        )}</span>
+                                                    </div>
+                                                </div>`
+                                    )
+                                    .join("")}
+                               </div>`
+                    }
+                   </div>`;
+            }
+        }
 
         const diaryHtml =
             `<div class="detail-section" id="calendar-diary-section">
@@ -1111,7 +1221,47 @@
                 }
                </div>`;
 
-        panel.innerHTML = labelsHtml + checkinsHtml + remindersHtml + ledgerHtml + todosHtml + diaryHtml;
+        const contentHtml =
+            `<div class="detail-section" id="calendar-content-section">
+                <div class="detail-section-title">光影问卷</div>
+                <button type="button" id="btn-calendar-open-content" class="btn primary">新增记录</button>
+                ${
+                    contentItems.length
+                        ? `<div class="detail-list" style="margin-top:10px;">
+                            ${contentItems
+                                .slice(0, 6)
+                                .map((it) => {
+                                    const kindText = String(it.record_type || "") === "book" ? "📚 读书" : "🎬 追剧";
+                                    const listPrefix =
+                                        String(it.list_status || "") === "wishlist" ? "心愿 · " : "";
+                                    const rid = String(it.id != null ? it.id : "").trim();
+                                    const ridAttr = rid ? ` data-content-record-id="${escapeHtml(rid)}"` : "";
+                                    return `<button type="button" class="detail-item detail-item--content"${ridAttr}>
+                                        <div class="detail-item-left">
+                                            <div class="detail-item-title">${escapeHtml(it.title || "")}</div>
+                                        </div>
+                                        <div class="detail-item-right">
+                                            <span class="detail-item-status">${escapeHtml(listPrefix)}${escapeHtml(kindText)} · ${escapeHtml(String(it.rating || 0))}星</span>
+                                        </div>
+                                    </button>`;
+                                })
+                                .join("")}
+                           </div>`
+                        : `<p class="muted" style="margin-top:10px;">当日暂无记录。</p>`
+                }
+               </div>`;
+
+        // 右侧详情区顺序：
+        // … -> 待办事项(仅服务端「今天」且非未来) -> 已完成待办(今日或历史，非未来) -> 日记 -> …
+        panel.innerHTML =
+            labelsHtml +
+            ledgerHtml +
+            checkinsHtml +
+            remindersHtml +
+            (!detailFuture && isServerTodayForTodos ? pendingTodosHtml : "") +
+            (!detailFuture ? doneTodosHtml : "") +
+            diaryHtml +
+            contentHtml;
     }
 
     function bindEvents() {
@@ -1147,12 +1297,22 @@
         });
 
         document.getElementById("detail-panel")?.addEventListener("click", (e) => {
+            const contentBtn = e.target.closest("button[data-content-record-id]");
+            if (contentBtn) {
+                const rid = String(contentBtn.getAttribute("data-content-record-id") || "").trim();
+                if (rid && window.ContentRecordViewDrawer) void window.ContentRecordViewDrawer.open(rid);
+                return;
+            }
             if (e.target.closest("#btn-calendar-open-ledger")) {
                 openLedgerDrawer();
                 return;
             }
             if (e.target.closest("#btn-calendar-add-diary")) {
                 openDiaryDrawer("add");
+                return;
+            }
+            if (e.target.closest("#btn-calendar-open-content")) {
+                window.location.href = "/content";
                 return;
             }
             if (e.target.closest("[data-calendar-diary-open]")) {
@@ -1168,6 +1328,7 @@
         document.getElementById("cal-ledger-add-kind")?.addEventListener("change", () => {
             const kind = String(document.getElementById("cal-ledger-add-kind")?.value || "expense");
             fillCalLedgerTagSelect(document.getElementById("cal-ledger-add-tag"), kind, null);
+            syncCalLedgerAddExpenseNature();
         });
 
         document.getElementById("cal-ledger-cards-mount")?.addEventListener("click", (e) => {
@@ -1191,6 +1352,8 @@
         document.getElementById("calendar-ledger-entry-kind")?.addEventListener("change", () => {
             const kind = String(document.getElementById("calendar-ledger-entry-kind")?.value || "expense");
             fillCalLedgerTagSelect(document.getElementById("calendar-ledger-entry-tag"), kind, null);
+            const w = document.getElementById("calendar-ledger-entry-nature-wrap");
+            if (w) w.style.display = kind === "expense" ? "" : "none";
         });
         document.getElementById("calendar-ledger-entry-cancel")?.addEventListener("click", closeLedgerEntryModal);
         document.getElementById("calendar-ledger-entry-save")?.addEventListener("click", () => {
@@ -1279,16 +1442,22 @@
 
             try {
                 if (kind === "todo") {
-                    if (isPastDate(dateStr) && item.classList.contains("checked")) {
+                    const st = String((state.dayDetail && state.dayDetail.server_today) || formatDate(new Date())).slice(
+                        0,
+                        10
+                    );
+                    if (String(dateStr || "") < st && item.classList.contains("checked")) {
                         showToast("过往日期的已完成待办不可修改", "error");
                         return;
                     }
                     const isCompleted = item.classList.contains("checked");
                     const newStatus = isCompleted ? "pending" : "done";
+                    // 完成日记录「实际勾选日」用服务端今天，避免在 18 号格子里操作却写入 complete_date=18、却在 19 号才完成
+                    const completeDateForApi = newStatus === "done" ? st : "";
                     const res = await fetch(`/api/todo-instances/${encodeURIComponent(eventId)}/status`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ status: newStatus, complete_date: dateStr }),
+                        body: JSON.stringify({ status: newStatus, complete_date: completeDateForApi }),
                     });
                     const out = await res.json();
                     if (!out || !out.success) {
@@ -1314,12 +1483,16 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+        if (window.ContentRecordViewDrawer) window.ContentRecordViewDrawer.init({ notify: showToast });
         bindEvents();
-        // 初始化：加载当前月 + 选中今天
-        loadSummary(state.current).then(() => {
-            const todayStr = formatDate(new Date());
-            loadDayDetail(todayStr);
-        });
+        loadLedgerRetentionMeta()
+            .catch(() => {})
+            .finally(() => {
+                loadSummary(state.current).then(() => {
+                    const todayStr = formatDate(new Date());
+                    loadDayDetail(todayStr);
+                });
+            });
     });
 })();
 

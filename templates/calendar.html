@@ -30,6 +30,8 @@
         #app > main.calendar-layout {
             grid-template-columns: minmax(0, 1fr) 320px;
             gap: 20px;
+            min-height: 0;
+            height: 100%;
         }
 
         #app .calendar-right {
@@ -37,15 +39,42 @@
             min-width: 320px;
             max-width: 320px;
             box-sizing: border-box;
+            min-height: 0;
+            height: 100%;
         }
 
         #app .calendar-left {
             min-width: 0;
+            min-height: 0;
+            height: 100%;
         }
 
-        /* 月历格：行高与打卡页一致（96px），列宽随左侧区域变宽同比加宽 */
+        /* 左侧月历外框与右侧详情外框保持等高 */
+        #app .calendar-card,
+        #app .calendar-detail-card {
+            height: 100%;
+            min-height: 0;
+            box-sizing: border-box;
+        }
+
+        #app .calendar-card {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 月历格：行高 120px，列宽随左侧区域变宽同比加宽 */
         #app .calendar-grid {
-            grid-auto-rows: 96px;
+            grid-auto-rows: 120px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* 单个日期格内部滚动（内容多时在格子内出现下拉滚动条） */
+        #app .calendar-day {
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-gutter: stable;
         }
 
         .calendar-detail-card {
@@ -60,61 +89,171 @@
             overflow: auto;
         }
 
-        .day-metrics-row {
+        /* 日历格 5 行固定布局：
+           row1 打卡圆标+日期；row2~3 标签/提醒；row4 收入支出；row5 待办(左)+追剧/读书/日记(右) */
+        #app .calendar-day {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: 20px 16px 16px 16px 16px;
+            row-gap: 4px;
+            align-content: start;
+            padding: 8px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* row1：圆标与日期同一行，左/右边距固定 4px */
+        #app .calendar-day .day-top-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 4px;
+            height: 20px;
+            min-height: 20px;
+            max-height: 20px;
+            overflow: visible;
+            width: auto;
+            position: static;
+            padding-right: 0;
+        }
+
+        #app .calendar-day .day-dots {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+            gap: 2px;
+            height: 20px;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            max-width: calc(100% - 52px); /* 给右上角日期固定锚点预留空间 */
+        }
+
+        #app .calendar-day .day-top-right {
+            position: absolute;
+            right: 8px; /* 固定距格子右边框 8px */
+            top: 8px;   /* 固定距格子上边框 8px */
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            gap: 6px;
-            margin-top: 4px;
-        }
-
-        /* 月历格底部：收入左、支出+日记角标右；日记固定在右下角区域 */
-        #app .calendar-day .day-cell-footer {
-            display: flex;
-            flex-wrap: nowrap;
-            align-items: flex-end;
-            justify-content: space-between;
-            width: 100%;
-            margin-top: auto;
-            gap: 4px;
-            flex-shrink: 0;
-            padding-top: 2px;
-            box-sizing: border-box;
-        }
-
-        #app .calendar-day .day-footer-left {
-            flex: 1 1 auto;
+            height: 20px;
             min-width: 0;
-            display: flex;
-            justify-content: flex-start;
-            align-items: flex-end;
-        }
-
-        #app .calendar-day .day-footer-right {
-            flex: 0 0 auto;
-            display: flex;
-            align-items: flex-end;
-            justify-content: flex-end;
             gap: 4px;
+            overflow: visible;
+            z-index: 2;
+            pointer-events: none;
         }
 
-        #app .calendar-day .day-footer-amount.day-badge {
-            max-width: 100%;
+        #app .calendar-day .day-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            text-align: right;
+            line-height: 20px;
+            margin: 0;
+            min-width: 0;
+        }
+
+        #app .calendar-day.today .day-num {
+            line-height: 20px;
+            padding: 0 6px;
+        }
+
+        #app .calendar-day .day-info-row,
+        #app .calendar-day .day-income-expense-row,
+        #app .calendar-day .day-bottom-row {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            height: 16px;
+            min-height: 16px;
+            max-height: 16px;
+            font-size: 12px;
+            line-height: 16px;
+            overflow: hidden;
+        }
+
+        #app .calendar-day .day-info-row {
+            gap: 4px;
+            color: #6b7280;
+            max-width: calc(100% - 8px);
+        }
+
+        #app .calendar-day .day-info-row-empty {
+            opacity: 0;
+        }
+
+        #app .calendar-day .day-info-row .day-label,
+        #app .calendar-day .day-info-row .day-reminder-name {
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
         }
+
+        #app .calendar-day .day-income-expense-row {
+            gap: 4px;
+            justify-content: flex-start;
+        }
+
+        #app .calendar-day .day-bottom-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 4px;
+            width: auto;
+            position: static;
+            padding-right: 0;
+        }
+
+        #app .calendar-day .day-bottom-left,
+        #app .calendar-day .day-bottom-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        #app .calendar-day .day-bottom-left {
+            justify-content: flex-start;
+            max-width: calc(100% - 36px); /* 给右下角图标固定锚点预留空间 */
+            overflow: hidden;
+        }
+
+        #app .calendar-day .day-bottom-right {
+            justify-content: flex-end;
+            position: absolute;
+            right: 8px;   /* 固定距格子右边框 8px */
+            bottom: 8px;  /* 固定距格子下边框 8px */
+            height: 16px;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        #app .calendar-day .day-row5-todo,
+        #app .calendar-day .day-row5-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            white-space: nowrap;
+            color: #374151;
+        }
+
+        #app .calendar-day .day-amount {
+            white-space: nowrap;
+            font-size: 12px;
+            line-height: 16px;
+        }
+
+        #app .calendar-day .day-amount.income { color: #047857; }
+        #app .calendar-day .day-amount.expense { color: #b91c1c; }
 
         #app .calendar-day .day-diary-mark {
             font-size: 12px;
             line-height: 1;
             flex-shrink: 0;
             cursor: inherit;
-        }
-
-        #app .calendar-day .day-top-right {
-            flex-direction: row;
-            align-items: center;
-            gap: 4px;
         }
 
         .day-badge {
@@ -147,21 +286,25 @@
             margin: 0 0 8px;
         }
 
-        .detail-list {
+        /* 右侧详情统一规范：标签卡片与事件卡片间距 10px、事件文案 13px */
+        #detail-panel .detail-list {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
 
-        /* 右侧详情：待办卡片文案 13px、无圆点（结构上去掉 .dot） */
-        #detail-panel .detail-event-item.detail-todo-item {
+        #detail-panel .detail-event-item,
+        #detail-panel .detail-event-item .detail-event-item-name {
             font-size: 13px;
             line-height: 1.45;
         }
 
-        #detail-panel .detail-event-item.detail-todo-item .detail-event-item-name {
-            font-size: 13px;
-            line-height: 1.45;
+        #detail-panel .detail-event-item {
+            margin: 0; /* 覆盖 checkin.css 默认 margin-bottom，避免与 gap 叠加 */
+            padding: 10px 10px;
+            gap: 10px;
+            align-items: center;
+            border-radius: 10px;
         }
 
         .detail-item {
@@ -226,13 +369,22 @@
             color: #059669;
         }
 
+        #detail-panel button.detail-item.detail-item--content {
+            width: 100%;
+            margin: 0;
+            font: inherit;
+            text-align: left;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
         .muted {
             color: #6b7280;
             font-size: 12px;
             margin: 0;
         }
 
-        /* 覆盖 checkin.css 的 #toast（id 选择器优先级更高） */
+        /* 覆盖 checkin.css 的 #toast（id 选择器优先级更高）；背景由各类型类单独设置 */
         #toast.toast {
             position: fixed;
             left: 50%;
@@ -248,7 +400,6 @@
             pointer-events: none;
             max-width: min(360px, calc(100vw - 24px)); /* 总宽不超过 360，内容宽约 340 */
             box-sizing: border-box;
-            background: rgba(17, 24, 39, 0.92);
             color: #fff;
             text-align: center;
             min-height: 40px;   /* 单行高度 40px：10 + 20 + 10 */
@@ -259,6 +410,14 @@
             word-break: break-word;
             display: inline-block;
             width: fit-content;
+        }
+
+        #toast.toast.toast-success {
+            background: rgba(22, 163, 74, 0.94);
+        }
+
+        #toast.toast.toast-info {
+            background: rgba(37, 99, 235, 0.94);
         }
 
         #toast.toast.toast-error {
@@ -572,13 +731,13 @@
             border-bottom: 1px solid #e5e7eb;
         }
 
-        /* 新增记账：类型 / 日期 / 标签 / 金额 同一行，四列等宽、间距 10px（覆盖全局 field-control min-width 避免重叠） */
+        /* 新增记账：类型 / 标签 / 支出性质 / 金额 同一行，四列等宽（发生日期用当前选中日期，不在此展示） */
         .calendar-ledger-add-fields-row {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 10px;
             align-items: start;
-            margin-bottom: 12px;
+            margin-bottom: 0;
         }
 
         .calendar-ledger-field {
@@ -601,9 +760,15 @@
             box-sizing: border-box;
         }
 
-        #cal-ledger-add-date[readonly] {
-            background: #f3f4f6;
-            color: #374151;
+        .calendar-ledger-add-detail-block {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .calendar-ledger-add-detail-block .calendar-ledger-field {
+            gap: 8px;
         }
 
         #cal-ledger-add-desc {
@@ -619,7 +784,7 @@
         }
 
         #btn-cal-ledger-add-submit {
-            margin-top: 10px;
+            margin-top: 14px;
         }
 
         .calendar-ledger-section-totals {
@@ -670,7 +835,7 @@
             margin: 0 0 10px;
         }
 
-        /* 当日记账列表：列宽 1:1:3:1:1:1（类型、标签、明细、批注、金额、操作） */
+        /* 当日记账列表：类型、性质、标签、明细、批注、金额、操作 */
         .calendar-ledger-table {
             border: 1px solid #e5e7eb;
             border-radius: 8px;
@@ -684,10 +849,10 @@
 
         .calendar-ledger-table-row {
             display: grid;
-            grid-template-columns: 1fr 1fr 3fr 1fr 1fr 1fr;
+            grid-template-columns: 0.9fr 0.85fr 1fr 2.6fr 1fr 1fr 1fr;
             gap: 8px 12px;
             padding: 10px 12px;
-            align-items: start;
+            align-items: center;
             box-sizing: border-box;
         }
 
@@ -883,6 +1048,10 @@
             <label for="calendar-diary-today-diet">今日饮食</label>
             <textarea id="calendar-diary-today-diet" class="calendar-diary-today-diet" maxlength="200" placeholder="支持回车换行，200字以内" rows="4" spellcheck="false"></textarea>
         </div>
+        <div class="calendar-diary-field">
+            <label for="calendar-diary-exercise-summary">锻炼小结</label>
+            <input type="text" id="calendar-diary-exercise-summary" maxlength="500" placeholder="请输入锻炼小结" autocomplete="off" spellcheck="false" />
+        </div>
         <div class="calendar-diary-field calendar-diary-field-grow">
             <label>随笔两三事</label>
             <div id="calendar-diary-editor-wrap" class="calendar-diary-editor-wrap">
@@ -916,25 +1085,31 @@
                     </select>
                 </div>
                 <div class="calendar-ledger-field">
-                    <label for="cal-ledger-add-date">日期</label>
-                    <input type="text" id="cal-ledger-add-date" class="field-control" readonly autocomplete="off" />
-                </div>
-                <div class="calendar-ledger-field">
                     <label for="cal-ledger-add-tag">标签</label>
                     <select id="cal-ledger-add-tag" class="field-control"></select>
+                </div>
+                <div class="calendar-ledger-field" id="cal-ledger-add-nature-wrap">
+                    <label for="cal-ledger-add-expense-nature">支出性质</label>
+                    <select id="cal-ledger-add-expense-nature" class="field-control">
+                        <option value=""> </option>
+                        <option value="daily">日常</option>
+                        <option value="fixed">固定</option>
+                    </select>
                 </div>
                 <div class="calendar-ledger-field">
                     <label for="cal-ledger-add-amount">金额</label>
                     <input type="number" id="cal-ledger-add-amount" class="field-control" step="0.01" min="0" placeholder="例如 12.34" />
                 </div>
             </div>
-            <div class="calendar-ledger-field">
-                <label for="cal-ledger-add-desc">明细</label>
-                <textarea id="cal-ledger-add-desc" class="field-control" maxlength="200" placeholder="必填，200字以内" required></textarea>
-            </div>
-            <div class="calendar-ledger-field">
-                <label for="cal-ledger-add-annotation">批注</label>
-                <input id="cal-ledger-add-annotation" type="text" class="field-control" maxlength="30" placeholder="选填，30字以内" autocomplete="off" />
+            <div class="calendar-ledger-add-detail-block">
+                <div class="calendar-ledger-field">
+                    <label for="cal-ledger-add-desc">明细</label>
+                    <textarea id="cal-ledger-add-desc" class="field-control" maxlength="200" placeholder="必填，200字以内" required></textarea>
+                </div>
+                <div class="calendar-ledger-field">
+                    <label for="cal-ledger-add-annotation">批注</label>
+                    <input id="cal-ledger-add-annotation" type="text" class="field-control" maxlength="30" placeholder="选填，30字以内" autocomplete="off" />
+                </div>
             </div>
             <button type="button" id="btn-cal-ledger-add-submit" class="btn primary">提交</button>
         </section>
@@ -985,6 +1160,13 @@
                         <input id="calendar-ledger-entry-amount" type="number" step="0.01" min="0" class="field-control" placeholder="例如 12.34" />
                     </div>
                 </div>
+                <div class="calendar-ledger-modal-field" id="calendar-ledger-entry-nature-wrap">
+                    <label for="calendar-ledger-entry-expense-nature">支出性质</label>
+                    <select id="calendar-ledger-entry-expense-nature" class="field-control">
+                        <option value="daily" selected>日常</option>
+                        <option value="fixed">固定</option>
+                    </select>
+                </div>
                 <div class="calendar-ledger-modal-field">
                     <label for="calendar-ledger-entry-desc">明细</label>
                     <textarea id="calendar-ledger-entry-desc" class="field-control" placeholder="必填，200字以内" maxlength="200" required></textarea>
@@ -1017,10 +1199,20 @@
     </div>
 </div>
 
+<div id="content-record-view-overlay" class="content-record-view-overlay" aria-hidden="true"></div>
+<div id="content-record-view-drawer" class="content-record-view-drawer" role="dialog" aria-modal="true" aria-labelledby="content-record-view-title-text" aria-hidden="true">
+    <div class="content-record-view-header">
+        <div id="content-record-view-title-text" class="content-record-view-title">—</div>
+        <button type="button" id="content-record-view-close" class="content-record-view-close" aria-label="关闭">&times;</button>
+    </div>
+    <div class="content-record-view-body" id="content-record-view-body"></div>
+</div>
+
 <div id="toast" class="toast" style="opacity:0;"></div>
 
 <script src="/static/theme-switcher.js"></script>
 <script src="/static/quill/quill.min.js"></script>
+<script src="/static/content-record-view-drawer.js"></script>
 <script src="/static/calendar.js"></script>
 </body>
 </html>

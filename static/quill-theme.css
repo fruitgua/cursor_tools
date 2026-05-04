@@ -1,0 +1,111 @@
+/**
+ * Quill Snow 在「日记 / 学习笔记」中的统一视觉（亮色 + html[data-theme="dark"]）。
+ * 作用域限制在 .note-editor-wrap，避免影响其他页面可能存在的 Quill。
+ */
+
+.note-editor-wrap .ql-toolbar.ql-snow,
+.note-editor-wrap .ql-container.ql-snow {
+    font-family: inherit;
+}
+
+.note-editor-wrap .ql-editor {
+    line-height: 1.55;
+    color: #111827;
+}
+
+.note-editor-wrap .ql-editor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+.note-editor-wrap .ql-snow .ql-stroke {
+    stroke: #4b5563;
+}
+
+.note-editor-wrap .ql-snow .ql-fill {
+    fill: #4b5563;
+}
+
+.note-editor-wrap .ql-snow .ql-picker-label {
+    color: #374151;
+}
+
+.note-editor-wrap .ql-snow .ql-picker-options {
+    background: #fff;
+    border-color: #d1d5db;
+}
+
+/* 深色主题 */
+html[data-theme="dark"] .note-editor-wrap {
+    background-color: #1e2228;
+    border-color: #2a3038;
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-toolbar.ql-snow {
+    background: #252a32;
+    border-bottom-color: #2a3038 !important;
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-container.ql-snow {
+    background: #1e2228;
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-editor {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-editor.ql-blank::before {
+    color: rgba(255, 255, 255, 0.38);
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-stroke {
+    stroke: rgba(255, 255, 255, 0.65);
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-fill {
+    fill: rgba(255, 255, 255, 0.65);
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-picker-label {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-picker-options {
+    background: #252a32;
+    border-color: #2a3038;
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-picker-item {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-picker-item:hover,
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-picker-item.ql-selected {
+    color: #4a9eff;
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow.ql-toolbar button:hover .ql-stroke,
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-toolbar button:hover .ql-stroke,
+html[data-theme="dark"] .note-editor-wrap .ql-snow.ql-toolbar button.ql-active .ql-stroke,
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-toolbar button.ql-active .ql-stroke {
+    stroke: #4a9eff;
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-snow.ql-toolbar button:hover .ql-fill,
+html[data-theme="dark"] .note-editor-wrap .ql-snow .ql-toolbar button.ql-active .ql-fill {
+    fill: #4a9eff;
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-tooltip {
+    background: #252a32;
+    border: 1px solid #2a3038;
+    color: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .note-editor-wrap .ql-tooltip input[type="text"] {
+    background: #1e2228;
+    border-color: #2a3038;
+    color: rgba(255, 255, 255, 0.88);
+}

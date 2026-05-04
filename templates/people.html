@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人物库 - 工作小助手</title>
+    <link rel="icon" type="image/png" href="/static/frog.png">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        .people-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-height: 0;
+            flex: 1;
+        }
+        .people-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 12px;
+        }
+        .people-toolbar .field { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+        .people-toolbar label { font-size: 13px; color: #374151; }
+        .people-toolbar .field-control { height: 40px; box-sizing: border-box; }
+        .people-toolbar .btn { height: 40px; box-sizing: border-box; }
+
+        .people-body-card {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .people-list-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 0 0 10px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        .people-list-card-head .card-title { margin: 0; }
+
+        .people-letter-tabs {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 4px 2px 10px;
+            flex-shrink: 0;
+            scrollbar-gutter: stable;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 8px;
+        }
+        .people-letter-tab {
+            flex: 0 0 auto;
+            min-width: 36px;
+            height: 32px;
+            padding: 0 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        .people-letter-tab:hover { background: #f9fafb; }
+        .people-letter-tab.people-letter-tab-active {
+            background: #eef2ff;
+            border-color: #818cf8;
+            color: #312e81;
+            font-weight: 600;
+        }
+
+        .people-body-inner {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            gap: 0;
+        }
+        .people-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 8px 4px 12px;
+        }
+        .people-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 148px);
+            gap: 12px;
+            justify-content: center;
+            margin: 0 auto;
+            max-width: calc(8 * 148px + 7 * 12px);
+        }
+        @media (max-width: 1320px) {
+            .people-grid { grid-template-columns: repeat(6, 148px); max-width: calc(6 * 148px + 5 * 12px); }
+        }
+        @media (max-width: 1020px) {
+            .people-grid { grid-template-columns: repeat(4, 148px); max-width: calc(4 * 148px + 3 * 12px); }
+        }
+        @media (max-width: 680px) {
+            .people-grid { grid-template-columns: repeat(2, 148px); max-width: calc(2 * 148px + 1 * 12px); }
+        }
+
+        .people-card {
+            position: relative;
+            width: 148px;
+            height: 76px;
+            box-sizing: border-box;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px 10px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            transition: box-shadow 0.15s;
+            overflow: hidden;
+        }
+        .people-card:hover { box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12); }
+        .people-card-like {
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            font-size: 14px;
+            line-height: 1;
+            color: #e11d48;
+            pointer-events: none;
+        }
+        .people-card-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+            line-height: 1.25;
+            max-height: 2.5em;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            word-break: break-word;
+            padding-right: 14px;
+        }
+        .people-card-meta {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .people-empty {
+            text-align: center;
+            color: #9ca3af;
+            padding: 40px 16px;
+            font-size: 14px;
+        }
+
+        .content-bottom-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 12px;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+            padding-top: 4px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .content-bottom-pagination .vocab-page-actions .btn { height: 36px; box-sizing: border-box; }
+        .content-bottom-pagination .vocab-page-info { font-size: 13px; color: #6b7280; margin-right: auto; flex-shrink: 0; white-space: nowrap; }
+        .content-bottom-pagination .vocab-page-status { font-size: 13px; color: #374151; white-space: nowrap; }
+        .people-total-num { color: #dc2626; font-weight: 600; }
+
+        .people-drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 10002;
+            display: none;
+        }
+        .people-drawer-overlay.open { display: block; }
+        .people-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            max-width: 720px;
+            height: 100%;
+            max-height: 100%;
+            background: #fff;
+            border-left: 1px solid #e5e7eb;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+            z-index: 10003;
+            display: none;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+        .people-drawer.open { display: flex; }
+        .people-drawer-header {
+            flex-shrink: 0;
+            padding: 14px 12px 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .people-drawer-title-block {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px 8px;
+        }
+        .people-drawer-name { font-size: 16px; font-weight: 600; color: #111827; }
+        .people-drawer-meta { font-size: 13px; font-weight: 500; color: #6b7280; }
+        .people-drawer-title-sep {
+            font-size: 13px;
+            font-weight: 500;
+            color: #d1d5db;
+            user-select: none;
+        }
+        .people-drawer-title-sep[hidden] { display: none !important; }
+        .people-like-toggle {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            color: #9ca3af;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .people-like-toggle:hover { background: #fef2f2; color: #e11d48; }
+        .people-like-toggle.people-like-on { color: #e11d48; }
+        .people-drawer-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 22px;
+            line-height: 1;
+            color: #9ca3af;
+            flex-shrink: 0;
+        }
+        .people-drawer-close:hover { color: #111827; }
+        .people-drawer-body {
+            flex: 1;
+            min-height: 0;
+            padding: 16px 20px 24px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .people-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .people-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 0 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .people-section-title-inline {
+            margin: 0;
+            padding: 0;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+        }
+        .people-works-total {
+            font-size: 13px;
+            font-weight: 500;
+            color: #6b7280;
+            flex-shrink: 0;
+        }
+        .people-profile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px 12px;
+        }
+        .people-profile-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .people-profile-field label { font-size: 12px; color: #6b7280; }
+        .people-profile-field input,
+        .people-profile-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .people-profile-field textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+        .people-profile-span2 { grid-column: 1 / -1; }
+        .people-profile-actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .people-profile-actions-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .people-works-list { display: flex; flex-direction: column; gap: 10px; }
+        .people-work-card {
+            padding: 12px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fafafa;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .people-work-title-row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+        }
+        .people-work-badges {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .people-work-title {
+            flex: 1 1 160px;
+            min-width: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+            word-break: break-word;
+        }
+        .people-work-meta-line {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        html[data-theme="dark"] .people-card { background: #1E2228; border-color: #2A3038; }
+        html[data-theme="dark"] .people-card-name { color: rgba(255,255,255,0.87); }
+        html[data-theme="dark"] .people-card-meta { color: rgba(255,255,255,0.55); }
+        html[data-theme="dark"] .people-drawer { background: #1E2228; border-color: #2A3038; }
+        html[data-theme="dark"] .people-drawer-name { color: rgba(255,255,255,0.87); }
+        html[data-theme="dark"] .people-drawer-meta { color: rgba(255,255,255,0.55); }
+        html[data-theme="dark"] .people-drawer-title-sep { color: rgba(255,255,255,0.25); }
+        html[data-theme="dark"] .people-drawer-header { border-bottom-color: #2A3038; }
+        html[data-theme="dark"] .people-drawer-close { color: rgba(255,255,255,0.55); }
+        html[data-theme="dark"] .people-drawer-close:hover { color: rgba(255,255,255,0.87); }
+        html[data-theme="dark"] .people-section-head { border-bottom-color: #2A3038; }
+        html[data-theme="dark"] .people-section-title-inline { color: rgba(255,255,255,0.87); }
+        html[data-theme="dark"] .people-works-total { color: rgba(255,255,255,0.55); }
+        html[data-theme="dark"] .people-work-card { background: #252a32; border-color: #2A3038; }
+        html[data-theme="dark"] .people-work-title { color: rgba(255,255,255,0.87); }
+        html[data-theme="dark"] .people-work-meta-line { color: rgba(255,255,255,0.55); }
+        html[data-theme="dark"] .people-letter-tab { background: #1E2228; border-color: #2A3038; color: rgba(255,255,255,0.75); }
+        html[data-theme="dark"] .people-letter-tab.people-letter-tab-active {
+            background: #312e4a;
+            border-color: #6366f1;
+            color: #c7d2fe;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <header class="app-header app-header-with-action">
+        <div class="app-header-left"><h1>人物库</h1></div>
+        <div class="header-actions">
+            <div id="theme-switcher-container"></div>
+            <button type="button" id="btn-go-content" class="btn">光影文卷</button>
+            <button type="button" id="btn-go-home" class="btn">返回首页</button>
+        </div>
+    </header>
+    <main class="people-wrap">
+        <section class="card people-toolbar">
+            <div class="field">
+                <label for="flt-people-scope">范围</label>
+                <select id="flt-people-scope" class="field-control">
+                    <option value="">全部</option>
+                    <option value="watch">追剧</option>
+                    <option value="book">读书</option>
+                </select>
+            </div>
+            <div class="field" style="min-width: 200px;">
+                <label for="flt-people-name">姓名</label>
+                <input id="flt-people-name" class="field-control" type="text" placeholder="关键字" autocomplete="off" />
+            </div>
+            <button type="button" id="btn-people-query" class="btn primary">查询</button>
+        </section>
+        <section class="card people-body-card">
+            <div class="people-list-card-head">
+                <h3 class="card-title">人物列表</h3>
+            </div>
+            <div id="people-letter-tabs" class="people-letter-tabs" role="tablist" aria-label="拼音首字母"></div>
+            <div class="people-body-inner">
+                <div id="people-scroll" class="people-scroll">
+                    <div id="people-grid" class="people-grid"></div>
+                    <div id="people-empty" class="people-empty" hidden>暂无人物数据。请在光影文卷中为记录添加演员/作者（创作者）信息后查询。</div>
+                </div>
+                <div class="vocab-pagination content-bottom-pagination">
+                    <span class="vocab-page-info" id="people-page-info">共 <span id="people-total-num" class="people-total-num">0</span> 条</span>
+                    <div class="vocab-page-actions">
+                        <button type="button" class="btn" id="people-prev-page">上一页</button>
+                        <span class="vocab-page-status" id="people-page-status">第 1 / 1 页</span>
+                        <button type="button" class="btn" id="people-next-page">下一页</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div id="people-drawer-overlay" class="people-drawer-overlay" aria-hidden="true"></div>
+<div id="people-drawer" class="people-drawer" role="dialog" aria-modal="true" aria-labelledby="people-drawer-name">
+    <div class="people-drawer-header">
+        <div class="people-drawer-title-block">
+            <span class="people-drawer-name" id="people-drawer-name">—</span>
+            <span class="people-drawer-title-sep" id="people-drawer-sep-name" hidden aria-hidden="true">·</span>
+            <span class="people-drawer-meta" id="people-drawer-id"></span>
+            <span class="people-drawer-title-sep" id="people-drawer-sep-id" hidden aria-hidden="true">·</span>
+            <span class="people-drawer-meta" id="people-drawer-type"></span>
+        </div>
+        <button type="button" id="people-drawer-close" class="people-drawer-close" aria-label="关闭">&times;</button>
+    </div>
+    <div class="people-drawer-body">
+        <section>
+            <div class="people-section-head">
+                <h4 class="people-section-title-inline">基本信息</h4>
+                <button type="button" id="people-profile-like" class="people-like-toggle" title="喜欢 / 取消喜欢" aria-label="喜欢">♡</button>
+            </div>
+            <div class="people-profile-grid">
+                <div class="people-profile-field">
+                    <label for="pf-gender">性别</label>
+                    <input id="pf-gender" type="text" placeholder="选填" autocomplete="off" />
+                </div>
+                <div class="people-profile-field">
+                    <label for="pf-real-name">本名</label>
+                    <input id="pf-real-name" type="text" placeholder="选填" autocomplete="off" />
+                </div>
+                <div class="people-profile-field">
+                    <label for="pf-birthday">生日</label>
+                    <input id="pf-birthday" type="text" placeholder="如 1990-01-01" autocomplete="off" />
+                </div>
+                <div class="people-profile-field">
+                    <label for="pf-education">学历</label>
+                    <input id="pf-education" type="text" placeholder="选填" autocomplete="off" />
+                </div>
+                <div class="people-profile-field people-profile-span2">
+                    <label for="pf-bio">三两句（备注）</label>
+                    <textarea id="pf-bio" placeholder="选填"></textarea>
+                </div>
+            </div>
+            <div class="people-profile-actions">
+                <button type="button" class="btn btn-ghost-danger" id="btn-people-delete-person" disabled>
+                    删除人物
+                </button>
+                <div class="people-profile-actions-right">
+                    <button type="button" class="btn primary" id="btn-people-profile-save">保存基本信息</button>
+                </div>
+            </div>
+        </section>
+        <section>
+            <div class="people-section-head">
+                <h4 class="people-section-title-inline">作品</h4>
+                <span class="people-works-total" id="people-works-total" aria-live="polite">共 0 条</span>
+            </div>
+            <div id="people-works-list" class="people-works-list"></div>
+        </section>
+    </div>
+</div>
+
+<div id="people-delete-confirm-modal" class="ui-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="people-delete-confirm-title">
+    <div class="ui-modal">
+        <div class="ui-modal-header">
+            <div class="ui-modal-title" id="people-delete-confirm-title">删除人物</div>
+        </div>
+        <div class="ui-modal-body">
+            <p class="ui-modal-body-text" id="people-delete-confirm-text"></p>
+        </div>
+        <div class="ui-modal-actions">
+            <button type="button" class="btn btn-ghost" id="people-delete-confirm-cancel">取消</button>
+            <button type="button" class="btn primary" id="people-delete-confirm-ok">确认删除</button>
+        </div>
+    </div>
+</div>
+
+<div id="content-record-view-overlay" class="content-record-view-overlay" aria-hidden="true"></div>
+<div id="content-record-view-drawer" class="content-record-view-drawer" role="dialog" aria-modal="true" aria-labelledby="content-record-view-title-text" aria-hidden="true">
+    <div class="content-record-view-header">
+        <div id="content-record-view-title-text" class="content-record-view-title">—</div>
+        <button type="button" id="content-record-view-close" class="content-record-view-close" aria-label="关闭">&times;</button>
+    </div>
+    <div class="content-record-view-body" id="content-record-view-body"></div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/theme-switcher.js"></script>
+<script src="/static/content-record-view-drawer.js"></script>
+<script src="/static/people.js"></script>
+</body>
+</html>

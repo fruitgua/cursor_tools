@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/theme.css">
     <link rel="stylesheet" href="/static/diary.css">
     <link href="/static/quill/quill.snow.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/quill-theme.css">
 </head>
 <body class="notes-page diary-page">
 <div class="app-container notes-container">
@@ -56,6 +57,10 @@
                         <label class="notes-form-label" for="diary-today-diet">今日饮食</label>
                         <textarea id="diary-today-diet" class="notes-form-input diary-today-diet" maxlength="200" placeholder="支持回车换行，200字以内" rows="4" spellcheck="false"></textarea>
                     </div>
+                    <div class="notes-form-row diary-exercise-summary-row">
+                        <label class="notes-form-label" for="diary-exercise-summary">锻炼小结</label>
+                        <input type="text" id="diary-exercise-summary" class="notes-form-input" placeholder="请输入锻炼小结" maxlength="500" autocomplete="off" spellcheck="false" />
+                    </div>
                     <div class="notes-form-row notes-form-content-row">
                         <label class="notes-form-label">随笔两三事</label>
                         <div id="diary-editor-wrap" class="note-editor-wrap">
@@ -83,6 +88,7 @@
 
 <script src="/static/theme-switcher.js"></script>
 <script src="/static/quill/quill.min.js"></script>
+<script src="/static/quill-shared.js"></script>
 <script src="/static/diary.js"></script>
 </body>
 </html>

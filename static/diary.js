@@ -88,20 +88,19 @@ function refreshWordCount() {
 
 function initQuill() {
     if (quill) return quill;
+    if (typeof Quill === "undefined") {
+        console.error("Quill 未加载");
+        return null;
+    }
+    if (typeof globalThis.AppQuillShared === "undefined") {
+        console.error("quill-shared.js 未加载");
+        return null;
+    }
     quill = new Quill("#diary-editor", {
         theme: "snow",
-        modules: {
-            toolbar: [
-                [{ header: [1, 2, 3, false] }],
-                ["bold", "italic", "underline", "strike"],
-                [{ color: [] }, { background: [] }],
-                [{ list: "ordered" }, { list: "bullet" }],
-                [{ align: [] }],
-                ["link", "image"],
-                ["clean"],
-            ],
-        },
+        modules: globalThis.AppQuillShared.snowToolbarModules(() => quill),
     });
+    globalThis.AppQuillShared.attachImagePasteFromClipboard(quill);
     quill.on("text-change", () => {
         markDirty();
         refreshWordCount();
@@ -115,6 +114,7 @@ function getCurrentSnapshot() {
         date: currentDate,
         title: document.getElementById("diary-title").value || "",
         today_diet: document.getElementById("diary-today-diet")?.value || "",
+        exercise_summary: document.getElementById("diary-exercise-summary")?.value || "",
         content: quill ? quill.root.innerHTML || "" : "",
     };
 }
@@ -125,6 +125,7 @@ function snapshotEquals(a, b) {
         a.date === b.date &&
         a.title === b.title &&
         (a.today_diet || "") === (b.today_diet || "") &&
+        (a.exercise_summary || "") === (b.exercise_summary || "") &&
         a.content === b.content
     );
 }
@@ -185,6 +186,8 @@ function setEditorByItem(item, dateStr) {
     document.getElementById("diary-title").value = (item && item.title) || "";
     const dietEl = document.getElementById("diary-today-diet");
     if (dietEl) dietEl.value = (item && item.today_diet) || "";
+    const exEl = document.getElementById("diary-exercise-summary");
+    if (exEl) exEl.value = (item && item.exercise_summary) || "";
     if (quill) quill.root.innerHTML = (item && item.content) || "";
     refreshWordCount();
     setLastUpdatedLabel(item ? parseDbTimeToDate(item.updated_at) || parseDbTimeToDate(item.created_at) : null);
@@ -235,6 +238,10 @@ function saveCurrentDiarySilently() {
         showToast("今日饮食不能超过200字", "error");
         return Promise.resolve(false);
     }
+    if (String(snap.exercise_summary || "").length > 500) {
+        showToast("锻炼小结不能超过500字", "error");
+        return Promise.resolve(false);
+    }
     if (lastSavedSnapshot && snapshotEquals(snap, lastSavedSnapshot)) {
         isDirty = false;
         return Promise.resolve(false);
@@ -246,6 +253,7 @@ function saveCurrentDiarySilently() {
             title: snap.title,
             content: snap.content,
             today_diet: snap.today_diet || "",
+            exercise_summary: snap.exercise_summary || "",
         }),
     })
         .then((r) => r.json())
@@ -293,6 +301,7 @@ function bindEvents() {
     });
     document.getElementById("diary-title").addEventListener("input", markDirty);
     document.getElementById("diary-today-diet")?.addEventListener("input", markDirty);
+    document.getElementById("diary-exercise-summary")?.addEventListener("input", markDirty);
     document.getElementById("btn-save-diary-now").addEventListener("click", () => {
         markDirty();
         saveCurrentDiarySilently();
@@ -300,7 +309,10 @@ function bindEvents() {
 }
 
 function initDiary() {
-    initQuill();
+    if (!initQuill()) {
+        showToast("富文本编辑器加载失败，请刷新页面", "error");
+        return;
+    }
     setDefaultDateRangeFilters();
     bindEvents();
     loadDiaryList(() => {

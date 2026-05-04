@@ -145,22 +145,36 @@ html:not([data-theme]) .app .calendar-day.other-month {
     color: #9ca3af !important;
 }
 
-/* 打卡模板 - 紫粉青渐变 */
+/* 打卡模板 - 淡蓝紫粉青渐变（同色系，饱和度与对比度降低） */
 html[data-theme="checkin"] body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%) !important;
+    background: linear-gradient(
+        135deg,
+        #e8ecff 0%,
+        #ede9fe 22%,
+        #fce7f3 48%,
+        #e0f2fe 72%,
+        #f0fdff 100%
+    ) !important;
     background-attachment: fixed !important;
     color: #111827 !important;
 }
 html[data-theme="checkin"] body.home-page {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%) !important;
+    background: linear-gradient(
+        135deg,
+        #e8ecff 0%,
+        #ede9fe 22%,
+        #fce7f3 48%,
+        #e0f2fe 72%,
+        #f0fdff 100%
+    ) !important;
     background-attachment: fixed !important;
 }
 html[data-theme="checkin"] .control-panel,
 html[data-theme="checkin"] .table-section,
 html[data-theme="checkin"] .home-card {
-    background: rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.62) !important;
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.72);
 }
 html[data-theme="checkin"] .notes-sidebar,
 html[data-theme="checkin"] .notes-detail,
@@ -168,13 +182,13 @@ html[data-theme="checkin"] .bookmarks-sidebar,
 html[data-theme="checkin"] .sync-notes-sidebar,
 html[data-theme="checkin"] .sync-notes-editor,
 html[data-theme="checkin"] .sync-notes-right {
-    background: rgba(255, 255, 255, 0.4) !important;
+    background: rgba(255, 255, 255, 0.52) !important;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.62);
 }
 html[data-theme="checkin"] .bookmarks-main {
-    background: rgba(255, 255, 255, 0.45) !important;
+    background: rgba(255, 255, 255, 0.56) !important;
 }
 html[data-theme="checkin"] .file-table thead th,
 html[data-theme="checkin"] .file-table thead {
@@ -216,7 +230,7 @@ html[data-theme="checkin"] .app .detail-label-tag {
     color: #1a1a2e !important;
 }
 html[data-theme="checkin"] .home-intro {
-    color: #d1d5db !important;
+    color: #64748b !important;
 }
 
 /* 夜晚模板 */

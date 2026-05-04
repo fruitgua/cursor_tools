@@ -11,6 +11,11 @@
     overflow: hidden;
 }
 
+/* 待办 Tab：ui-select 面板为 fixed/absolute 时会画出 .control-panel 边界；.app 默认 overflow:hidden 会裁切 */
+#app.app:has(#page-todos.page.active) {
+    overflow: visible;
+}
+
 /* Nav tabs */
 .nav-row {
     display: flex;

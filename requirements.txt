@@ -2,3 +2,4 @@ Flask>=3.0.0
 send2trash>=1.8.2
 caldav>=1.0.0
 icalendar>=5.0.0
+pypinyin>=0.50.0

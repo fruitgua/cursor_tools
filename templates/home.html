@@ -30,37 +30,49 @@
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
                 <div class="home-card-icon">📅</div>
                 <div class="home-card-title">日程管理</div>
-                <div class="home-card-desc">每日日程管理与记录，养成良好习惯。</div>
+                <div class="home-card-desc">每日日程管理与记录，养成良好习惯</div>
             </button>
             <button class="home-card" data-key="checkin">
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
                 <div class="home-card-icon">🗓️</div>
                 <div class="home-card-title">事件与待办</div>
-                <div class="home-card-desc">提醒、打卡、日历标签、待办事项管理。</div>
+                <div class="home-card-desc">提醒、打卡、日历标签、待办事项管理</div>
             </button>
             <button class="home-card" data-key="address-helper">
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
                 <div class="home-card-icon">📚</div>
                 <div class="home-card-title">单词本</div>
-                <div class="home-card-desc">不积跬步，无以至千里；不积小流，无以成江海。</div>
+                <div class="home-card-desc">不积跬步，无以至千里；不积小流，无以成江海</div>
             </button>
             <button class="home-card" data-key="ledger">
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
                 <div class="home-card-icon">💰</div>
                 <div class="home-card-title">记账本</div>
-                <div class="home-card-desc">记录日常收支，好好生活。</div>
+                <div class="home-card-desc">记录日常收支，好好生活</div>
             </button>
             <button class="home-card" data-key="notes">
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
                 <div class="home-card-icon">📝</div>
                 <div class="home-card-title">学习笔记</div>
-                <div class="home-card-desc">业精于勤，荒于嬉；行成于思，毁于随。</div>
+                <div class="home-card-desc">业精于勤，荒于嬉；行成于思，毁于随</div>
             </button>
             <button class="home-card" data-key="diary">
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
                 <div class="home-card-icon">📓</div>
                 <div class="home-card-title">日记</div>
                 <div class="home-card-desc">每日一篇，记录所思所想</div>
+            </button>
+            <button class="home-card" data-key="content">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">🎞️</div>
+                <div class="home-card-title">光影文卷</div>
+                <div class="home-card-desc">穿梭光影与文字之间，在声画墨香中丰盈精神世界</div>
+            </button>
+            <button class="home-card" data-key="people">
+                <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
+                <div class="home-card-icon">👤</div>
+                <div class="home-card-title">人物库</div>
+                <div class="home-card-desc">演员与作者档案，按作品自动汇总</div>
             </button>
             <button class="home-card" data-key="bookmarks">
                 <img src="/static/frog.png" alt="" class="frog-img frog-card" aria-hidden="true">
@@ -80,9 +92,8 @@
     </main>
 
     <footer class="app-footer">
-        <p>
-            当前访问IP数：{{ ip_count | default(0) }} ，
-            <a href="/ip-monitor">查看访问记录</a>
+        <p class="home-ip-online-line" title="最近 {{ recent_online_minutes }} 分钟内有 HTTP 请求的独立 IP（无长连接时以此近似「在线」）">
+            实时访问IP数：{{ online_link_ip_count | default(0) }}，实时访问IP：{% if online_ips %}{{ online_ips | join('、') }}{% else %}—{% endif %}
         </p>
         <p class="home-lan-hint home-lan-row">
             <span class="home-lan-label">本地访问地址：</span>
@@ -92,6 +103,9 @@
             <span id="home-lan-wrap" class="home-lan-wrap" hidden>
                 <code id="home-lan-url" class="home-origin-code"></code>
                 <button type="button" class="btn home-copy-btn" id="btn-copy-lan">复制链接</button>
+            </span>
+            <span class="home-cumulative-ip-inline">
+                累计访问IP数：{{ ip_count | default(0) }} ，<a href="/ip-monitor">查看访问记录</a>
             </span>
         </p>
     </footer>

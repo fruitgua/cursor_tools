@@ -61,7 +61,7 @@ function setSelectOptions(selectEl, options, includeAllOrPlaceholder) {
     const opts = uniqCategories(options);
     const parts = [];
     if (includeAllOrPlaceholder === "all") {
-        parts.push('<option value="">全部</option>');
+        parts.push('<option value="">不限</option>');
     } else if (includeAllOrPlaceholder === "placeholder") {
         parts.push('<option value="">请选择</option>');
     }
@@ -149,64 +149,17 @@ function initQuill() {
         return null;
     }
 
+    if (typeof globalThis.AppQuillShared === "undefined") {
+        console.error("quill-shared.js 未加载");
+        return null;
+    }
     quill = new Quill("#note-editor", {
         theme: "snow",
-        modules: {
-            toolbar: {
-                container: [
-                    [{ header: [1, 2, 3, false] }],
-                    ["bold", "italic", "underline", "strike"],
-                    [{ color: [] }, { background: [] }],
-                    [{ list: "ordered" }, { list: "bullet" }],
-                    [{ align: [] }],
-                    ["link", "image"],
-                    ["clean"],
-                ],
-                handlers: {
-                    image: imageHandler,
-                },
-            },
-        },
+        modules: globalThis.AppQuillShared.snowToolbarModules(() => quill),
     });
-
-    quill.root.addEventListener("paste", (e) => {
-        const items = e.clipboardData?.items;
-        if (!items) return;
-        for (const item of items) {
-            if (item.type.indexOf("image") !== -1) {
-                e.preventDefault();
-                const file = item.getAsFile();
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const range = quill.getSelection(true);
-                    quill.insertEmbed(range.index, "image", ev.target.result);
-                    quill.setSelection(range.index + 1);
-                };
-                reader.readAsDataURL(file);
-                break;
-            }
-        }
-    });
+    globalThis.AppQuillShared.attachImagePasteFromClipboard(quill);
 
     return quill;
-}
-
-function imageHandler() {
-    const input = document.createElement("input");
-    input.setAttribute("type", "file");
-    input.setAttribute("accept", "image/*");
-    input.click();
-    input.onchange = () => {
-        const file = input.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const range = quill.getSelection(true);
-            quill.insertEmbed(range.index, "image", e.target.result);
-            quill.setSelection(range.index + 1);
-        };
-        reader.readAsDataURL(file);
-    };
 }
 
 function getFilteredNotes() {
@@ -960,7 +913,11 @@ function initQuillLazy() {
             quill.on("text-change", scheduleDraftAutoSave);
             quill.on("text-change", refreshWordCount);
         } else {
-            throw new Error("编辑器元素未找到");
+            throw new Error(
+                typeof globalThis.AppQuillShared === "undefined"
+                    ? "quill-shared.js 未加载"
+                    : "编辑器初始化失败（请检查 #note-editor 是否存在）"
+            );
         }
     } catch (err) {
         console.error("Quill 初始化失败:", err);
